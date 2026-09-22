@@ -95,5 +95,19 @@ Route::prefix('v1')->group(function () {
         Route::put('/organizations/{orgId}/journals/{journalId}', [\App\Http\Controllers\Api\V1\JournalController::class, 'update']);
         Route::post('/organizations/{orgId}/journals/{journalId}/post', [\App\Http\Controllers\Api\V1\JournalController::class, 'post']);
         Route::post('/organizations/{orgId}/journals/{journalId}/reverse', [\App\Http\Controllers\Api\V1\JournalController::class, 'reverse']);
+
+        // Customers (Accounts Receivable)
+        Route::get('/organizations/{orgId}/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'index']);
+        Route::post('/organizations/{orgId}/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'store']);
+        Route::get('/organizations/{orgId}/customers/{customerId}', [\App\Http\Controllers\Api\V1\CustomerController::class, 'show']);
+        Route::put('/organizations/{orgId}/customers/{customerId}', [\App\Http\Controllers\Api\V1\CustomerController::class, 'update']);
+        Route::delete('/organizations/{orgId}/customers/{customerId}', [\App\Http\Controllers\Api\V1\CustomerController::class, 'destroy']);
+
+        // Sales Invoices & AR Receipts
+        Route::get('/organizations/{orgId}/invoices', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'index']);
+        Route::post('/organizations/{orgId}/invoices', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'store']);
+        Route::get('/organizations/{orgId}/invoices/{invoiceId}', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'show']);
+        Route::post('/organizations/{orgId}/invoices/{invoiceId}/post', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'post']);
+        Route::post('/organizations/{orgId}/invoices/{invoiceId}/payments', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'recordPayment']);
     });
 });
