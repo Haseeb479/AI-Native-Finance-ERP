@@ -70,5 +70,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{id}/members', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'index']);
         Route::post('/organizations/{id}/members', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'store']);
         Route::delete('/organizations/{id}/members/{userId}', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'destroy']);
+
+        // Chart of Accounts (COA) Management
+        Route::get('/account-types', [\App\Http\Controllers\Api\V1\AccountController::class, 'types']);
+        Route::get('/organizations/{orgId}/accounts', [\App\Http\Controllers\Api\V1\AccountController::class, 'index']);
+        Route::post('/organizations/{orgId}/accounts', [\App\Http\Controllers\Api\V1\AccountController::class, 'store']);
+        Route::post('/organizations/{orgId}/accounts/seed-template', [\App\Http\Controllers\Api\V1\AccountController::class, 'seedTemplate']);
+        Route::get('/organizations/{orgId}/accounts/{accountId}', [\App\Http\Controllers\Api\V1\AccountController::class, 'show']);
+        Route::put('/organizations/{orgId}/accounts/{accountId}', [\App\Http\Controllers\Api\V1\AccountController::class, 'update']);
+        Route::delete('/organizations/{orgId}/accounts/{accountId}', [\App\Http\Controllers\Api\V1\AccountController::class, 'destroy']);
     });
 });

@@ -96,6 +96,11 @@ class OrganizationController extends Controller
                 'status' => 'active',
             ]);
 
+            // Provision Pakistan SME default chart of accounts (default: true)
+            if ($validated['provision_default_chart'] ?? true) {
+                \App\Domain\Accounting\ChartOfAccounts\Templates\PakistanSmeChartTemplate::seedForOrganization($org);
+            }
+
             return $org;
         });
 

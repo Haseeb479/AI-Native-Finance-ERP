@@ -26,6 +26,7 @@ class CreateOrganizationRequest extends FormRequest
             'primary_entity_name' => ['nullable', 'string', 'max:255'],
             'primary_branch_name' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:100'],
+            'provision_default_chart' => ['nullable', 'boolean'],
         ];
     }
 
