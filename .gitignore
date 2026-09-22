@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+vendor/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# Environment and Secrets
+.env
+.env.backup
+.env.production
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# Production & Build Outputs
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+.turbo/
+
+# Laravel Storage & Cache
+apps/api/storage/*.key
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/storage/framework/testing/*
+apps/api/storage/logs/*
+!apps/api/storage/framework/cache/.gitkeep
+!apps/api/storage/framework/sessions/.gitkeep
+!apps/api/storage/framework/views/.gitkeep
+!apps/api/storage/framework/testing/.gitkeep
+!apps/api/storage/logs/.gitkeep
+
+# Python / Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Testing caches
+.phpunit.result.cache
+
+# IDEs and OS files
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker & local data volumes
+.docker-data/
+docker/data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
