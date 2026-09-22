@@ -109,5 +109,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/invoices/{invoiceId}', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'show']);
         Route::post('/organizations/{orgId}/invoices/{invoiceId}/post', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'post']);
         Route::post('/organizations/{orgId}/invoices/{invoiceId}/payments', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'recordPayment']);
+
+        // Vendors (Accounts Payable)
+        Route::get('/organizations/{orgId}/vendors', [\App\Http\Controllers\Api\V1\VendorController::class, 'index']);
+        Route::post('/organizations/{orgId}/vendors', [\App\Http\Controllers\Api\V1\VendorController::class, 'store']);
+        Route::get('/organizations/{orgId}/vendors/{vendorId}', [\App\Http\Controllers\Api\V1\VendorController::class, 'show']);
+        Route::put('/organizations/{orgId}/vendors/{vendorId}', [\App\Http\Controllers\Api\V1\VendorController::class, 'update']);
+        Route::delete('/organizations/{orgId}/vendors/{vendorId}', [\App\Http\Controllers\Api\V1\VendorController::class, 'destroy']);
+
+        // Purchase Bills & AP Disbursements
+        Route::get('/organizations/{orgId}/bills', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'index']);
+        Route::post('/organizations/{orgId}/bills', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'store']);
+        Route::get('/organizations/{orgId}/bills/{billId}', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'show']);
+        Route::post('/organizations/{orgId}/bills/{billId}/post', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'post']);
+        Route::post('/organizations/{orgId}/bills/{billId}/payments', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'recordPayment']);
     });
 });
