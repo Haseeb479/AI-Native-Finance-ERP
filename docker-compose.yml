@@ -6,7 +6,7 @@ services:
     container_name: finance_erp_postgres
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-5434}:5432"
     environment:
       POSTGRES_DB: ${DB_DATABASE:-finance_erp}
       POSTGRES_USER: ${DB_USERNAME:-finance_user}
