@@ -59,4 +59,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/me', [\App\Http\Controllers\Api\V1\AuthController::class, 'me']);
         });
     });
+
+    // Multi-Tenant Protected Routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/organizations', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'index']);
+        Route::post('/organizations', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'store']);
+        Route::get('/organizations/{id}', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'show']);
+    });
 });

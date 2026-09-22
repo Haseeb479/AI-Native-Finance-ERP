@@ -30,4 +30,11 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function organizations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Domain\Organization\Models\Organization::class, 'organization_user')
+            ->withPivot('role', 'is_default')
+            ->withTimestamps();
+    }
 }
