@@ -37,4 +37,35 @@ class User extends Authenticatable
             ->withPivot('role', 'is_default')
             ->withTimestamps();
     }
+
+    public function roleInOrganization(string|\App\Domain\Organization\Models\Organization $organization): ?string
+    {
+        $orgId = is_string($organization) ? $organization : $organization->id;
+        $membership = $this->organizations()->where('organizations.id', $orgId)->first();
+
+        return $membership?->pivot?->role;
+    }
+
+    public function hasPermissionInOrganization(string $permission, string|\App\Domain\Organization\Models\Organization $organization): bool
+    {
+        $roleName = $this->roleInOrganization($organization);
+
+        if (! $roleName) {
+            return false;
+        }
+
+        if ($roleName === 'owner') {
+            return true;
+        }
+
+        $role = \App\Domain\Identity\Models\Role::where('name', $roleName)
+            ->with('permissions')
+            ->first();
+
+        if (! $role) {
+            return false;
+        }
+
+        return $role->permissions->contains('name', $permission);
+    }
 }

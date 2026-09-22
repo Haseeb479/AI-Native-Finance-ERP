@@ -65,5 +65,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'index']);
         Route::post('/organizations', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'store']);
         Route::get('/organizations/{id}', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'show']);
+
+        // Member & RBAC Management
+        Route::get('/organizations/{id}/members', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'index']);
+        Route::post('/organizations/{id}/members', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'store']);
+        Route::delete('/organizations/{id}/members/{userId}', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'destroy']);
     });
 });
