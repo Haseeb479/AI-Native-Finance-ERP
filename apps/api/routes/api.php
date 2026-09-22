@@ -87,5 +87,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/periods/{periodId}/close', [\App\Http\Controllers\Api\V1\PeriodController::class, 'close']);
         Route::post('/organizations/{orgId}/periods/{periodId}/reopen', [\App\Http\Controllers\Api\V1\PeriodController::class, 'reopen']);
         Route::post('/organizations/{orgId}/periods/{periodId}/lock', [\App\Http\Controllers\Api\V1\PeriodController::class, 'lock']);
+
+        // General Ledger Double-Entry Journals
+        Route::get('/organizations/{orgId}/journals', [\App\Http\Controllers\Api\V1\JournalController::class, 'index']);
+        Route::post('/organizations/{orgId}/journals', [\App\Http\Controllers\Api\V1\JournalController::class, 'store']);
+        Route::get('/organizations/{orgId}/journals/{journalId}', [\App\Http\Controllers\Api\V1\JournalController::class, 'show']);
+        Route::put('/organizations/{orgId}/journals/{journalId}', [\App\Http\Controllers\Api\V1\JournalController::class, 'update']);
+        Route::post('/organizations/{orgId}/journals/{journalId}/post', [\App\Http\Controllers\Api\V1\JournalController::class, 'post']);
+        Route::post('/organizations/{orgId}/journals/{journalId}/reverse', [\App\Http\Controllers\Api\V1\JournalController::class, 'reverse']);
     });
 });
