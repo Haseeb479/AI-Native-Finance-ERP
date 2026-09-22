@@ -38,7 +38,7 @@ services:
       - finance_network
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: finance_erp_minio
     restart: unless-stopped
     ports:
