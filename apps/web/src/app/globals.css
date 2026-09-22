@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  /* Background tokens */
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #FFFFFF;
+  --bg-muted: #F1F5F9;
+
+  /* Text tokens */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+
+  /* Brand tokens */
+  --brand-primary: #14532D;
+  --brand-hover: #166534;
+
+  /* Accent tokens */
+  --accent-gold: #C9A227;
+
+  /* Status tokens */
+  --success: #15803D;
+  --warning: #B45309;
+  --danger: #B91C1C;
+  --info: #2563EB;
+
+  /* Border tokens */
+  --border: #E2E8F0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Ensure tabular numbers for accounting and financial values */
+.font-tabular {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
