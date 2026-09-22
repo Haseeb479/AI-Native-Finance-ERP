@@ -101,6 +101,12 @@ class OrganizationController extends Controller
                 \App\Domain\Accounting\ChartOfAccounts\Templates\PakistanSmeChartTemplate::seedForOrganization($org);
             }
 
+            // Provision current fiscal year and 12 monthly periods
+            $currentYear = (int) now()->format('Y');
+            $startMonth = (int) ($org->fiscal_year_start_month ?? 7);
+            $fyStartYear = now()->month < $startMonth ? $currentYear - 1 : $currentYear;
+            app(\App\Domain\Accounting\Period\Services\PeriodManager::class)->generateFiscalYear($org, $fyStartYear);
+
             return $org;
         });
 

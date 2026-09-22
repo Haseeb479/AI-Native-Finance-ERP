@@ -79,5 +79,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/accounts/{accountId}', [\App\Http\Controllers\Api\V1\AccountController::class, 'show']);
         Route::put('/organizations/{orgId}/accounts/{accountId}', [\App\Http\Controllers\Api\V1\AccountController::class, 'update']);
         Route::delete('/organizations/{orgId}/accounts/{accountId}', [\App\Http\Controllers\Api\V1\AccountController::class, 'destroy']);
+
+        // Fiscal Years & Accounting Periods
+        Route::get('/organizations/{orgId}/fiscal-years', [\App\Http\Controllers\Api\V1\PeriodController::class, 'indexFiscalYears']);
+        Route::post('/organizations/{orgId}/fiscal-years', [\App\Http\Controllers\Api\V1\PeriodController::class, 'storeFiscalYear']);
+        Route::get('/organizations/{orgId}/periods', [\App\Http\Controllers\Api\V1\PeriodController::class, 'indexPeriods']);
+        Route::post('/organizations/{orgId}/periods/{periodId}/close', [\App\Http\Controllers\Api\V1\PeriodController::class, 'close']);
+        Route::post('/organizations/{orgId}/periods/{periodId}/reopen', [\App\Http\Controllers\Api\V1\PeriodController::class, 'reopen']);
+        Route::post('/organizations/{orgId}/periods/{periodId}/lock', [\App\Http\Controllers\Api\V1\PeriodController::class, 'lock']);
     });
 });
