@@ -123,5 +123,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/bills/{billId}', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'show']);
         Route::post('/organizations/{orgId}/bills/{billId}/post', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'post']);
         Route::post('/organizations/{orgId}/bills/{billId}/payments', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'recordPayment']);
+
+        // Banking & Cash Management
+        Route::get('/organizations/{orgId}/bank-accounts', [\App\Http\Controllers\Api\V1\BankController::class, 'index']);
+        Route::post('/organizations/{orgId}/bank-accounts', [\App\Http\Controllers\Api\V1\BankController::class, 'store']);
+        Route::get('/organizations/{orgId}/bank-accounts/{bankAccountId}', [\App\Http\Controllers\Api\V1\BankController::class, 'show']);
+        Route::post('/organizations/{orgId}/bank-accounts/{bankAccountId}/import-statement', [\App\Http\Controllers\Api\V1\BankController::class, 'importStatement']);
+        Route::get('/organizations/{orgId}/bank-accounts/{bankAccountId}/transactions', [\App\Http\Controllers\Api\V1\BankController::class, 'transactions']);
+        Route::get('/organizations/{orgId}/bank-accounts/{bankAccountId}/suggestions', [\App\Http\Controllers\Api\V1\BankController::class, 'suggestions']);
+        Route::post('/organizations/{orgId}/bank-transactions/{transactionId}/reconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'reconcile']);
+        Route::post('/organizations/{orgId}/bank-transactions/{transactionId}/unreconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'unreconcile']);
     });
 });

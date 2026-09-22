@@ -36,6 +36,11 @@ class JournalLine extends Model
         return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
     }
 
+    public function journalEntry(): BelongsTo
+    {
+        return $this->entry();
+    }
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'account_id');
