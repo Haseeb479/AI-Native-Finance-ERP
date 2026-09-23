@@ -176,5 +176,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/invoices/{invoiceId}/fbr-qr', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'getQrCode']);
         Route::post('/organizations/{orgId}/taxation/pakistan/validate-tax-id', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'validateTaxId']);
         Route::get('/organizations/{orgId}/taxation/pakistan/summary', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'summary']);
+
+        // Step 23: Close Management & Flux Analysis
+        Route::get('/organizations/{orgId}/close-cycles/{periodId}', [\App\Http\Controllers\Api\V1\CloseController::class, 'showCycle']);
+        Route::post('/organizations/{orgId}/close-cycles/{periodId}/tasks/{taskId}/toggle', [\App\Http\Controllers\Api\V1\CloseController::class, 'toggleTask']);
+        Route::post('/organizations/{orgId}/close-cycles/{periodId}/depreciation', [\App\Http\Controllers\Api\V1\CloseController::class, 'runDepreciation']);
+        Route::get('/organizations/{orgId}/close-cycles/{periodId}/flux-analysis', [\App\Http\Controllers\Api\V1\CloseController::class, 'fluxAnalysis']);
+        Route::get('/organizations/{orgId}/close-cycles/{periodId}/readiness', [\App\Http\Controllers\Api\V1\CloseController::class, 'readiness']);
+        Route::get('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'indexFixedAssets']);
+        Route::post('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'storeFixedAsset']);
     });
 });

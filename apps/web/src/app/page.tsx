@@ -78,15 +78,30 @@ export default function DashboardPage() {
         });
       } else if (q.toLowerCase().includes("close")) {
         setCopilotResponse({
-          answer: "Month-end close is 22% complete (6/9 tasks finished). The remaining 3 tasks require your review before the July accounting period can be safely locked.",
+          answer: "Month-end close is 25% complete (2/8 tasks finished). Remaining blockers: 1 unreconciled bank transaction and 1 draft invoice before the July accounting period can be safely locked.",
           keyMetrics: {
-            "Close Progress": "22%",
-            "Tasks Remaining": "3",
+            "Close Progress": "25%",
+            "Tasks Remaining": "6",
+            "Readiness Score": "75/100",
             "Period": "July 2025",
           },
           suggestedActions: [
-            "Post depreciation entries",
-            "Review revenue recognition schedule",
+            "Post monthly asset depreciation entries (PKR 10,000)",
+            "Review and reconcile HBL bank account statement",
+            "Perform period-over-period flux analysis",
+          ],
+        });
+      } else if (q.toLowerCase().includes("flux")) {
+        setCopilotResponse({
+          answer: "Flux analysis between August and July indicates a +140% expansion in Software & Consulting Revenue (PKR 50,000 -> PKR 120,000, +PKR 70,000) and steady fixed asset depreciation of PKR 10,000/mo.",
+          keyMetrics: {
+            "Revenue Shift": "+140.00%",
+            "Dollar Change": "+PKR 70,000",
+            "Significant Shifts": "2 Accounts",
+          },
+          suggestedActions: [
+            "Export Annex-C Tax Schedule for August sales",
+            "Verify depreciation contra account balance #1590",
           ],
         });
       } else {
