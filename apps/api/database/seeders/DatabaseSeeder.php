@@ -12,6 +12,9 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Seed the application's database.
+     *
+     * For demo data, run separately:
+     *   php artisan db:seed --class=DemoOrganizationSeeder
      */
     public function run(): void
     {

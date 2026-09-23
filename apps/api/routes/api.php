@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+    // Step 30: Production Readiness Check
+    Route::get('/health/production-readiness', [\App\Http\Controllers\Api\V1\ProductionReadinessController::class, 'check']);
+
     Route::get('/health', function (): JsonResponse {
         $dbStatus = 'ok';
         $dbError = null;
