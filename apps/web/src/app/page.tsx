@@ -3,27 +3,29 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  LayoutDashboard,
-  Receipt,
-  FileText,
-  CreditCard,
-  BookOpen,
-  PieChart,
-  Bot,
-  Settings,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
   Search,
-  Building2,
-  Calendar,
-  Layers,
+  Home,
+  Bot,
+  FileText,
+  FilePenLine,
+  BookOpen,
+  BarChart3,
+  Sparkles,
+  History,
+  Bell,
+  Paperclip,
+  Mic,
   ArrowUpRight,
   ArrowDownRight,
-  RefreshCw,
-  Sparkles,
+  SlidersHorizontal,
+  CircleDot,
+  CheckCircle2,
+  ArrowRight,
+  TrendingUp,
+  Plus,
+  Compass,
 } from "lucide-react";
-import { formatPKR } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface HealthData {
   data: {
@@ -39,15 +41,19 @@ interface HealthData {
 }
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeNav, setActiveNav] = useState("home");
+  const [promptText, setPromptText] = useState("Please tell me all my pending invoices");
+  const [checklist, setChecklist] = useState([
+    { id: 1, text: "Post depreciation entries", status: "NOT STARTED", completed: false },
+    { id: 2, text: "Post intercompany eliminations", status: "NOT STARTED", completed: false },
+    { id: 3, text: "Review revenue recognition", status: "NOT STARTED", completed: false },
+  ]);
 
-  // Live health query against Laravel backend
-  const { data: health, isLoading: healthLoading } = useQuery<HealthData>({
+  // Live backend health query
+  const { data: health } = useQuery<HealthData>({
     queryKey: ["backend-health"],
     queryFn: async () => {
-      const res = await fetch("http://localhost:8000/api/v1/health").catch(
-        () => null
-      );
+      const res = await fetch("http://localhost:8000/api/v1/health").catch(() => null);
       if (!res || !res.ok) {
         return {
           data: {
@@ -64,329 +70,497 @@ export default function DashboardPage() {
 
   const isConnected = health?.data?.status === "healthy" || health?.data?.status === "connected";
 
-  const navigation = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "sales", label: "Sales & Invoices", icon: Receipt },
-    { id: "purchases", label: "Purchases & Bills", icon: FileText },
-    { id: "banking", label: "Banking & Reconcile", icon: CreditCard },
-    { id: "accounting", label: "General Ledger", icon: BookOpen },
-    { id: "reports", label: "Financial Reports", icon: PieChart },
-    { id: "ai", label: "AI Copilot & Audit", icon: Bot },
-    { id: "settings", label: "Settings", icon: Settings },
+  const quickPrompts = [
+    "What's left on my close?",
+    "Build 13 week cash forecast starting today",
+    "What's driving change in net burn?",
+    "Generate a flux analysis for this period",
   ];
 
+  const toggleChecklistItem = (id: number) => {
+    setChecklist((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              completed: !item.completed,
+              status: !item.completed ? "COMPLETED" : "NOT STARTED",
+            }
+          : item
+      )
+    );
+  };
+
   return (
-    <div className="flex h-screen bg-[#F8FAFC] text-[#0F172A] font-sans antialiased overflow-hidden">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-[#E2E8F0] flex flex-col justify-between shrink-0">
-        <div>
-          {/* Brand Header */}
-          <div className="p-5 border-b border-[#E2E8F0] flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-[#14532D] text-white flex items-center justify-center font-bold text-lg shadow-sm">
-              <Layers className="w-5 h-5 text-emerald-300" />
-            </div>
-            <div>
-              <h1 className="font-bold text-base leading-tight tracking-tight text-[#0F172A]">
-                Finance ERP
-              </h1>
-              <p className="text-xs text-[#64748B] font-medium">Pakistan-First AI OS</p>
-            </div>
+    <div className="flex h-screen bg-[#FDFDFD] text-[#1E293B] font-sans antialiased overflow-hidden select-none">
+      {/* ─────────────────────────────────────────────────────────────
+          1. SLIM LEFT ICON SIDEBAR (Matches exact reference design)
+      ─────────────────────────────────────────────────────────────── */}
+      <aside className="w-[68px] bg-white border-r border-[#F1F5F9] flex flex-col items-center justify-between py-5 shrink-0 z-20">
+        {/* Top Brand Logo & Navigation Icons */}
+        <div className="flex flex-col items-center space-y-7 w-full">
+          {/* Logo Badge (Ri) */}
+          <div className="w-10 h-10 rounded-[12px] bg-[#6366F1] text-white flex items-center justify-center font-bold text-base shadow-sm tracking-tight cursor-pointer hover:opacity-95 transition-opacity">
+            Ri
           </div>
 
-          {/* Navigation Links */}
-          <nav className="p-3 space-y-1">
-            {navigation.map((item) => {
+          {/* Nav Rail */}
+          <nav className="flex flex-col items-center space-y-4 w-full px-2">
+            {[
+              { id: "search", icon: Search, label: "Search" },
+              { id: "home", icon: Home, label: "Home" },
+              { id: "copilot", icon: Bot, label: "AI Copilot" },
+              { id: "invoices", icon: FileText, label: "Invoices" },
+              { id: "bills", icon: FilePenLine, label: "Bills & Drafts" },
+              { id: "ledger", icon: BookOpen, label: "General Ledger" },
+              { id: "reports", icon: BarChart3, label: "Reports" },
+              { id: "features", icon: Sparkles, label: "Features" },
+            ].map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const isActive = activeNav === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  onClick={() => setActiveNav(item.id)}
+                  title={item.label}
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 relative group",
                     isActive
-                      ? "bg-[#14532D] text-white shadow-sm"
-                      : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-                  }`}
+                      ? "text-[#1E293B] bg-[#F1F5F9]/70 font-semibold"
+                      : "text-[#94A3B8] hover:text-[#475569] hover:bg-[#F8FAFC]"
+                  )}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-emerald-300" : "text-[#64748B]"}`} />
-                  <span>{item.label}</span>
+                  <Icon className="w-[19px] h-[19px] stroke-[1.75]" />
+                  {isActive && (
+                    <span className="absolute -left-2 w-[3px] h-5 bg-[#6366F1] rounded-r-full" />
+                  )}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Backend & Accounting Engine Guard Status */}
-        <div className="p-4 border-t border-[#E2E8F0] bg-[#F8FAFC]/60 m-3 rounded-lg border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-[#475569] flex items-center space-x-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#14532D]" />
-              <span>Engine Status</span>
-            </span>
-            <span className="flex h-2 w-2 relative">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  isConnected ? "bg-emerald-400" : "bg-amber-400"
-                }`}
-              ></span>
-              <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${
-                  isConnected ? "bg-emerald-600" : "bg-amber-600"
-                }`}
-              ></span>
-            </span>
+        {/* Bottom Utility Icons & Profile Orb */}
+        <div className="flex flex-col items-center space-y-5 w-full">
+          <button
+            title="History"
+            className="text-[#94A3B8] hover:text-[#475569] transition-colors p-1"
+          >
+            <History className="w-[18px] h-[18px] stroke-[1.75]" />
+          </button>
+          <button
+            title="Notifications"
+            className="text-[#94A3B8] hover:text-[#475569] transition-colors relative p-1"
+          >
+            <Bell className="w-[18px] h-[18px] stroke-[1.75]" />
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#EF4444] border-2 border-white" />
+          </button>
+
+          {/* User Profile Orb with purple swirl */}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#312E81] via-[#6366F1] to-[#C084FC] p-[1.5px] cursor-pointer shadow-sm hover:scale-105 transition-transform">
+            <div className="w-full h-full rounded-full bg-[#0F172A] flex items-center justify-center text-white text-xs font-semibold">
+              <span className="scale-75">✦</span>
+            </div>
           </div>
-          <p className="text-[11px] text-[#64748B] leading-normal">
-            PostgreSQL 16 Engine:{" "}
-            <strong className="text-[#0F172A]">
-              {healthLoading ? "Checking..." : isConnected ? "Active (Port 5434)" : "Degraded"}
-            </strong>
-          </p>
-          <p className="text-[11px] text-[#64748B] leading-normal mt-0.5">
-            Invariant: <strong className="text-emerald-700">∑ Debit == ∑ Credit</strong>
-          </p>
         </div>
       </aside>
 
-      {/* Main Command Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header Bar */}
-        <header className="h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-6 shrink-0">
+      {/* ─────────────────────────────────────────────────────────────
+          2. MAIN CONTENT AREA
+      ─────────────────────────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col h-full overflow-y-auto bg-[#FBFBFC]">
+        {/* Top Header Strip with Integration Avatars */}
+        <header className="h-16 px-10 flex items-center justify-end border-b border-[#F8FAFC] shrink-0">
           <div className="flex items-center space-x-4">
-            {/* Entity Badge */}
-            <div className="flex items-center space-x-2 text-xs font-medium text-[#475569] bg-[#F1F5F9] px-3 py-1.5 rounded-md border border-[#E2E8F0]">
-              <Building2 className="w-3.5 h-3.5 text-[#14532D]" />
-              <span className="font-semibold text-[#0F172A]">Indus Tech (Pvt) Ltd</span>
-              <span className="text-slate-300">|</span>
-              <span>Karachi Branch</span>
+            {/* Integration cluster */}
+            <div className="flex items-center -space-x-1.5 bg-[#F8FAFC] px-2.5 py-1.5 rounded-full border border-[#E2E8F0]/60">
+              <div
+                className="w-5 h-5 rounded-full bg-[#000000] text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white"
+                title="Quickbooks"
+              >
+                qb
+              </div>
+              <div
+                className="w-5 h-5 rounded-full bg-[#635BFF] text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white"
+                title="Stripe"
+              >
+                S
+              </div>
+              <div
+                className="w-5 h-5 rounded-full bg-[#22C55E] text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white"
+                title="Meezan / Banking"
+              >
+                M
+              </div>
+              <div
+                className="w-5 h-5 rounded-full bg-[#3B82F6] text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white"
+                title="FBR Digital Integration"
+              >
+                Q
+              </div>
             </div>
 
-            {/* Fiscal Period Badge */}
-            <div className="flex items-center space-x-1.5 text-xs text-[#64748B]">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>FY 2026-27 (Period 3 - Open)</span>
-            </div>
-          </div>
-
-          {/* AI Search & Actions */}
-          <div className="flex items-center space-x-3">
-            <div className="relative w-80">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
-              <input
-                type="text"
-                placeholder="Ask Finance AI or search accounts... (Ctrl+K)"
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 focus:border-[#14532D] text-[#0F172A]"
-              />
-            </div>
-
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#14532D] hover:bg-[#166534] rounded-lg transition-colors shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>AI Insights</span>
+            {/* Filter / Sliders Icon */}
+            <button
+              title="Filters & Views"
+              className="p-2 text-[#94A3B8] hover:text-[#475569] rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4 stroke-[1.75]" />
             </button>
           </div>
         </header>
 
-        {/* Scrollable Dashboard View */}
-        <main className="flex-1 overflow-y-auto p-8 space-y-6">
-          {/* Welcome & Timeframe Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-[#0F172A]">
-                Financial Command Center
-              </h2>
-              <p className="text-sm text-[#475569] mt-0.5">
-                Perpetual double-entry general ledger summary and real-time cash position.
-              </p>
-            </div>
-            <div className="flex items-center space-x-2 text-xs">
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
-                Double-Entry Verified
-              </span>
-              <span className="text-[#64748B]">Currency: PKR (₨)</span>
+        {/* Hero Section & Dashboard Body */}
+        <div className="max-w-[1240px] w-full mx-auto px-8 pb-16 pt-2 flex flex-col space-y-10">
+          {/* ─────────────────────────────────────────────────────────
+              A. HERO AI COMMAND BAR ("Rise and reconcile.")
+          ─────────────────────────────────────────────────────────── */}
+          <div className="flex flex-col items-center justify-center text-center space-y-6 pt-4">
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#0F172A]">
+              Rise and reconcile.
+            </h1>
+
+            {/* Floating AI Input Pill */}
+            <div className="w-full max-w-2xl relative">
+              <div className="bg-white rounded-full border border-[#E2E8F0] px-5 py-3.5 flex items-center space-x-3.5 ai-search-shadow transition-all">
+                {/* Purple Flower/Star Emblem */}
+                <div className="w-7 h-7 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <span className="text-xs font-serif leading-none">❋</span>
+                </div>
+
+                <input
+                  type="text"
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  placeholder="Ask financial copilot, generate flux analysis, or draft entries..."
+                  className="flex-1 bg-transparent border-none outline-none text-[#1E293B] text-sm sm:text-base placeholder:text-[#94A3B8] font-normal"
+                />
+
+                {/* Right Action Icons */}
+                <div className="flex items-center space-x-2 text-[#94A3B8]">
+                  <button
+                    type="button"
+                    title="Attach document or invoice"
+                    className="p-1 hover:text-[#475569] transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4 stroke-[1.75]" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Voice prompt"
+                    className="p-1 hover:text-[#475569] transition-colors"
+                  >
+                    <Mic className="w-4 h-4 stroke-[1.75]" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Prompt Pills */}
+              <div className="flex flex-wrap items-center justify-center gap-2.5 mt-4">
+                {quickPrompts.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setPromptText(prompt)}
+                    className="text-[11px] font-medium text-[#64748B] hover:text-[#1E293B] bg-white border border-[#E2E8F0]/80 hover:border-[#CBD5E1] px-3.5 py-1.5 rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Core Financial Metrics (DESIGN.md Section 6) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Cash on Hand */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-              <div className="flex items-center justify-between text-xs text-[#64748B] font-medium">
-                <span>Cash on Hand</span>
-                <span className="text-emerald-700 flex items-center font-semibold">
-                  <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> +12.4%
-                </span>
-              </div>
-              <div className="mt-2 text-2xl font-bold text-[#0F172A] font-tabular">
-                {formatPKR(4850000)}
-              </div>
-              <p className="text-[11px] text-[#64748B] mt-1">Across 3 commercial bank accounts</p>
+          {/* ─────────────────────────────────────────────────────────
+              B. SNAPSHOT FINANCIAL GRID
+          ─────────────────────────────────────────────────────────── */}
+          <div className="flex flex-col space-y-3">
+            {/* Header label */}
+            <div className="flex items-center space-x-2 text-[11px] font-semibold text-[#64748B] tracking-wider uppercase">
+              <span className="text-[#94A3B8]">⠇⠇</span>
+              <span>Snapshot</span>
             </div>
 
-            {/* Net Revenue */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-              <div className="flex items-center justify-between text-xs text-[#64748B] font-medium">
-                <span>Revenue (MTD)</span>
-                <span className="text-emerald-700 flex items-center font-semibold">
-                  <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> +8.1%
-                </span>
-              </div>
-              <div className="mt-2 text-2xl font-bold text-[#0F172A] font-tabular">
-                {formatPKR(12400000)}
-              </div>
-              <p className="text-[11px] text-[#64748B] mt-1">24 posted sales invoices</p>
-            </div>
-
-            {/* Operating Expenses */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-              <div className="flex items-center justify-between text-xs text-[#64748B] font-medium">
-                <span>Operating Expenses</span>
-                <span className="text-rose-700 flex items-center font-semibold">
-                  <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" /> -3.2%
-                </span>
-              </div>
-              <div className="mt-2 text-2xl font-bold text-[#0F172A] font-tabular">
-                {formatPKR(7550000)}
-              </div>
-              <p className="text-[11px] text-[#64748B] mt-1">Direct bills, payroll & OPEX</p>
-            </div>
-
-            {/* Net Operating Profit */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-              <div className="flex items-center justify-between text-xs text-[#64748B] font-medium">
-                <span>Net Margin</span>
-                <span className="text-[#C9A227] font-semibold">39.1%</span>
-              </div>
-              <div className="mt-2 text-2xl font-bold text-[#14532D] font-tabular">
-                {formatPKR(4850000)}
-              </div>
-              <p className="text-[11px] text-[#64748B] mt-1">Operating profit before tax</p>
-            </div>
-          </div>
-
-          {/* Subledger Health: AR & AP Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Accounts Receivable */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm text-[#0F172A]">Accounts Receivable (AR)</h3>
-                <span className="text-xs text-[#14532D] font-semibold">Customers</span>
-              </div>
-              <div className="text-xl font-bold text-[#0F172A] font-tabular">
-                {formatPKR(2120000)}
-              </div>
-              <div className="mt-3 space-y-1.5 text-xs text-[#475569]">
-                <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-                  <span>0 - 30 Days (Current)</span>
-                  <span className="font-medium font-tabular">{formatPKR(1650000)}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-                  <span>31 - 60 Days</span>
-                  <span className="font-medium font-tabular">{formatPKR(380000)}</span>
-                </div>
-                <div className="flex justify-between py-1 text-rose-600 font-semibold">
-                  <span>61+ Days Overdue</span>
-                  <span className="font-tabular">{formatPKR(90000)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Accounts Payable */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm text-[#0F172A]">Accounts Payable (AP)</h3>
-                <span className="text-[#B45309] font-semibold text-xs">Vendors</span>
-              </div>
-              <div className="text-xl font-bold text-[#0F172A] font-tabular">
-                {formatPKR(1350000)}
-              </div>
-              <div className="mt-3 space-y-1.5 text-xs text-[#475569]">
-                <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-                  <span>Due in 7 Days</span>
-                  <span className="font-medium font-tabular">{formatPKR(420000)}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-                  <span>Due in 15-30 Days</span>
-                  <span className="font-medium font-tabular">{formatPKR(810000)}</span>
-                </div>
-                <div className="flex justify-between py-1 text-emerald-700 font-medium">
-                  <span>Discount Eligible</span>
-                  <span className="font-tabular">{formatPKR(120000)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Financial Copilot Card */}
-            <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center space-x-2 text-xs font-semibold text-[#14532D] mb-3">
-                  <Bot className="w-4 h-4 text-[#14532D]" />
-                  <span>AI Financial Copilot</span>
-                </div>
-                <p className="text-xs text-[#475569] leading-relaxed">
-                  3 bank transactions detected for automatic reconciliation against posted invoices.
-                </p>
-                <div className="mt-3 p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs space-y-1">
-                  <div className="flex items-center text-amber-700 font-medium">
-                    <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                    <span>FBR E-Invoice Tax Rule Notice</span>
+            {/* Grid Container */}
+            <div className="grid grid-cols-1 md:grid-cols-12 bg-white rounded-2xl border border-[#EBEFF5] shadow-[0_2px_8px_rgba(0,0,0,0.02)] overflow-hidden divide-y md:divide-y-0 md:divide-x divide-[#EBEFF5]">
+              {/* Box 1: CASH BALANCE (col-span-4) */}
+              <div className="md:col-span-4 p-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center space-x-1.5 text-xs font-medium text-[#64748B]">
+                    <span className="text-[#CBD5E1]">::</span>
+                    <span className="uppercase tracking-wider">Cash Balance</span>
                   </div>
-                  <p className="text-[11px] text-[#64748B]">
-                    Ensure provincial withholding tax rules are updated for Q3 filings.
-                  </p>
+                  <div className="mt-4 flex items-baseline space-x-2">
+                    <span className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0F172A]">
+                      $215M
+                    </span>
+                    <span className="text-base text-[#6366F1] font-semibold">≈</span>
+                  </div>
+                </div>
+                <div className="mt-8 text-[11px] text-[#94A3B8] leading-relaxed">
+                  <p>As of 05/05/2026, 09:00:42 PM</p>
+                  <p className="text-[#64748B]">Compared to the same time one month ago</p>
                 </div>
               </div>
-              <button className="w-full mt-4 py-2 px-3 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-xs font-semibold text-[#0F172A] rounded-lg transition-colors flex items-center justify-center space-x-1.5">
-                <RefreshCw className="w-3.5 h-3.5 text-[#64748B]" />
-                <span>Run Reconciliation Matcher</span>
-              </button>
+
+              {/* Box 2: MRR (col-span-4) */}
+              <div className="md:col-span-4 p-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center space-x-1.5 text-xs font-medium text-[#64748B]">
+                    <span className="text-[#CBD5E1]">::</span>
+                    <span className="uppercase tracking-wider">MRR</span>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0F172A]">
+                        $4.3M
+                      </span>
+                      <ArrowUpRight className="w-5 h-5 text-[#6366F1] stroke-[2.5]" />
+                    </div>
+
+                    {/* Green Sparkline Curve (matches reference image) */}
+                    <div className="w-32 h-10">
+                      <svg
+                        viewBox="0 0 120 40"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-full h-full"
+                      >
+                        <path
+                          d="M0 30 C 20 28, 40 38, 60 22 C 80 40, 100 24, 120 10"
+                          stroke="#10B981"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-8 text-[11px] text-[#94A3B8] leading-relaxed">
+                  <p>As of 05/05/2026, 09:00:42 PM</p>
+                  <p className="text-[#64748B]">Compared to the same time one month ago</p>
+                </div>
+              </div>
+
+              {/* Box 3: QUAD METRICS GRID (col-span-4, divided 2x2) */}
+              <div className="md:col-span-4 grid grid-cols-2 divide-x divide-y divide-[#EBEFF5]">
+                {/* Gross Burn */}
+                <div className="p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center space-x-1 text-[11px] font-medium text-[#64748B]">
+                      <span className="text-[#CBD5E1]">::</span>
+                      <span className="uppercase tracking-wider">Gross Burn</span>
+                    </div>
+                    <div className="mt-2 flex items-baseline space-x-1.5">
+                      <span className="text-xl font-bold text-[#0F172A]">$3.8M</span>
+                      <ArrowDownRight className="w-4 h-4 text-[#6366F1] stroke-[2.5]" />
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-[#94A3B8] mt-3">
+                    As of 05/05/2026, 09:00:42 PM
+                  </span>
+                </div>
+
+                {/* Runway */}
+                <div className="p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center space-x-1 text-[11px] font-medium text-[#64748B]">
+                      <span className="text-[#CBD5E1]">::</span>
+                      <span className="uppercase tracking-wider">Runway</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-xl font-bold text-[#0F172A]">67 months</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-[#94A3B8] mt-3">
+                    As of 05/05/2026, 09:00:42 PM
+                  </span>
+                </div>
+
+                {/* Outstanding AP */}
+                <div className="p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center space-x-1 text-[11px] font-medium text-[#64748B]">
+                      <span className="text-[#CBD5E1]">::</span>
+                      <span className="uppercase tracking-wider">Outstanding AP</span>
+                    </div>
+                    <div className="mt-2 flex items-baseline space-x-1.5">
+                      <span className="text-xl font-bold text-[#0F172A]">$5.2M</span>
+                      <span className="text-sm text-[#6366F1] font-bold">≈</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-[#94A3B8] mt-3">
+                    As of 05/05/2026, 09:00:42 PM
+                  </span>
+                </div>
+
+                {/* Net Burn */}
+                <div className="p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center space-x-1 text-[11px] font-medium text-[#64748B]">
+                      <span className="text-[#CBD5E1]">::</span>
+                      <span className="uppercase tracking-wider">Net Burn</span>
+                    </div>
+                    <div className="mt-2 flex items-baseline space-x-1.5">
+                      <span className="text-xl font-bold text-[#0F172A]">$589K</span>
+                      <span className="text-sm text-[#6366F1] font-bold">≈</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-[#94A3B8] mt-3">
+                    As of 05/05/2026, 09:00:42 PM
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Invariant & Ledger Verification Panel */}
-          <div className="p-5 bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-sm text-[#0F172A]">
-                  Double-Entry Ledger Integrity (Mandatory System Invariants)
-                </h3>
-                <p className="text-xs text-[#64748B] mt-0.5">
-                  Real-time validation against the core posting engine rules in RULES.md
-                </p>
+          {/* ─────────────────────────────────────────────────────────
+              C. THREE-COLUMN ACTION & REPORT COMMAND CENTER
+          ─────────────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-2">
+            {/* COLUMN 1: NEEDS ACTION */}
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center space-x-2 text-[11px] font-semibold text-[#64748B] tracking-wider uppercase">
+                <span className="text-[#94A3B8]">⠇⠇</span>
+                <span>Needs Action</span>
               </div>
-              <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-1 rounded-md border border-emerald-200">
-                100% Invariant Compliant
-              </span>
+
+              <div className="flex flex-col space-y-3.5 pt-1">
+                {[
+                  { label: "Cash Transactions to be reconciled", count: 24, dot: true },
+                  { label: "Invoices to be sent", count: 16, dot: true },
+                  { label: "Contracts to be approved", count: 5, dot: true },
+                  { label: "Journal Entries pending approval", count: 3, dot: true },
+                  { label: "Bills to be paid", count: 0, dot: false },
+                ].map((action, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-sm py-0.5 group cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      {action.dot ? (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
+                      ) : (
+                        <span className="w-1.5 h-1.5" />
+                      )}
+                      <span className="text-[#334155] group-hover:text-[#0F172A] transition-colors">
+                        {action.label}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-[#0F172A] font-tabular">
+                      {action.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                <div className="text-[#64748B]">Balance Invariant</div>
-                <div className="text-sm font-semibold text-[#0F172A] mt-1 font-tabular">
-                  Total Debits = Total Credits
-                </div>
-                <div className="text-[11px] text-emerald-600 mt-0.5">✓ Enforced at database trigger</div>
+            {/* COLUMN 2: CLOSE CHECKLIST */}
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center space-x-2 text-[11px] font-semibold text-[#64748B] tracking-wider uppercase">
+                <CircleDot className="w-3.5 h-3.5 text-[#94A3B8]" />
+                <span>Close Checklist</span>
               </div>
 
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                <div className="text-[#64748B]">Journal Immutability</div>
-                <div className="text-sm font-semibold text-[#0F172A] mt-1">
-                  Reversal-Only Corrections
+              {/* Progress Metric & Bar */}
+              <div className="flex flex-col space-y-2 pt-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-bold text-[#0F172A]">22%</span>
+                  <span className="text-xs text-[#94A3B8] font-medium">6 / 9 complete</span>
                 </div>
-                <div className="text-[11px] text-emerald-600 mt-0.5">✓ Zero silent history updates</div>
+                {/* Thin progress track */}
+                <div className="w-full h-1 bg-[#F1F5F9] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: "22%" }} />
+                </div>
               </div>
 
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                <div className="text-[#64748B]">AI Security Guard</div>
-                <div className="text-sm font-semibold text-[#0F172A] mt-1">
-                  Grounded Read & Draft Only
-                </div>
-                <div className="text-[11px] text-emerald-600 mt-0.5">✓ No direct balance mutations</div>
+              {/* Checklist items */}
+              <div className="flex flex-col space-y-3 pt-2">
+                {checklist.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => toggleChecklistItem(item.id)}
+                    className="flex items-center justify-between py-1 text-xs sm:text-sm cursor-pointer group"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded-full border flex items-center justify-center transition-colors",
+                          item.completed
+                            ? "bg-[#10B981] border-[#10B981] text-white"
+                            : "border-[#CBD5E1] group-hover:border-[#94A3B8]"
+                        )}
+                      >
+                        {item.completed && <CheckCircle2 className="w-3 h-3" />}
+                      </div>
+                      <span
+                        className={cn(
+                          "transition-colors",
+                          item.completed
+                            ? "line-through text-[#94A3B8]"
+                            : "text-[#334155] group-hover:text-[#0F172A]"
+                        )}
+                      >
+                        {item.text}
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-[10px] font-semibold px-2 py-0.5 rounded tracking-tight uppercase",
+                        item.completed
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0]/60"
+                      )}
+                    >
+                      {item.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* COLUMN 3: PINNED REPORTS */}
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center space-x-2 text-[11px] font-semibold text-[#64748B] tracking-wider uppercase">
+                <span className="text-[#F59E0B] text-xs">☆</span>
+                <span>Pinned Reports</span>
+              </div>
+
+              <div className="flex flex-col space-y-1.5 pt-1">
+                {[
+                  { label: "Income Statement", icon: BarChart3, path: "/reports" },
+                  { label: "Balance Sheet", icon: Compass, path: "/reports" },
+                  { label: "General Ledger", icon: BookOpen, path: "/reports" },
+                  { label: "Cashflow Statement", icon: TrendingUp, path: "/reports" },
+                ].map((report, idx) => {
+                  const Icon = report.icon;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white hover:border hover:border-[#E2E8F0]/60 hover:shadow-[0_2px_4px_rgba(0,0,0,0.02)] transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center space-x-3 text-sm text-[#334155] group-hover:text-[#0F172A] font-medium">
+                        <Icon className="w-4 h-4 text-[#94A3B8] group-hover:text-[#6366F1] transition-colors" />
+                        <span>{report.label}</span>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-[#CBD5E1] group-hover:text-[#6366F1] group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  );
+                })}
+
+                {/* Add a report button */}
+                <button
+                  type="button"
+                  className="flex items-center space-x-2 text-xs font-medium text-[#64748B] hover:text-[#0F172A] pt-2 px-2.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add a report</span>
+                </button>
               </div>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

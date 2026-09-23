@@ -39,3 +39,12 @@ body {
   font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
 }
+
+/* Custom shadow and subtle glowing borders for the modern AI design */
+.ai-search-shadow {
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.08), 0 8px 10px -6px rgba(99, 102, 241, 0.05);
+}
+
+.ai-search-shadow:focus-within {
+  box-shadow: 0 14px 30px -4px rgba(124, 58, 237, 0.14), 0 10px 12px -5px rgba(124, 58, 237, 0.08);
+}
