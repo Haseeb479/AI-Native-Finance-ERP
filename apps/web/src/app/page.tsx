@@ -667,6 +667,7 @@ export default function DashboardPage() {
                   { label: "Income Statement", icon: BarChart3, path: "/reports" },
                   { label: "Balance Sheet", icon: Compass, path: "/reports" },
                   { label: "General Ledger", icon: BookOpen, path: "/reports" },
+                  { label: "Consolidated Financials (Multi-Entity)", icon: TrendingUp, path: "/consolidation" },
                   { label: "FBR Sales Tax (18% Annex-C)", icon: TrendingUp, path: "/taxation" },
                   { label: "Audit & Compliance Trail", icon: History, path: "/audit-logs" },
                 ].map((report, idx) => {

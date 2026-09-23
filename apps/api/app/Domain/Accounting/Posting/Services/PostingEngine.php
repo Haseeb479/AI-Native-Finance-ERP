@@ -78,6 +78,7 @@ class PostingEngine
         return DB::transaction(function () use ($organization, $period, $data, $entryDate, $entryNumber, $user) {
             $entry = JournalEntry::withoutGlobalScopes()->create([
                 'organization_id' => $organization->id,
+                'entity_id' => $data['entity_id'] ?? null,
                 'accounting_period_id' => $period->id,
                 'entry_number' => $entryNumber,
                 'entry_date' => $entryDate->toDateString(),

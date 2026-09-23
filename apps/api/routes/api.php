@@ -185,5 +185,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/close-cycles/{periodId}/readiness', [\App\Http\Controllers\Api\V1\CloseController::class, 'readiness']);
         Route::get('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'indexFixedAssets']);
         Route::post('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'storeFixedAsset']);
+
+        // Step 24: Multi-Entity, Multi-Currency & Intercompany Consolidation
+        Route::get('/organizations/{orgId}/entities', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'indexEntities']);
+        Route::post('/organizations/{orgId}/entities', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'storeEntity']);
+        Route::get('/organizations/{orgId}/exchange-rates', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'indexRates']);
+        Route::post('/organizations/{orgId}/exchange-rates', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'storeRate']);
+        Route::post('/organizations/{orgId}/currency-revaluation', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'runRevaluation']);
+        Route::get('/organizations/{orgId}/intercompany-transactions', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'indexIntercompany']);
+        Route::post('/organizations/{orgId}/intercompany-transactions', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'storeIntercompany']);
+        Route::post('/organizations/{orgId}/intercompany-transactions/{id}/post', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'postIntercompany']);
+        Route::post('/organizations/{orgId}/consolidation/eliminate', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'eliminate']);
+        Route::get('/organizations/{orgId}/consolidation/reports/{reportType}', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'report']);
     });
 });

@@ -19,6 +19,7 @@ class JournalEntry extends Model
 
     protected $fillable = [
         'organization_id',
+        'entity_id',
         'accounting_period_id',
         'entry_number',
         'entry_date',
@@ -41,6 +42,11 @@ class JournalEntry extends Model
         'total_amount' => 'decimal:4',
         'posted_at' => 'datetime',
     ];
+
+    public function entity(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Organization\Models\Entity::class, 'entity_id');
+    }
 
     public function lines(): HasMany
     {
