@@ -160,5 +160,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/ai/classify-transaction', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'classifyTransaction']);
         Route::get('/organizations/{orgId}/ai/usage-metrics', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'usageMetrics']);
         Route::get('/organizations/{orgId}/ai/logs', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'runLogs']);
+
+        // AI Copilot Features (Q&A, Journal Drafting, Report Explanation)
+        Route::post('/organizations/{orgId}/ai/copilot/qa', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'askCopilot']);
+        Route::post('/organizations/{orgId}/ai/copilot/draft-journal', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'draftJournal']);
+        Route::post('/organizations/{orgId}/ai/copilot/explain-report', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'explainReport']);
     });
 });

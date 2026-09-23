@@ -9,6 +9,13 @@ from apps.ai.src.schemas.extraction import (
     InvoiceExtractionResponse,
     InvoiceLineItem,
 )
+from apps.ai.src.schemas.qa import (
+    FinancialQAResponse,
+    JournalDraftResponse,
+    JournalDraftLine,
+    ReportExplanationResponse,
+    VarianceDriver,
+)
 
 class MockLLMAdapter(BaseLLMAdapter):
     """
@@ -66,6 +73,72 @@ class MockLLMAdapter(BaseLLMAdapter):
                 ],
                 extraction_confidence=0.94,
                 flagged_for_review=False,
+            ) # type: ignore
+
+        if response_model == FinancialQAResponse:
+            return FinancialQAResponse(
+                answer="You currently have 16 open sales invoices pending collection totaling PKR 3,240,000, and 3 journal entries awaiting manager approval.",
+                key_metrics={
+                    "pending_invoices_count": "16",
+                    "pending_invoices_amount": "PKR 3,240,000",
+                    "unreconciled_transactions": "24",
+                },
+                suggested_actions=[
+                    "Send payment reminders for invoices overdue > 30 days",
+                    "Review pending journal draft #JE-2025-00042",
+                ],
+                confidence=0.95,
+                flagged_for_review=False,
+            ) # type: ignore
+
+        if response_model == JournalDraftResponse:
+            amount = Decimal("50000.00")
+            return JournalDraftResponse(
+                description="Prepaid Office Rent Allocation",
+                lines=[
+                    JournalDraftLine(
+                        account_code="6020",
+                        account_name="Office Rent Expense",
+                        debit=amount,
+                        credit=Decimal("0.00"),
+                        description="Monthly commercial office rent allocation",
+                    ),
+                    JournalDraftLine(
+                        account_code="1060",
+                        account_name="Prepayments and Advances",
+                        debit=Decimal("0.00"),
+                        credit=amount,
+                        description="Reduction of security deposit / rent advance",
+                    ),
+                ],
+                total_debit=amount,
+                total_credit=amount,
+                is_balanced=True,
+                explanation="Recognizes monthly commercial office rent by debiting Rent Expense (6020) and crediting Prepayments (1060). Invariant Debit == Credit holds.",
+            ) # type: ignore
+
+        if response_model == ReportExplanationResponse:
+            return ReportExplanationResponse(
+                executive_summary="Net Profit for Q1 stands at PKR 350,000, driven by a 24% increase in consulting service revenue against stable operating expenses.",
+                key_drivers=[
+                    VarianceDriver(
+                        account_or_category="Sales Revenue - Local",
+                        movement_description="Increased by PKR 150,000 (+42%) due to enterprise client onboarding.",
+                        impact_level="high",
+                    ),
+                    VarianceDriver(
+                        account_or_category="Software & Cloud Subscriptions",
+                        movement_description="Reduced by PKR 25,000 following server optimization.",
+                        impact_level="medium",
+                    ),
+                ],
+                risk_flags=[
+                    "Outstanding AR aging shows 3 invoices overdue beyond 60 days.",
+                ],
+                recommendations=[
+                    "Initiate follow-ups on Accounts Receivable to protect operating cash flow.",
+                    "Review quarterly estimated tax withholding prior to filing deadline.",
+                ],
             ) # type: ignore
 
         raise NotImplementedError(f"Mock response not implemented for {response_model}")

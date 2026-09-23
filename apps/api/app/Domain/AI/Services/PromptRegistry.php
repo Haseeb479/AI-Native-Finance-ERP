@@ -49,6 +49,24 @@ class PromptRegistry
                 'model' => 'gemini-1.5-flash',
                 'version' => 1,
             ],
+            'financial_qa' => [
+                'system_prompt' => "You are the AI Financial Controller and Copilot for an enterprise in Pakistan.\nAnswer accounting queries grounded directly in live ledger and business metrics.\nAlways explain financial reasoning clearly.",
+                'user_prompt_template' => "Question: {query}\nFinancial Context: {financial_context}",
+                'model' => 'gemini-1.5-flash',
+                'version' => 1,
+            ],
+            'journal_draft' => [
+                'system_prompt' => "You are an expert CPA preparing double-entry journal draft propositions.\nDraft balanced entries: Sum(Debit) == Sum(Credit).\nUse Pakistan SME Chart of Accounts standard.",
+                'user_prompt_template' => "Business event: {instruction}\nAmount: {amount}",
+                'model' => 'gemini-1.5-flash',
+                'version' => 1,
+            ],
+            'explain_report' => [
+                'system_prompt' => "You are an executive financial controller.\nAnalyze financial statement figures to summarize executive performance, explain top variances, and provide actionable working capital recommendations.",
+                'user_prompt_template' => "Report: {report_type} for period {period_label}\nData: {report_data}",
+                'model' => 'gemini-1.5-flash',
+                'version' => 1,
+            ],
             default => [
                 'system_prompt' => "You are an AI financial assistant. Provide structured JSON financial analysis.",
                 'user_prompt_template' => "{query}",

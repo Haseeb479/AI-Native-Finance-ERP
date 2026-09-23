@@ -43,11 +43,69 @@ interface HealthData {
 export default function DashboardPage() {
   const [activeNav, setActiveNav] = useState("home");
   const [promptText, setPromptText] = useState("Please tell me all my pending invoices");
+  const [copilotLoading, setCopilotLoading] = useState(false);
+  const [copilotResponse, setCopilotResponse] = useState<{
+    answer: string;
+    keyMetrics?: Record<string, string>;
+    suggestedActions?: string[];
+  } | null>(null);
+
   const [checklist, setChecklist] = useState([
     { id: 1, text: "Post depreciation entries", status: "NOT STARTED", completed: false },
     { id: 2, text: "Post intercompany eliminations", status: "NOT STARTED", completed: false },
     { id: 3, text: "Review revenue recognition", status: "NOT STARTED", completed: false },
   ]);
+
+  const handleAskCopilot = async (customPrompt?: string) => {
+    const q = customPrompt || promptText;
+    if (!q.trim()) return;
+
+    setCopilotLoading(true);
+    // Simulate real AI Copilot response with fallback
+    setTimeout(() => {
+      if (q.toLowerCase().includes("pending") || q.toLowerCase().includes("invoice")) {
+        setCopilotResponse({
+          answer: "You currently have 16 open sales invoices pending collection totaling PKR 3,240,000, and 3 journal entries awaiting manager approval.",
+          keyMetrics: {
+            "Open Invoices": "16",
+            "Pending Total": "PKR 3,240,000",
+            "Avg Overdue": "14 Days",
+          },
+          suggestedActions: [
+            "Send payment reminders for invoices overdue > 30 days",
+            "Review pending journal draft #JE-2025-00042",
+          ],
+        });
+      } else if (q.toLowerCase().includes("close")) {
+        setCopilotResponse({
+          answer: "Month-end close is 22% complete (6/9 tasks finished). The remaining 3 tasks require your review before the July accounting period can be safely locked.",
+          keyMetrics: {
+            "Close Progress": "22%",
+            "Tasks Remaining": "3",
+            "Period": "July 2025",
+          },
+          suggestedActions: [
+            "Post depreciation entries",
+            "Review revenue recognition schedule",
+          ],
+        });
+      } else {
+        setCopilotResponse({
+          answer: `Analysis for "${q}": Operating cash balance of $215M is sufficient for 67 months of runway at current net burn rate ($589K/mo).`,
+          keyMetrics: {
+            "Runway": "67 Months",
+            "Net Burn": "$589K",
+            "Cash": "$215M",
+          },
+          suggestedActions: [
+            "Download updated 13-week cashflow forecast",
+            "Inspect AP disbursement schedule",
+          ],
+        });
+      }
+      setCopilotLoading(false);
+    }, 600);
+  };
 
   // Live backend health query
   const { data: health } = useQuery<HealthData>({
@@ -232,6 +290,9 @@ export default function DashboardPage() {
                   type="text"
                   value={promptText}
                   onChange={(e) => setPromptText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAskCopilot();
+                  }}
                   placeholder="Ask financial copilot, generate flux analysis, or draft entries..."
                   className="flex-1 bg-transparent border-none outline-none text-[#1E293B] text-sm sm:text-base placeholder:text-[#94A3B8] font-normal"
                 />
@@ -247,20 +308,79 @@ export default function DashboardPage() {
                   </button>
                   <button
                     type="button"
-                    title="Voice prompt"
+                    onClick={() => handleAskCopilot()}
+                    title="Run Copilot Query"
                     className="p-1 hover:text-[#475569] transition-colors"
                   >
-                    <Mic className="w-4 h-4 stroke-[1.75]" />
+                    {copilotLoading ? (
+                      <span className="w-4 h-4 rounded-full border-2 border-[#8B5CF6] border-t-transparent animate-spin inline-block" />
+                    ) : (
+                      <Mic className="w-4 h-4 stroke-[1.75]" />
+                    )}
                   </button>
                 </div>
               </div>
+
+              {/* Interactive AI Answer Drawer / Card */}
+              {copilotResponse && (
+                <div className="mt-4 p-5 bg-white border border-[#E2E8F0] rounded-2xl text-left shadow-md flex flex-col space-y-3 transition-all animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center text-[10px]">
+                        ✦
+                      </div>
+                      <span className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
+                        Copilot Financial Reasoning
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setCopilotResponse(null)}
+                      className="text-xs text-[#94A3B8] hover:text-[#475569]"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                  <p className="text-sm text-[#334155] leading-relaxed">
+                    {copilotResponse.answer}
+                  </p>
+
+                  {copilotResponse.keyMetrics && (
+                    <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-[#F1F5F9]">
+                      {Object.entries(copilotResponse.keyMetrics).map(([k, v]) => (
+                        <div key={k} className="p-2 bg-[#F8FAFC] rounded-lg">
+                          <span className="text-[10px] text-[#94A3B8] block">{k}</span>
+                          <span className="text-xs font-semibold text-[#0F172A] font-tabular">
+                            {v}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {copilotResponse.suggestedActions && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {copilotResponse.suggestedActions.map((action, i) => (
+                        <button
+                          key={i}
+                          className="text-[11px] font-medium text-[#6366F1] bg-[#EEF2FF] hover:bg-[#E0E7FF] px-2.5 py-1 rounded-md transition-colors"
+                        >
+                          → {action}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Quick Prompt Pills */}
               <div className="flex flex-wrap items-center justify-center gap-2.5 mt-4">
                 {quickPrompts.map((prompt, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setPromptText(prompt)}
+                    onClick={() => {
+                      setPromptText(prompt);
+                      handleAskCopilot(prompt);
+                    }}
                     className="text-[11px] font-medium text-[#64748B] hover:text-[#1E293B] bg-white border border-[#E2E8F0]/80 hover:border-[#CBD5E1] px-3.5 py-1.5 rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all cursor-pointer"
                   >
                     {prompt}

@@ -88,6 +88,171 @@ class AiGatewayService
     }
 
     /**
+     * Financial Q&A through Copilot with audit logging.
+     */
+    public function askCopilot(Organization $organization, User $user, string $query, array $context = []): array
+    {
+        $startTime = microtime(true);
+        $promptInfo = $this->promptRegistry->getTemplate('financial_qa', $organization);
+
+        $endpoint = "{$this->aiServiceUrl}/v1/copilot/qa";
+        $payload = [
+            'query' => $query,
+            'organization_id' => $organization->id,
+            'currency' => $organization->base_currency ?? 'PKR',
+            'financial_context' => $context,
+        ];
+
+        $status = 'success';
+        $errorMessage = null;
+        $responseBody = [];
+        $inputTokens = (int) (strlen($query) / 4) + 120;
+        $outputTokens = 90;
+        $totalCost = (($inputTokens + $outputTokens) / 1000) * 0.000075;
+
+        try {
+            $response = Http::timeout(20)->post($endpoint, $payload);
+            if (! $response->successful()) {
+                throw new \RuntimeException("Copilot service returned HTTP {$response->status()}");
+            }
+            $responseBody = $response->json();
+        } catch (\Throwable $e) {
+            $status = 'failed';
+            $errorMessage = $e->getMessage();
+            throw $e;
+        } finally {
+            $latencyMs = (int) ((microtime(true) - $startTime) * 1000);
+            AiRunLog::create([
+                'organization_id' => $organization->id,
+                'user_id' => $user->id,
+                'prompt_key' => 'financial_qa',
+                'prompt_version' => $promptInfo['version'],
+                'provider' => 'gemini',
+                'model' => $promptInfo['model'],
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'total_cost' => round($totalCost, 6),
+                'status' => $status,
+                'latency_ms' => $latencyMs,
+                'error_message' => $errorMessage,
+                'metadata' => ['query' => substr($query, 0, 100)],
+            ]);
+        }
+
+        return $responseBody;
+    }
+
+    /**
+     * AI balanced double-entry journal draft proposition with audit logging.
+     */
+    public function draftJournal(Organization $organization, User $user, string $instruction, ?float $amount = null): array
+    {
+        $startTime = microtime(true);
+        $promptInfo = $this->promptRegistry->getTemplate('journal_draft', $organization);
+
+        $endpoint = "{$this->aiServiceUrl}/v1/copilot/draft-journal";
+        $payload = [
+            'instruction' => $instruction,
+            'amount' => $amount,
+            'currency' => $organization->base_currency ?? 'PKR',
+            'organization_id' => $organization->id,
+        ];
+
+        $status = 'success';
+        $errorMessage = null;
+        $responseBody = [];
+        $inputTokens = (int) (strlen($instruction) / 4) + 100;
+        $outputTokens = 120;
+        $totalCost = (($inputTokens + $outputTokens) / 1000) * 0.000075;
+
+        try {
+            $response = Http::timeout(20)->post($endpoint, $payload);
+            if (! $response->successful()) {
+                throw new \RuntimeException("Journal draft service returned HTTP {$response->status()}");
+            }
+            $responseBody = $response->json();
+        } catch (\Throwable $e) {
+            $status = 'failed';
+            $errorMessage = $e->getMessage();
+            throw $e;
+        } finally {
+            $latencyMs = (int) ((microtime(true) - $startTime) * 1000);
+            AiRunLog::create([
+                'organization_id' => $organization->id,
+                'user_id' => $user->id,
+                'prompt_key' => 'journal_draft',
+                'prompt_version' => $promptInfo['version'],
+                'provider' => 'gemini',
+                'model' => $promptInfo['model'],
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'total_cost' => round($totalCost, 6),
+                'status' => $status,
+                'latency_ms' => $latencyMs,
+                'error_message' => $errorMessage,
+                'metadata' => ['amount' => $amount],
+            ]);
+        }
+
+        return $responseBody;
+    }
+
+    /**
+     * AI Report explanation & variance analysis with audit logging.
+     */
+    public function explainReport(Organization $organization, User $user, string $reportType, array $reportData, string $periodLabel = 'Current Period'): array
+    {
+        $startTime = microtime(true);
+        $promptInfo = $this->promptRegistry->getTemplate('explain_report', $organization);
+
+        $endpoint = "{$this->aiServiceUrl}/v1/copilot/explain-report";
+        $payload = [
+            'report_type' => $reportType,
+            'period_label' => $periodLabel,
+            'report_data' => $reportData,
+            'organization_id' => $organization->id,
+        ];
+
+        $status = 'success';
+        $errorMessage = null;
+        $responseBody = [];
+        $inputTokens = 250;
+        $outputTokens = 180;
+        $totalCost = (($inputTokens + $outputTokens) / 1000) * 0.000075;
+
+        try {
+            $response = Http::timeout(20)->post($endpoint, $payload);
+            if (! $response->successful()) {
+                throw new \RuntimeException("Report explanation service returned HTTP {$response->status()}");
+            }
+            $responseBody = $response->json();
+        } catch (\Throwable $e) {
+            $status = 'failed';
+            $errorMessage = $e->getMessage();
+            throw $e;
+        } finally {
+            $latencyMs = (int) ((microtime(true) - $startTime) * 1000);
+            AiRunLog::create([
+                'organization_id' => $organization->id,
+                'user_id' => $user->id,
+                'prompt_key' => 'explain_report',
+                'prompt_version' => $promptInfo['version'],
+                'provider' => 'gemini',
+                'model' => $promptInfo['model'],
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'total_cost' => round($totalCost, 6),
+                'status' => $status,
+                'latency_ms' => $latencyMs,
+                'error_message' => $errorMessage,
+                'metadata' => ['report_type' => $reportType, 'period' => $periodLabel],
+            ]);
+        }
+
+        return $responseBody;
+    }
+
+    /**
      * Retrieve aggregated AI usage metrics for an organization.
      */
     public function getUsageMetrics(Organization $organization): array
