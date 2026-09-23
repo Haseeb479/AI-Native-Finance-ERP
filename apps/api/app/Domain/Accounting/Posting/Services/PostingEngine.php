@@ -180,6 +180,22 @@ class PostingEngine
             'total_amount' => $totalDebit,
         ]);
 
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $entry->organization_id,
+                $user,
+                'journal:posted',
+                $entry,
+                ['status' => 'draft'],
+                [
+                    'status' => 'posted',
+                    'entry_number' => $entry->entry_number,
+                    'total_amount' => (string) $totalDebit,
+                    'posted_at' => $entry->posted_at->toIso8601String(),
+                ]
+            );
+        }
+
         return $entry->fresh(['lines.account', 'period', 'postedByUser']);
     }
 

@@ -147,11 +147,24 @@ class InvoiceService
             throw new InvalidArgumentException("Only invoices pending approval can be approved.");
         }
 
+        $oldStatus = $invoice->status;
+
         $invoice->update([
             'status' => 'approved',
             'approved_by' => $user->id,
             'approved_at' => now(),
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $invoice->organization_id,
+                $user,
+                'invoice:approved',
+                $invoice,
+                ['status' => $oldStatus],
+                ['status' => 'approved', 'approved_at' => $invoice->approved_at->toIso8601String()]
+            );
+        }
 
         return $invoice->fresh();
     }
@@ -165,12 +178,25 @@ class InvoiceService
             throw new InvalidArgumentException("Only invoices pending approval can be rejected.");
         }
 
+        $oldStatus = $invoice->status;
+
         $invoice->update([
             'status' => 'rejected',
             'rejected_by' => $user->id,
             'rejected_at' => now(),
             'rejection_reason' => $reason,
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $invoice->organization_id,
+                $user,
+                'invoice:rejected',
+                $invoice,
+                ['status' => $oldStatus],
+                ['status' => 'rejected', 'rejected_at' => $invoice->rejected_at->toIso8601String(), 'reason' => $reason]
+            );
+        }
 
         return $invoice->fresh();
     }
@@ -244,6 +270,8 @@ class InvoiceService
         }
 
         return DB::transaction(function () use ($organization, $invoice, $journalLines, $user) {
+            $oldStatus = $invoice->status;
+
             // Create and post balanced journal
             $draftJournal = $this->postingEngine->createDraft($organization, [
                 'entry_date' => $invoice->issue_date->toDateString(),
@@ -261,6 +289,22 @@ class InvoiceService
                 'posted_at' => now(),
                 'journal_entry_id' => $postedJournal->id,
             ]);
+
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $invoice->organization_id,
+                    $user,
+                    'invoice:posted',
+                    $invoice,
+                    ['status' => $oldStatus],
+                    [
+                        'status' => 'sent',
+                        'posted_at' => $invoice->posted_at->toIso8601String(),
+                        'journal_entry_id' => $postedJournal->id,
+                        'total_amount' => (string) $invoice->total_amount,
+                    ]
+                );
+            }
 
             return $invoice->fresh(['customer', 'lines.revenueAccount', 'journalEntry']);
         });

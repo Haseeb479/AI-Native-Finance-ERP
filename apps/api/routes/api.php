@@ -165,5 +165,16 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/ai/copilot/qa', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'askCopilot']);
         Route::post('/organizations/{orgId}/ai/copilot/draft-journal', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'draftJournal']);
         Route::post('/organizations/{orgId}/ai/copilot/explain-report', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'explainReport']);
+
+        // Step 21: Audit & Compliance Trails
+        Route::get('/organizations/{orgId}/audit-logs', [\App\Http\Controllers\Api\V1\AuditController::class, 'index']);
+        Route::get('/organizations/{orgId}/audit-logs/export', [\App\Http\Controllers\Api\V1\AuditController::class, 'export']);
+        Route::get('/organizations/{orgId}/audit-logs/verify', [\App\Http\Controllers\Api\V1\AuditController::class, 'verify']);
+
+        // Step 22: Pakistan Localization & FBR Digital Invoicing
+        Route::post('/organizations/{orgId}/invoices/{invoiceId}/fbr-fiscalize', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'fiscalize']);
+        Route::get('/organizations/{orgId}/invoices/{invoiceId}/fbr-qr', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'getQrCode']);
+        Route::post('/organizations/{orgId}/taxation/pakistan/validate-tax-id', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'validateTaxId']);
+        Route::get('/organizations/{orgId}/taxation/pakistan/summary', [\App\Http\Controllers\Api\V1\FbrInvoiceController::class, 'summary']);
     });
 });

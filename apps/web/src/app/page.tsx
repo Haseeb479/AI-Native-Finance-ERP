@@ -548,6 +548,7 @@ export default function DashboardPage() {
               <div className="flex flex-col space-y-3.5 pt-1">
                 {[
                   { label: "Cash Transactions to be reconciled", count: 24, dot: true },
+                  { label: "Invoices to be FBR fiscalized", count: 4, dot: true },
                   { label: "Invoices to be sent", count: 16, dot: true },
                   { label: "Contracts to be approved", count: 5, dot: true },
                   { label: "Journal Entries pending approval", count: 3, dot: true },
@@ -651,7 +652,8 @@ export default function DashboardPage() {
                   { label: "Income Statement", icon: BarChart3, path: "/reports" },
                   { label: "Balance Sheet", icon: Compass, path: "/reports" },
                   { label: "General Ledger", icon: BookOpen, path: "/reports" },
-                  { label: "Cashflow Statement", icon: TrendingUp, path: "/reports" },
+                  { label: "FBR Sales Tax (18% Annex-C)", icon: TrendingUp, path: "/taxation" },
+                  { label: "Audit & Compliance Trail", icon: History, path: "/audit-logs" },
                 ].map((report, idx) => {
                   const Icon = report.icon;
                   return (

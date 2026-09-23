@@ -156,11 +156,24 @@ class BillService
             throw new InvalidArgumentException("Only purchase bills pending approval can be approved.");
         }
 
+        $oldStatus = $bill->status;
+
         $bill->update([
             'status' => 'approved',
             'approved_by' => $user->id,
             'approved_at' => now(),
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $bill->organization_id,
+                $user,
+                'bill:approved',
+                $bill,
+                ['status' => $oldStatus],
+                ['status' => 'approved', 'approved_at' => $bill->approved_at->toIso8601String()]
+            );
+        }
 
         return $bill->fresh();
     }
@@ -174,12 +187,25 @@ class BillService
             throw new InvalidArgumentException("Only purchase bills pending approval can be rejected.");
         }
 
+        $oldStatus = $bill->status;
+
         $bill->update([
             'status' => 'rejected',
             'rejected_by' => $user->id,
             'rejected_at' => now(),
             'rejection_reason' => $reason,
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $bill->organization_id,
+                $user,
+                'bill:rejected',
+                $bill,
+                ['status' => $oldStatus],
+                ['status' => 'rejected', 'rejected_at' => $bill->rejected_at->toIso8601String(), 'reason' => $reason]
+            );
+        }
 
         return $bill->fresh();
     }
@@ -252,6 +278,8 @@ class BillService
         ];
 
         return DB::transaction(function () use ($organization, $bill, $journalLines, $user) {
+            $oldStatus = $bill->status;
+
             $draftJournal = $this->postingEngine->createDraft($organization, [
                 'entry_date' => $bill->bill_date->toDateString(),
                 'source_type' => 'bill',
@@ -268,6 +296,22 @@ class BillService
                 'posted_at' => now(),
                 'journal_entry_id' => $postedJournal->id,
             ]);
+
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $bill->organization_id,
+                    $user,
+                    'bill:posted',
+                    $bill,
+                    ['status' => $oldStatus],
+                    [
+                        'status' => 'received',
+                        'posted_at' => $bill->posted_at->toIso8601String(),
+                        'journal_entry_id' => $postedJournal->id,
+                        'total_amount' => (string) $bill->total_amount,
+                    ]
+                );
+            }
 
             return $bill->fresh(['vendor', 'lines.expenseAccount', 'journalEntry']);
         });

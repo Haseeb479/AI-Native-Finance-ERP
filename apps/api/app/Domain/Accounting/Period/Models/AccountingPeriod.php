@@ -81,9 +81,9 @@ class AccountingPeriod extends Model
 
     public function scopeForDate(Builder $query, Carbon|string $date): Builder
     {
-        $dateStr = $date instanceof Carbon ? $date->toDateString() : $date;
+        $dateStr = $date instanceof Carbon ? $date->toDateString() : (Carbon::parse($date)->toDateString());
 
-        return $query->where('start_date', '<=', $dateStr)
-                     ->where('end_date', '>=', $dateStr);
+        return $query->whereDate('start_date', '<=', $dateStr)
+                     ->whereDate('end_date', '>=', $dateStr);
     }
 }

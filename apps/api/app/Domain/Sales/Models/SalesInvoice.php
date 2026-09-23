@@ -42,6 +42,11 @@ class SalesInvoice extends Model
         'rejected_by',
         'rejected_at',
         'rejection_reason',
+        'fbr_invoice_number',
+        'fbr_status',
+        'fbr_fiscalized_at',
+        'fbr_qr_code',
+        'fbr_response_data',
     ];
 
     protected $casts = [
@@ -56,7 +61,14 @@ class SalesInvoice extends Model
         'posted_at' => 'datetime',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'fbr_fiscalized_at' => 'datetime',
+        'fbr_response_data' => 'array',
     ];
+
+    public function isFbrFiscalized(): bool
+    {
+        return $this->fbr_status === 'fiscalized' && ! empty($this->fbr_invoice_number);
+    }
 
     public function customer(): BelongsTo
     {

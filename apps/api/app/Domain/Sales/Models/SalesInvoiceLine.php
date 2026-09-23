@@ -20,6 +20,7 @@ class SalesInvoiceLine extends Model
         'revenue_account_id',
         'line_number',
         'description',
+        'pct_code',
         'quantity',
         'unit_price',
         'tax_rate',

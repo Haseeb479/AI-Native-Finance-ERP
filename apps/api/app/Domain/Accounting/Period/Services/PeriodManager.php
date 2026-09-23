@@ -79,12 +79,12 @@ class PeriodManager
      */
     public function getOpenPeriodForDate(Organization $organization, Carbon|string $date): ?AccountingPeriod
     {
-        $dateStr = $date instanceof Carbon ? $date->toDateString() : $date;
+        $dateStr = $date instanceof Carbon ? $date->toDateString() : (Carbon::parse($date)->toDateString());
 
         return AccountingPeriod::withoutGlobalScopes()
             ->where('organization_id', $organization->id)
-            ->where('start_date', '<=', $dateStr)
-            ->where('end_date', '>=', $dateStr)
+            ->whereDate('start_date', '<=', $dateStr)
+            ->whereDate('end_date', '>=', $dateStr)
             ->where('status', 'open')
             ->first();
     }
@@ -98,11 +98,24 @@ class PeriodManager
             return $period;
         }
 
+        $oldStatus = $period->status;
+
         $period->update([
             'status' => 'closed',
             'closed_at' => now(),
             'closed_by' => $user->id,
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $period->organization_id,
+                $user,
+                'period:closed',
+                $period,
+                ['status' => $oldStatus],
+                ['status' => 'closed', 'closed_at' => $period->closed_at->toIso8601String()]
+            );
+        }
 
         return $period;
     }
@@ -116,12 +129,25 @@ class PeriodManager
             throw new InvalidArgumentException('A valid reason is required to reopen an accounting period.');
         }
 
+        $oldStatus = $period->status;
+
         $period->update([
             'status' => 'open',
             'reopened_at' => now(),
             'reopened_by' => $user->id,
             'reopen_reason' => trim($reason),
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $period->organization_id,
+                $user,
+                'period:reopened',
+                $period,
+                ['status' => $oldStatus],
+                ['status' => 'open', 'reopened_at' => $period->reopened_at->toIso8601String(), 'reason' => $reason]
+            );
+        }
 
         return $period;
     }
@@ -131,11 +157,24 @@ class PeriodManager
      */
     public function lockPeriod(AccountingPeriod $period, User $user): AccountingPeriod
     {
+        $oldStatus = $period->status;
+
         $period->update([
             'status' => 'locked',
             'closed_at' => $period->closed_at ?? now(),
             'closed_by' => $period->closed_by ?? $user->id,
         ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $period->organization_id,
+                $user,
+                'period:locked',
+                $period,
+                ['status' => $oldStatus],
+                ['status' => 'locked']
+            );
+        }
 
         return $period;
     }
