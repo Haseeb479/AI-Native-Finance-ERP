@@ -49,6 +49,18 @@ class SalesInvoiceController extends Controller
         return $user->hasPermissionInOrganization('sales.invoice.post', $organization);
     }
 
+    private function canApproveInvoice(Request $request, Organization $organization): bool
+    {
+        $user = $request->user();
+        $role = $user->roleInOrganization($organization);
+
+        if (in_array($role, ['owner', 'admin', 'accountant', 'finance_manager'])) {
+            return true;
+        }
+
+        return $user->hasPermissionInOrganization('sales.invoice.approve', $organization);
+    }
+
     /**
      * List sales invoices.
      */
@@ -352,6 +364,84 @@ class SalesInvoiceController extends Controller
                     ],
                 ],
             ], 422);
+        }
+    }
+
+    /**
+     * Submit invoice for approval.
+     */
+    public function submit(Request $request, string $orgId, string $invoiceId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        $invoice = SalesInvoice::withoutGlobalScopes()->where('organization_id', $organization->id)->findOrFail($invoiceId);
+
+        try {
+            $updated = $this->invoiceService->submitForApproval($invoice, $request->user());
+            return response()->json([
+                'data' => $updated,
+                'meta' => ['message' => "Invoice {$updated->invoice_number} submitted for approval."],
+                'errors' => [],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'SUBMIT_FAILED', 'message' => $e->getMessage()]]], 422);
+        }
+    }
+
+    /**
+     * Approve invoice.
+     */
+    public function approve(Request $request, string $orgId, string $invoiceId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        if (! $this->canApproveInvoice($request, $organization)) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'FORBIDDEN', 'message' => 'You do not have permission to approve sales invoices.']]], 403);
+        }
+
+        $invoice = SalesInvoice::withoutGlobalScopes()->where('organization_id', $organization->id)->findOrFail($invoiceId);
+
+        try {
+            $updated = $this->invoiceService->approveInvoice($invoice, $request->user());
+            return response()->json([
+                'data' => $updated,
+                'meta' => ['message' => "Invoice {$updated->invoice_number} approved successfully."],
+                'errors' => [],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'APPROVE_FAILED', 'message' => $e->getMessage()]]], 422);
+        }
+    }
+
+    /**
+     * Reject invoice with reason.
+     */
+    public function reject(Request $request, string $orgId, string $invoiceId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        if (! $this->canApproveInvoice($request, $organization)) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'FORBIDDEN', 'message' => 'You do not have permission to reject sales invoices.']]], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $invoice = SalesInvoice::withoutGlobalScopes()->where('organization_id', $organization->id)->findOrFail($invoiceId);
+
+        try {
+            $updated = $this->invoiceService->rejectInvoice($invoice, $request->user(), $validated['reason']);
+            return response()->json([
+                'data' => $updated,
+                'meta' => ['message' => "Invoice {$updated->invoice_number} rejected."],
+                'errors' => [],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'REJECT_FAILED', 'message' => $e->getMessage()]]], 422);
         }
     }
 }

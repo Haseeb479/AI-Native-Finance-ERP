@@ -107,6 +107,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/invoices', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'index']);
         Route::post('/organizations/{orgId}/invoices', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'store']);
         Route::get('/organizations/{orgId}/invoices/{invoiceId}', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'show']);
+        Route::post('/organizations/{orgId}/invoices/{invoiceId}/submit', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'submit']);
+        Route::post('/organizations/{orgId}/invoices/{invoiceId}/approve', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'approve']);
+        Route::post('/organizations/{orgId}/invoices/{invoiceId}/reject', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'reject']);
         Route::post('/organizations/{orgId}/invoices/{invoiceId}/post', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'post']);
         Route::post('/organizations/{orgId}/invoices/{invoiceId}/payments', [\App\Http\Controllers\Api\V1\SalesInvoiceController::class, 'recordPayment']);
 
@@ -121,6 +124,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/bills', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'index']);
         Route::post('/organizations/{orgId}/bills', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'store']);
         Route::get('/organizations/{orgId}/bills/{billId}', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'show']);
+        Route::post('/organizations/{orgId}/bills/{billId}/submit', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'submit']);
+        Route::post('/organizations/{orgId}/bills/{billId}/approve', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'approve']);
+        Route::post('/organizations/{orgId}/bills/{billId}/reject', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'reject']);
         Route::post('/organizations/{orgId}/bills/{billId}/post', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'post']);
         Route::post('/organizations/{orgId}/bills/{billId}/payments', [\App\Http\Controllers\Api\V1\PurchaseBillController::class, 'recordPayment']);
 
@@ -149,5 +155,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/reports/general-ledger', [\App\Http\Controllers\Api\V1\ReportController::class, 'generalLedger']);
         Route::get('/organizations/{orgId}/reports/ar-aging', [\App\Http\Controllers\Api\V1\ReportController::class, 'arAging']);
         Route::get('/organizations/{orgId}/reports/ap-aging', [\App\Http\Controllers\Api\V1\ReportController::class, 'apAging']);
+
+        // AI Foundation & Gateway
+        Route::post('/organizations/{orgId}/ai/classify-transaction', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'classifyTransaction']);
+        Route::get('/organizations/{orgId}/ai/usage-metrics', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'usageMetrics']);
+        Route::get('/organizations/{orgId}/ai/logs', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'runLogs']);
     });
 });

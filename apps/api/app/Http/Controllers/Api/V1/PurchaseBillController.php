@@ -49,6 +49,18 @@ class PurchaseBillController extends Controller
         return $user->hasPermissionInOrganization('purchases.bill.post', $organization);
     }
 
+    private function canApproveBill(Request $request, Organization $organization): bool
+    {
+        $user = $request->user();
+        $role = $user->roleInOrganization($organization);
+
+        if (in_array($role, ['owner', 'admin', 'accountant', 'finance_manager'])) {
+            return true;
+        }
+
+        return $user->hasPermissionInOrganization('purchases.bill.approve', $organization);
+    }
+
     /**
      * List purchase bills.
      */
@@ -352,6 +364,84 @@ class PurchaseBillController extends Controller
                     ],
                 ],
             ], 422);
+        }
+    }
+
+    /**
+     * Submit purchase bill for approval.
+     */
+    public function submit(Request $request, string $orgId, string $billId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        $bill = PurchaseBill::withoutGlobalScopes()->where('organization_id', $organization->id)->findOrFail($billId);
+
+        try {
+            $updated = $this->billService->submitForApproval($bill, $request->user());
+            return response()->json([
+                'data' => $updated,
+                'meta' => ['message' => "Bill {$updated->bill_number} submitted for approval."],
+                'errors' => [],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'SUBMIT_FAILED', 'message' => $e->getMessage()]]], 422);
+        }
+    }
+
+    /**
+     * Approve purchase bill.
+     */
+    public function approve(Request $request, string $orgId, string $billId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        if (! $this->canApproveBill($request, $organization)) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'FORBIDDEN', 'message' => 'You do not have permission to approve purchase bills.']]], 403);
+        }
+
+        $bill = PurchaseBill::withoutGlobalScopes()->where('organization_id', $organization->id)->findOrFail($billId);
+
+        try {
+            $updated = $this->billService->approveBill($bill, $request->user());
+            return response()->json([
+                'data' => $updated,
+                'meta' => ['message' => "Bill {$updated->bill_number} approved successfully."],
+                'errors' => [],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'APPROVE_FAILED', 'message' => $e->getMessage()]]], 422);
+        }
+    }
+
+    /**
+     * Reject purchase bill with reason.
+     */
+    public function reject(Request $request, string $orgId, string $billId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        if (! $this->canApproveBill($request, $organization)) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'FORBIDDEN', 'message' => 'You do not have permission to reject purchase bills.']]], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $bill = PurchaseBill::withoutGlobalScopes()->where('organization_id', $organization->id)->findOrFail($billId);
+
+        try {
+            $updated = $this->billService->rejectBill($bill, $request->user(), $validated['reason']);
+            return response()->json([
+                'data' => $updated,
+                'meta' => ['message' => "Bill {$updated->bill_number} rejected."],
+                'errors' => [],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'REJECT_FAILED', 'message' => $e->getMessage()]]], 422);
         }
     }
 }

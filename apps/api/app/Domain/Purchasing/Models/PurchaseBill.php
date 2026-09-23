@@ -39,6 +39,11 @@ class PurchaseBill extends Model
         'notes',
         'created_by',
         'posted_at',
+        'approved_by',
+        'approved_at',
+        'rejected_by',
+        'rejected_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
@@ -53,6 +58,8 @@ class PurchaseBill extends Model
         'net_payable' => 'decimal:4',
         'amount_paid' => 'decimal:4',
         'posted_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     public function vendor(): BelongsTo
@@ -78,6 +85,31 @@ class PurchaseBill extends Model
     public function balanceDue(): float
     {
         return max(0.00, (float) $this->net_payable - (float) $this->amount_paid);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function rejecter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    public function isPendingApproval(): bool
+    {
+        return $this->status === 'pending_approval';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
     }
 
     public function isDraft(): bool

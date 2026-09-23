@@ -122,12 +122,66 @@ class InvoiceService
     }
 
     /**
+     * Submit invoice for approval.
+     */
+    public function submitForApproval(SalesInvoice $invoice, User $user): SalesInvoice
+    {
+        if (! $invoice->isDraft() && ! $invoice->isRejected()) {
+            throw new InvalidArgumentException("Only draft or rejected invoices can be submitted for approval.");
+        }
+
+        $invoice->update([
+            'status' => 'pending_approval',
+            'rejection_reason' => null,
+        ]);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Approve invoice.
+     */
+    public function approveInvoice(SalesInvoice $invoice, User $user): SalesInvoice
+    {
+        if (! $invoice->isPendingApproval()) {
+            throw new InvalidArgumentException("Only invoices pending approval can be approved.");
+        }
+
+        $invoice->update([
+            'status' => 'approved',
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+        ]);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Reject invoice with reason.
+     */
+    public function rejectInvoice(SalesInvoice $invoice, User $user, string $reason): SalesInvoice
+    {
+        if (! $invoice->isPendingApproval()) {
+            throw new InvalidArgumentException("Only invoices pending approval can be rejected.");
+        }
+
+        $invoice->update([
+            'status' => 'rejected',
+            'rejected_by' => $user->id,
+            'rejected_at' => now(),
+            'rejection_reason' => $reason,
+        ]);
+
+        return $invoice->fresh();
+    }
+
+    /**
      * Post a sales invoice: creates and posts a General Ledger double-entry journal.
      */
     public function postInvoice(SalesInvoice $invoice, User $user): SalesInvoice
     {
-        if (! $invoice->isDraft()) {
-            throw new InvalidArgumentException("Only draft invoices can be posted.");
+        if (! in_array($invoice->status, ['draft', 'approved'])) {
+            throw new InvalidArgumentException("Only draft or approved invoices can be posted.");
         }
 
         $organization = Organization::findOrFail($invoice->organization_id);

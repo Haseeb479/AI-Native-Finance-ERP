@@ -131,12 +131,66 @@ class BillService
     }
 
     /**
+     * Submit purchase bill for approval.
+     */
+    public function submitForApproval(PurchaseBill $bill, User $user): PurchaseBill
+    {
+        if (! $bill->isDraft() && ! $bill->isRejected()) {
+            throw new InvalidArgumentException("Only draft or rejected bills can be submitted for approval.");
+        }
+
+        $bill->update([
+            'status' => 'pending_approval',
+            'rejection_reason' => null,
+        ]);
+
+        return $bill->fresh();
+    }
+
+    /**
+     * Approve purchase bill.
+     */
+    public function approveBill(PurchaseBill $bill, User $user): PurchaseBill
+    {
+        if (! $bill->isPendingApproval()) {
+            throw new InvalidArgumentException("Only purchase bills pending approval can be approved.");
+        }
+
+        $bill->update([
+            'status' => 'approved',
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+        ]);
+
+        return $bill->fresh();
+    }
+
+    /**
+     * Reject purchase bill with reason.
+     */
+    public function rejectBill(PurchaseBill $bill, User $user, string $reason): PurchaseBill
+    {
+        if (! $bill->isPendingApproval()) {
+            throw new InvalidArgumentException("Only purchase bills pending approval can be rejected.");
+        }
+
+        $bill->update([
+            'status' => 'rejected',
+            'rejected_by' => $user->id,
+            'rejected_at' => now(),
+            'rejection_reason' => $reason,
+        ]);
+
+        return $bill->fresh();
+    }
+
+    /**
      * Post a purchase bill: creates and posts a General Ledger double-entry journal.
      */
     public function postBill(PurchaseBill $bill, User $user): PurchaseBill
     {
-        if (! $bill->isDraft()) {
-            throw new InvalidArgumentException("Only draft purchase bills can be posted.");
+        if (! in_array($bill->status, ['draft', 'approved'])) {
+            throw new InvalidArgumentException("Only draft or approved purchase bills can be posted.");
         }
 
         $organization = Organization::findOrFail($bill->organization_id);
