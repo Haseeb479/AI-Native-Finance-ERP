@@ -133,5 +133,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/bank-accounts/{bankAccountId}/suggestions', [\App\Http\Controllers\Api\V1\BankController::class, 'suggestions']);
         Route::post('/organizations/{orgId}/bank-transactions/{transactionId}/reconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'reconcile']);
         Route::post('/organizations/{orgId}/bank-transactions/{transactionId}/unreconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'unreconcile']);
+
+        // Documents & OCR Pipeline
+        Route::get('/organizations/{orgId}/documents', [\App\Http\Controllers\Api\V1\DocumentController::class, 'index']);
+        Route::post('/organizations/{orgId}/documents', [\App\Http\Controllers\Api\V1\DocumentController::class, 'store']);
+        Route::get('/organizations/{orgId}/documents/{documentId}', [\App\Http\Controllers\Api\V1\DocumentController::class, 'show']);
+        Route::get('/organizations/{orgId}/documents/{documentId}/preview-url', [\App\Http\Controllers\Api\V1\DocumentController::class, 'previewUrl']);
+        Route::post('/organizations/{orgId}/documents/{documentId}/approve', [\App\Http\Controllers\Api\V1\DocumentController::class, 'approve']);
+        Route::post('/organizations/{orgId}/documents/{documentId}/reject', [\App\Http\Controllers\Api\V1\DocumentController::class, 'reject']);
     });
 });
