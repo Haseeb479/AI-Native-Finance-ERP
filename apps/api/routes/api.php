@@ -222,5 +222,24 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/inventory/stock/transfer', [\App\Http\Controllers\Api\V1\InventoryController::class, 'transferStock']);
         Route::get('/organizations/{orgId}/inventory/valuation-report', [\App\Http\Controllers\Api\V1\InventoryController::class, 'valuationReport']);
         Route::post('/organizations/{orgId}/inventory/cogs/process-invoice', [\App\Http\Controllers\Api\V1\InventoryController::class, 'processInvoiceCogs']);
+
+        // Step 27: Integrations & Webhooks
+        Route::get('/organizations/{orgId}/integrations', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'index']);
+        Route::post('/organizations/{orgId}/integrations', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'store']);
+        Route::post('/organizations/{orgId}/integrations/{id}/test', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'testConnection']);
+        Route::get('/organizations/{orgId}/integrations/sync-logs', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'indexLogs']);
+        Route::post('/organizations/{orgId}/integrations/sync-logs/{id}/retry', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'retryLog']);
+        Route::get('/organizations/{orgId}/webhooks', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'indexWebhooks']);
+        Route::post('/organizations/{orgId}/webhooks', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'storeWebhook']);
+        Route::post('/organizations/{orgId}/webhooks/{id}/test', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'triggerTestWebhook']);
+        Route::post('/organizations/{orgId}/webhooks/inbound-verify', [\App\Http\Controllers\Api\V1\IntegrationController::class, 'verifyInboundWebhook']);
+
+        // Step 28: Security Hardening & Rate Limiting
+        Route::get('/organizations/{orgId}/security/api-keys', [\App\Http\Controllers\Api\V1\SecurityController::class, 'indexApiKeys']);
+        Route::post('/organizations/{orgId}/security/api-keys', [\App\Http\Controllers\Api\V1\SecurityController::class, 'storeApiKey']);
+        Route::post('/organizations/{orgId}/security/api-keys/{id}/rotate', [\App\Http\Controllers\Api\V1\SecurityController::class, 'rotateApiKey']);
+        Route::delete('/organizations/{orgId}/security/api-keys/{id}', [\App\Http\Controllers\Api\V1\SecurityController::class, 'revokeApiKey']);
+        Route::get('/organizations/{orgId}/security/events', [\App\Http\Controllers\Api\V1\SecurityController::class, 'indexEvents']);
+        Route::post('/organizations/{orgId}/security/tenant-check', [\App\Http\Controllers\Api\V1\SecurityController::class, 'verifyTenantAccess']);
     });
 });

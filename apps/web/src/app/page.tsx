@@ -26,6 +26,8 @@ import {
   Compass,
   Boxes,
   PackageCheck,
+  ShieldCheck,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -673,6 +675,8 @@ export default function DashboardPage() {
                   { label: "3-Way Matching & Procurement", icon: PackageCheck, path: "/procurement" },
                   { label: "Inventory Valuation & Perpetual COGS", icon: Boxes, path: "/inventory" },
                   { label: "Consolidated Financials (Multi-Entity)", icon: TrendingUp, path: "/consolidation" },
+                  { label: "Integrations & Webhooks", icon: Plug, path: "/integrations" },
+                  { label: "Security Hardening & API Keys", icon: ShieldCheck, path: "/security" },
                   { label: "FBR Sales Tax (18% Annex-C)", icon: TrendingUp, path: "/taxation" },
                   { label: "Audit & Compliance Trail", icon: History, path: "/audit-logs" },
                 ].map((report, idx) => {
