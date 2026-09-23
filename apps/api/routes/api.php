@@ -141,5 +141,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/documents/{documentId}/preview-url', [\App\Http\Controllers\Api\V1\DocumentController::class, 'previewUrl']);
         Route::post('/organizations/{orgId}/documents/{documentId}/approve', [\App\Http\Controllers\Api\V1\DocumentController::class, 'approve']);
         Route::post('/organizations/{orgId}/documents/{documentId}/reject', [\App\Http\Controllers\Api\V1\DocumentController::class, 'reject']);
+
+        // Financial Reports
+        Route::get('/organizations/{orgId}/reports/trial-balance', [\App\Http\Controllers\Api\V1\ReportController::class, 'trialBalance']);
+        Route::get('/organizations/{orgId}/reports/profit-and-loss', [\App\Http\Controllers\Api\V1\ReportController::class, 'profitAndLoss']);
+        Route::get('/organizations/{orgId}/reports/balance-sheet', [\App\Http\Controllers\Api\V1\ReportController::class, 'balanceSheet']);
+        Route::get('/organizations/{orgId}/reports/general-ledger', [\App\Http\Controllers\Api\V1\ReportController::class, 'generalLedger']);
+        Route::get('/organizations/{orgId}/reports/ar-aging', [\App\Http\Controllers\Api\V1\ReportController::class, 'arAging']);
+        Route::get('/organizations/{orgId}/reports/ap-aging', [\App\Http\Controllers\Api\V1\ReportController::class, 'apAging']);
     });
 });
