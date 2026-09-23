@@ -24,6 +24,8 @@ import {
   TrendingUp,
   Plus,
   Compass,
+  Boxes,
+  PackageCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -563,9 +565,10 @@ export default function DashboardPage() {
               <div className="flex flex-col space-y-3.5 pt-1">
                 {[
                   { label: "Cash Transactions to be reconciled", count: 24, dot: true },
+                  { label: "Bills pending 3-Way Match", count: 2, dot: true },
                   { label: "Invoices to be FBR fiscalized", count: 4, dot: true },
                   { label: "Invoices to be sent", count: 16, dot: true },
-                  { label: "Contracts to be approved", count: 5, dot: true },
+                  { label: "Items below reorder level", count: 3, dot: true },
                   { label: "Journal Entries pending approval", count: 3, dot: true },
                   { label: "Bills to be paid", count: 0, dot: false },
                 ].map((action, idx) => (
@@ -667,6 +670,8 @@ export default function DashboardPage() {
                   { label: "Income Statement", icon: BarChart3, path: "/reports" },
                   { label: "Balance Sheet", icon: Compass, path: "/reports" },
                   { label: "General Ledger", icon: BookOpen, path: "/reports" },
+                  { label: "3-Way Matching & Procurement", icon: PackageCheck, path: "/procurement" },
+                  { label: "Inventory Valuation & Perpetual COGS", icon: Boxes, path: "/inventory" },
                   { label: "Consolidated Financials (Multi-Entity)", icon: TrendingUp, path: "/consolidation" },
                   { label: "FBR Sales Tax (18% Annex-C)", icon: TrendingUp, path: "/taxation" },
                   { label: "Audit & Compliance Trail", icon: History, path: "/audit-logs" },

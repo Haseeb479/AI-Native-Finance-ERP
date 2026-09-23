@@ -17,6 +17,8 @@ class SalesInvoiceLine extends Model
     protected $fillable = [
         'organization_id',
         'sales_invoice_id',
+        'product_id',
+        'warehouse_id',
         'revenue_account_id',
         'line_number',
         'description',
@@ -47,5 +49,15 @@ class SalesInvoiceLine extends Model
     public function revenueAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'revenue_account_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Inventory\Models\Product::class, 'product_id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Inventory\Models\Warehouse::class, 'warehouse_id');
     }
 }

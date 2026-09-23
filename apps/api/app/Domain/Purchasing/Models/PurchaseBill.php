@@ -21,6 +21,8 @@ class PurchaseBill extends Model
     protected $fillable = [
         'organization_id',
         'vendor_id',
+        'purchase_order_id',
+        'match_status',
         'journal_entry_id',
         'bill_number',
         'vendor_invoice_ref',
@@ -65,6 +67,16 @@ class PurchaseBill extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+
+    public function purchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Procurement\Models\PurchaseOrder::class, 'purchase_order_id');
+    }
+
+    public function threeWayMatches(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Procurement\Models\ThreeWayMatch::class, 'purchase_bill_id');
     }
 
     public function lines(): HasMany

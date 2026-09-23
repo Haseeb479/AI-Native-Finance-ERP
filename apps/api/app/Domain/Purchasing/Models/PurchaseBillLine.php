@@ -17,6 +17,8 @@ class PurchaseBillLine extends Model
     protected $fillable = [
         'organization_id',
         'purchase_bill_id',
+        'purchase_order_line_id',
+        'product_id',
         'expense_account_id',
         'line_number',
         'description',

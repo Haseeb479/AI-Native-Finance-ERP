@@ -197,5 +197,30 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/intercompany-transactions/{id}/post', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'postIntercompany']);
         Route::post('/organizations/{orgId}/consolidation/eliminate', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'eliminate']);
         Route::get('/organizations/{orgId}/consolidation/reports/{reportType}', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'report']);
+
+        // Step 25: Procurement & 3-Way Matching
+        Route::get('/organizations/{orgId}/procurement/requisitions', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'indexRequisitions']);
+        Route::post('/organizations/{orgId}/procurement/requisitions', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'storeRequisition']);
+        Route::post('/organizations/{orgId}/procurement/requisitions/{id}/approve', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'approveRequisition']);
+        Route::post('/organizations/{orgId}/procurement/requisitions/{id}/convert', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'convertRequisitionToPo']);
+        Route::get('/organizations/{orgId}/procurement/orders', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'indexOrders']);
+        Route::post('/organizations/{orgId}/procurement/orders', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'storeOrder']);
+        Route::post('/organizations/{orgId}/procurement/orders/{id}/issue', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'issueOrder']);
+        Route::post('/organizations/{orgId}/procurement/orders/{id}/receive-goods', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'receiveGoods']);
+        Route::post('/organizations/{orgId}/procurement/orders/{id}/generate-bill', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'generateBill']);
+        Route::post('/organizations/{orgId}/procurement/3way-match', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'matchThreeWay']);
+        Route::post('/organizations/{orgId}/procurement/3way-match/{id}/waive', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'waiveMatch']);
+        Route::get('/organizations/{orgId}/procurement/3way-matches', [\App\Http\Controllers\Api\V1\ProcurementController::class, 'indexMatches']);
+
+        // Step 26: Inventory Valuation & Automated COGS Engine
+        Route::get('/organizations/{orgId}/inventory/products', [\App\Http\Controllers\Api\V1\InventoryController::class, 'indexProducts']);
+        Route::post('/organizations/{orgId}/inventory/products', [\App\Http\Controllers\Api\V1\InventoryController::class, 'storeProduct']);
+        Route::get('/organizations/{orgId}/inventory/warehouses', [\App\Http\Controllers\Api\V1\InventoryController::class, 'indexWarehouses']);
+        Route::post('/organizations/{orgId}/inventory/warehouses', [\App\Http\Controllers\Api\V1\InventoryController::class, 'storeWarehouse']);
+        Route::post('/organizations/{orgId}/inventory/stock/receive', [\App\Http\Controllers\Api\V1\InventoryController::class, 'receiveStock']);
+        Route::post('/organizations/{orgId}/inventory/stock/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjustStock']);
+        Route::post('/organizations/{orgId}/inventory/stock/transfer', [\App\Http\Controllers\Api\V1\InventoryController::class, 'transferStock']);
+        Route::get('/organizations/{orgId}/inventory/valuation-report', [\App\Http\Controllers\Api\V1\InventoryController::class, 'valuationReport']);
+        Route::post('/organizations/{orgId}/inventory/cogs/process-invoice', [\App\Http\Controllers\Api\V1\InventoryController::class, 'processInvoiceCogs']);
     });
 });
