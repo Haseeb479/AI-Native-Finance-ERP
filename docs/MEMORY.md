@@ -13,11 +13,13 @@ Rillet is a public category benchmark for continuous close, automated GL, Aura A
 - [x] AI architecture direction
 - [x] Pakistan-first direction
 - [x] Rillet-informed documentation update
-- [x] Core Implementation (Phases 1 through 15 complete, 138/138 tests passing)
+- [x] Core Implementation (Phases 1 through 15 complete, 139/139 tests passing)
 - [x] Revenue Recognition (ASC 606 / IFRS 15 engine, schedules, contract amendments)
-- [ ] Final production domain / pilot onboarding
+- [x] Multi-container Docker orchestration (apps/api, apps/ai, apps/web, Nginx, Compose)
+- [x] Automated CI/CD quality gate (.github/workflows/ci.yml)
+- [x] Pakistani SME Pilot onboarding engine (erp:pilot-onboard CLI)
 - [ ] Initial customer segment interviews
-- [ ] Production pilot validation
+- [ ] Live cloud deployment & pilot customer validation
 
 ## Current computer task
 1. Open `AI-Native Finance ERP` in VS Code.
@@ -58,21 +60,22 @@ Read MEMORY, RULES, relevant ARCHITECTURE section and TASKS item. Implement the 
 ## Session update
 ```text
 Date: 2026-09-24
-Current status: All 15 Architecture Phases implemented; 138/138 feature tests passing with 1,124 assertions.
+Current status: All 15 Architecture Phases + 3 Operational Milestones implemented; 139/139 PHPUnit tests, 15/15 Pytest tests, Next.js build clean.
 Completed:
-- Phase 12 Revenue Recognition engine (ASC 606 / IFRS 15), straight-line amortization schedules, contract amendments, deterministic double-entry posting (Debit Deferred 2070, Credit Earned 4020).
-- Frontend integration: Revenue Contracts workspace, schedule inspector, contract creation modal, and GL posting buttons.
-- Full test suite verification (138/138 tests passing across all 26 feature test files).
-- Documentation sync across all 6 docs in docs/.
-In progress: Next.js production build verification and git commit.
+- Phase 12 Revenue Recognition engine (ASC 606 / IFRS 15), straight-line amortization schedules, contract amendments, deterministic double-entry posting.
+- Docker multi-container stack: apps/api/Dockerfile, apps/ai/Dockerfile, apps/web/Dockerfile, infra/docker/docker-compose.full.yml, infra/nginx/nginx.conf.
+- Pakistani SME Pilot Onboarding Command (php artisan erp:pilot-onboard) & test suite (PilotOnboardingTest).
+- GitHub Actions CI quality gate (.github/workflows/ci.yml) validating API, AI, and Web on every push/PR.
+In progress: Full suite verification and push to origin main.
 Blocked: None.
-Decisions: Use calendar months calculation for contract amortization; enforce strict double-entry invariants across schedules.
+Decisions: Dedicated multi-service docker compose; direct seeder execution in artisan commands; strict CI concurrency groups.
 Known bugs: None.
-Tests: 138 passed (1,124 assertions).
+Tests: 139 passed in Laravel (1,140 assertions); 15 passed in FastAPI (100%); Next.js static build passing.
 Next 3 actions:
-1. Verify Next.js web build and frontend UI reactivity.
-2. Review git status and commit conventional change.
-3. Review onboarding / pilot customer flow.
+1. Conduct customer interview sessions with Pakistani SME accountants.
+2. Select staging cloud host (AWS ECS, Hetzner, or DigitalOcean Kubernetes).
+3. Test end-to-end webhook ingestion with local bank statement feeds.
 ```
+
 
 
