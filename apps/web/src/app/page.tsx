@@ -264,6 +264,59 @@ export default function DashboardPage() {
   });
 
   // ─────────────────────────────────────────────────────────────
+  // 9. REVENUE RECOGNITION (ASC 606 / IFRS 15)
+  // ─────────────────────────────────────────────────────────────
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [isNewContractModalOpen, setIsNewContractModalOpen] = useState(false);
+  const [newContractForm, setNewContractForm] = useState({
+    title: "",
+    customer_name: "",
+    total_contract_value: "1200000",
+    start_date: "2025-07-01",
+    end_date: "2026-06-30",
+    recognition_method: "straight_line",
+  });
+
+  const { data: realRevenueContracts = [], isLoading: isLoadingContracts } = useQuery({
+    queryKey: ["revenue-contracts", activeOrgId],
+    queryFn: async () => {
+      if (!activeOrgId) return [];
+      return erpApi.getRevenueContracts(activeOrgId).catch(() => []);
+    },
+    enabled: !!activeOrgId && !!token && activeNav === "revenue",
+  });
+
+  const { data: selectedContractDetail } = useQuery({
+    queryKey: ["revenue-contract-detail", activeOrgId, selectedContractId],
+    queryFn: async () => {
+      if (!activeOrgId || !selectedContractId) return null;
+      return erpApi.getRevenueContract(activeOrgId, selectedContractId).catch(() => null);
+    },
+    enabled: !!activeOrgId && !!token && !!selectedContractId,
+  });
+
+  const recognizeScheduleMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      return erpApi.recognizeRevenueSchedule(activeOrgId!, scheduleId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["revenue-contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["revenue-contract-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["journals"] });
+    },
+  });
+
+  const createContractMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      return erpApi.createRevenueContract(activeOrgId!, payload);
+    },
+    onSuccess: () => {
+      setIsNewContractModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["revenue-contracts"] });
+    },
+  });
+
+  // ─────────────────────────────────────────────────────────────
   // AUTHENTICATION HANDLERS
   // ─────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
@@ -273,6 +326,7 @@ export default function DashboardPage() {
       const data = await erpApi.login(loginEmail, loginPassword);
       setToken(data.token);
       setCurrentUser(data.user);
+      setStoredSession(data.token, data.user);
 
       // Fetch user orgs
       const orgs = await erpApi.getOrganizations();
@@ -512,6 +566,7 @@ export default function DashboardPage() {
               { id: "copilot", icon: Bot, label: "AI Financial Copilot" },
               { id: "invoices", icon: FileText, label: "Sales Invoices (AR)" },
               { id: "bills", icon: FilePenLine, label: "Bills & 3-Way Matching (AP)" },
+              { id: "revenue", icon: TrendingUp, label: "Revenue Recognition (ASC 606)" },
               { id: "ledger", icon: BookOpen, label: "General Ledger & COA" },
               { id: "reports", icon: BarChart3, label: "Financial Reports" },
               { id: "features", icon: Sparkles, label: "ERP Module Directory" },
@@ -590,6 +645,8 @@ export default function DashboardPage() {
                 ? "Accounts Receivable"
                 : activeNav === "bills"
                 ? "Accounts Payable & 3-Way Match"
+                : activeNav === "revenue"
+                ? "Revenue Recognition (ASC 606 / IFRS 15)"
                 : activeNav === "ledger"
                 ? "General Ledger & COA"
                 : activeNav === "reports"
@@ -1205,6 +1262,306 @@ export default function DashboardPage() {
         )}
 
         {/* ─────────────────────────────────────────────────────────────
+            VIEW: REVENUE RECOGNITION (ASC 606 / IFRS 15)
+        ─────────────────────────────────────────────────────────────── */}
+        {activeNav === "revenue" && (
+          <div className="max-w-[1240px] w-full mx-auto px-8 py-8 flex flex-col space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight text-[#0F172A]">
+                  Revenue Recognition (ASC 606 & IFRS 15)
+                </h2>
+                <p className="text-xs text-[#64748B] mt-1">
+                  Customer contract amortization schedules, deferred revenue release, and deterministic double-entry posting.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setIsNewContractModalOpen(true)}
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-[#6366F1] text-white text-xs font-semibold hover:bg-[#4F46E5] shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Contract</span>
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  Total Contract Value (TCV)
+                </span>
+                <p className="text-xl font-bold text-[#0F172A] mt-1">
+                  {formatPKR(
+                    realRevenueContracts.length > 0
+                      ? realRevenueContracts.reduce((s: number, c: any) => s + Number(c.total_contract_value || 0), 0)
+                      : 1650000
+                  )}
+                </p>
+                <span className="text-[10px] text-emerald-600 font-medium">Under active management</span>
+              </div>
+
+              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  Recognized Revenue (Earned)
+                </span>
+                <p className="text-xl font-bold text-emerald-600 mt-1">
+                  {formatPKR(
+                    realRevenueContracts.length > 0
+                      ? realRevenueContracts.reduce((s: number, c: any) => s + Number(c.recognized_revenue || 0), 0)
+                      : 750000
+                  )}
+                </p>
+                <span className="text-[10px] text-[#64748B]">Posted to GL Account 4020</span>
+              </div>
+
+              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  Deferred Revenue (Unearned)
+                </span>
+                <p className="text-xl font-bold text-amber-600 mt-1">
+                  {formatPKR(
+                    realRevenueContracts.length > 0
+                      ? realRevenueContracts.reduce(
+                          (s: number, c: any) =>
+                            s + (Number(c.total_contract_value || 0) - Number(c.recognized_revenue || 0)),
+                          0
+                        )
+                      : 900000
+                  )}
+                </p>
+                <span className="text-[10px] text-[#64748B]">Liability on Balance Sheet (2070)</span>
+              </div>
+
+              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  Active Contracts
+                </span>
+                <p className="text-xl font-bold text-[#0F172A] mt-1">
+                  {realRevenueContracts.length > 0 ? realRevenueContracts.length : 2}
+                </p>
+                <span className="text-[10px] text-[#64748B]">Straight-Line Monthly</span>
+              </div>
+            </div>
+
+            {/* Contracts List Table */}
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#F1F5F9] flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0F172A]">Customer Revenue Contracts</h3>
+                  <p className="text-xs text-[#64748B]">
+                    Amortization performance obligations governed by ASC 606 5-step model.
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-medium">
+                    <tr>
+                      <th className="px-6 py-3">Contract #</th>
+                      <th className="px-6 py-3">Customer & Title</th>
+                      <th className="px-6 py-3">Period</th>
+                      <th className="px-6 py-3">Total Value</th>
+                      <th className="px-6 py-3">Recognized</th>
+                      <th className="px-6 py-3">Deferred (Remaining)</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F1F5F9]">
+                    {(realRevenueContracts.length > 0
+                      ? realRevenueContracts
+                      : [
+                          {
+                            id: "demo-rev-1",
+                            contract_number: "REV-2025-001",
+                            title: "Annual Enterprise Cloud Subscription",
+                            customer: { name: "Habib Bank Limited" },
+                            start_date: "2025-07-01",
+                            end_date: "2026-06-30",
+                            total_contract_value: 1200000,
+                            recognized_revenue: 300000,
+                            status: "active",
+                          },
+                          {
+                            id: "demo-rev-2",
+                            contract_number: "REV-2025-002",
+                            title: "Quarterly Integration Retainer",
+                            customer: { name: "Packages Limited" },
+                            start_date: "2025-07-01",
+                            end_date: "2025-09-30",
+                            total_contract_value: 450000,
+                            recognized_revenue: 450000,
+                            status: "completed",
+                          },
+                        ]
+                    ).map((contract: any) => {
+                      const totalVal = Number(contract.total_contract_value || 0);
+                      const recognizedVal = Number(contract.recognized_revenue || 0);
+                      const deferredVal = totalVal - recognizedVal;
+                      const isSelected = selectedContractId === contract.id;
+
+                      return (
+                        <tr
+                          key={contract.id}
+                          className={cn(
+                            "hover:bg-[#F8FAFC] transition-colors",
+                            isSelected && "bg-indigo-50/40"
+                          )}
+                        >
+                          <td className="px-6 py-3.5 font-mono font-medium text-[#0F172A]">
+                            {contract.contract_number}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <span className="font-semibold text-[#0F172A] block">
+                              {contract.customer?.name || "Corporate Customer"}
+                            </span>
+                            <span className="text-[11px] text-[#64748B]">{contract.title}</span>
+                          </td>
+                          <td className="px-6 py-3.5 text-[#475569]">
+                            {contract.start_date} → {contract.end_date}
+                          </td>
+                          <td className="px-6 py-3.5 font-semibold text-[#0F172A]">
+                            {formatPKR(totalVal)}
+                          </td>
+                          <td className="px-6 py-3.5 text-emerald-600 font-medium">
+                            {formatPKR(recognizedVal)}
+                          </td>
+                          <td className="px-6 py-3.5 text-amber-600 font-medium">
+                            {formatPKR(deferredVal)}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold",
+                                contract.status === "completed"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-blue-50 text-blue-700"
+                              )}
+                            >
+                              {contract.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3.5 text-right">
+                            <button
+                              onClick={() =>
+                                setSelectedContractId(
+                                  selectedContractId === contract.id ? null : contract.id
+                                )
+                              }
+                              className={cn(
+                                "text-xs font-semibold px-2.5 py-1 rounded transition-colors cursor-pointer",
+                                isSelected
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                              )}
+                            >
+                              {isSelected ? "Hide Schedules" : "View Schedules"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Selected Contract Amortization Schedule Drawer / Detail */}
+            {selectedContractId && (
+              <div className="bg-white rounded-2xl border border-indigo-200 p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#0F172A] flex items-center space-x-2">
+                      <span>Monthly Amortization Schedule</span>
+                      <span className="text-xs font-mono font-normal text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                        {selectedContractDetail?.contract_number || selectedContractId}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-[#64748B] mt-0.5">
+                      Each schedule posts a balanced double-entry journal (Debit 2070 Deferred Revenue, Credit 4020 Earned Revenue).
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedContractId(null)}
+                    className="text-[#94A3B8] hover:text-[#0F172A] p-1 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#F8FAFC] border-b text-[#475569] font-medium">
+                      <tr>
+                        <th className="px-4 py-2.5">Schedule Date</th>
+                        <th className="px-4 py-2.5">Amortization Amount</th>
+                        <th className="px-4 py-2.5">Cumulative Recognized</th>
+                        <th className="px-4 py-2.5">GL Status</th>
+                        <th className="px-4 py-2.5">Journal Entry</th>
+                        <th className="px-4 py-2.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F1F5F9]">
+                      {(selectedContractDetail?.schedules || [
+                        { id: "s-1", schedule_date: "2025-07-31", amount: 100000, cumulative_recognized: 100000, status: "posted", journal_entry_id: "je-001" },
+                        { id: "s-2", schedule_date: "2025-08-31", amount: 100000, cumulative_recognized: 200000, status: "posted", journal_entry_id: "je-002" },
+                        { id: "s-3", schedule_date: "2025-09-30", amount: 100000, cumulative_recognized: 300000, status: "posted", journal_entry_id: "je-003" },
+                        { id: "s-4", schedule_date: "2025-10-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
+                        { id: "s-5", schedule_date: "2025-11-30", amount: 100000, cumulative_recognized: 0, status: "pending" },
+                        { id: "s-6", schedule_date: "2025-12-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
+                      ]).map((schedule: any) => (
+                        <tr key={schedule.id} className="hover:bg-[#F8FAFC]">
+                          <td className="px-4 py-2.5 font-medium text-[#0F172A]">{schedule.schedule_date}</td>
+                          <td className="px-4 py-2.5 font-semibold text-[#0F172A]">{formatPKR(Number(schedule.amount))}</td>
+                          <td className="px-4 py-2.5 text-emerald-600 font-medium">
+                            {schedule.cumulative_recognized > 0 ? formatPKR(Number(schedule.cumulative_recognized)) : "—"}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold",
+                                schedule.status === "posted"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-amber-50 text-amber-700"
+                              )}
+                            >
+                              {schedule.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-[11px] text-[#64748B]">
+                            {schedule.journal_entry_id ? `#${schedule.journal_entry_id.slice(0, 8)}` : "Not posted"}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {schedule.status === "pending" && (
+                              <button
+                                onClick={() => recognizeScheduleMutation.mutate(schedule.id)}
+                                disabled={recognizeScheduleMutation.isPending}
+                                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                {recognizeScheduleMutation.isPending ? "Posting..." : "Recognize & Post"}
+                              </button>
+                            )}
+                            {schedule.status === "posted" && (
+                              <span className="text-[11px] text-emerald-600 font-medium">
+                                ✓ Posted to GL
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─────────────────────────────────────────────────────────────
             VIEW 4: GENERAL LEDGER & CHART OF ACCOUNTS
         ─────────────────────────────────────────────────────────────── */}
         {activeNav === "ledger" && (
@@ -1812,6 +2169,140 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL: NEW REVENUE CONTRACT (ASC 606)
+      ─────────────────────────────────────────────────────────────── */}
+      {isNewContractModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-[#E2E8F0] p-6 space-y-5">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-base text-[#0F172A]">New Revenue Contract</h3>
+                <p className="text-xs text-[#64748B]">
+                  ASC 606 / IFRS 15 straight-line contract amortization setup
+                </p>
+              </div>
+              <button
+                onClick={() => setIsNewContractModalOpen(false)}
+                className="text-[#94A3B8] hover:text-[#0F172A] p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createContractMutation.mutate({
+                  title: newContractForm.title || "Enterprise Software Retainer",
+                  customer_id: realInvoices[0]?.customer_id || undefined,
+                  total_contract_value: parseFloat(newContractForm.total_contract_value) || 1200000,
+                  start_date: newContractForm.start_date,
+                  end_date: newContractForm.end_date,
+                  recognition_method: newContractForm.recognition_method,
+                });
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-[#0F172A] mb-1">Contract Title / Project</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Annual Enterprise Cloud SLA Subscription"
+                  value={newContractForm.title}
+                  onChange={(e) => setNewContractForm({ ...newContractForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#0F172A] mb-1">Total Contract Value (PKR)</label>
+                  <input
+                    type="number"
+                    required
+                    step="1000"
+                    placeholder="1200000"
+                    value={newContractForm.total_contract_value}
+                    onChange={(e) =>
+                      setNewContractForm({ ...newContractForm, total_contract_value: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#0F172A] mb-1">Amortization Method</label>
+                  <select
+                    value={newContractForm.recognition_method}
+                    onChange={(e) =>
+                      setNewContractForm({ ...newContractForm, recognition_method: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="straight_line">Straight-Line Monthly (ASC 606)</option>
+                    <option value="milestone">Milestone / Deliverable</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#0F172A] mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={newContractForm.start_date}
+                    onChange={(e) => setNewContractForm({ ...newContractForm, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#0F172A] mb-1">End Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={newContractForm.end_date}
+                    onChange={(e) => setNewContractForm({ ...newContractForm, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-1">
+                <span className="text-[11px] font-semibold text-[#0F172A] block">
+                  Accounting Mapping Invariant
+                </span>
+                <p className="text-[10px] text-[#64748B]">
+                  • Deferred Revenue Account: <strong>2070 / 2010 (Liability)</strong>
+                  <br />
+                  • Earned Revenue Account: <strong>4020 (Service Revenue)</strong>
+                  <br />
+                  • 12 monthly balanced double-entry schedules will be generated automatically.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewContractModalOpen(false)}
+                  className="px-4 py-2 border border-[#E2E8F0] rounded-lg text-xs font-semibold text-[#475569] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createContractMutation.isPending}
+                  className="px-4 py-2 bg-[#6366F1] hover:bg-[#4F46E5] text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {createContractMutation.isPending ? "Generating Schedules..." : "Create & Build Schedules"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

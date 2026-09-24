@@ -244,5 +244,12 @@ Route::prefix('v1')->group(function () {
         Route::delete('/organizations/{orgId}/security/api-keys/{id}', [\App\Http\Controllers\Api\V1\SecurityController::class, 'revokeApiKey']);
         Route::get('/organizations/{orgId}/security/events', [\App\Http\Controllers\Api\V1\SecurityController::class, 'indexEvents']);
         Route::post('/organizations/{orgId}/security/tenant-check', [\App\Http\Controllers\Api\V1\SecurityController::class, 'verifyTenantAccess']);
+
+        // Phase 12: Revenue Recognition (ASC 606 / IFRS 15)
+        Route::get('/organizations/{orgId}/revenue-contracts', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'indexContracts']);
+        Route::post('/organizations/{orgId}/revenue-contracts', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'storeContract']);
+        Route::get('/organizations/{orgId}/revenue-contracts/{contractId}', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'showContract']);
+        Route::post('/organizations/{orgId}/revenue-contracts/{contractId}/amend', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'amendContract']);
+        Route::post('/organizations/{orgId}/revenue-schedules/{scheduleId}/recognize', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'recognizeSchedule']);
     });
 });

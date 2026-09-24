@@ -60,7 +60,7 @@ class DemoOrganizationSeeder extends Seeder
     private function createDemoOrganization(): void
     {
         // ── Users ─────────────────────────────────────────────────────────────
-        $owner = User::firstOrCreate(
+        $owner = User::updateOrCreate(
             ['email' => 'demo@apextrading.pk'],
             [
                 'name'              => 'Asad Mehmood (CFO)',
@@ -69,7 +69,7 @@ class DemoOrganizationSeeder extends Seeder
             ]
         );
 
-        $financeManager = User::firstOrCreate(
+        $financeManager = User::updateOrCreate(
             ['email' => 'finance@apextrading.pk'],
             [
                 'name'              => 'Sana Malik (Finance Manager)',
@@ -85,14 +85,9 @@ class DemoOrganizationSeeder extends Seeder
                 'legal_name'              => 'Apex Trading Private Limited',
                 'base_currency'           => 'PKR',
                 'fiscal_year_start_month' => 7,
-                'tax_registration_number' => '1234567-8',
                 'ntn'                     => '1234567-8',
                 'strn'                    => 'PKR-23-456789',
-                'address_line_1'          => 'Office 5A, Business Centre',
-                'city'                    => 'Karachi',
-                'country'                 => 'PK',
-                'phone'                   => '+92-21-35678900',
-                'email'                   => 'accounts@apextrading.pk',
+                'country_code'            => 'PK',
             ]
         );
 
@@ -121,25 +116,22 @@ class DemoOrganizationSeeder extends Seeder
             [
                 'name'     => 'Pakistan Steel Mills',
                 'email'    => 'sales@paksteel.pk',
-                'currency' => 'PKR',
                 'phone'    => '+92-21-99200001',
-                'address'  => 'Steel Mills Road, Karachi',
+                'address_line1' => 'Steel Mills Road, Karachi',
                 'ntn'      => '2345678-1',
             ],
             [
                 'name'     => 'Atlas Industries Ltd',
                 'email'    => 'orders@atlas.pk',
-                'currency' => 'PKR',
                 'phone'    => '+92-42-35556789',
-                'address'  => 'SITE Area, Lahore',
+                'address_line1' => 'SITE Area, Lahore',
                 'ntn'      => '3456789-2',
             ],
             [
                 'name'     => 'Global Packaging Co.',
                 'email'    => 'supply@globalpkg.pk',
-                'currency' => 'PKR',
                 'phone'    => '+92-51-2871234',
-                'address'  => 'I-9 Industrial, Islamabad',
+                'address_line1' => 'I-9 Industrial, Islamabad',
                 'ntn'      => '4567890-3',
             ],
         ];
@@ -158,21 +150,18 @@ class DemoOrganizationSeeder extends Seeder
             [
                 'name'               => 'Pak Textile Mills Ltd',
                 'email'              => 'finance@paktextile.pk',
-                'currency'           => 'PKR',
                 'payment_terms_days' => 30,
                 'phone'              => '+92-21-32456789',
             ],
             [
                 'name'               => 'Sapphire Fibres Limited',
                 'email'              => 'accounts@sapphire.pk',
-                'currency'           => 'PKR',
                 'payment_terms_days' => 45,
                 'phone'              => '+92-42-35689100',
             ],
             [
                 'name'               => 'Export Trading Corp.',
                 'email'              => 'ap@exportcorp.com',
-                'currency'           => 'USD',
                 'payment_terms_days' => 60,
                 'phone'              => '+1-212-5551234',
             ],
@@ -258,13 +247,13 @@ class DemoOrganizationSeeder extends Seeder
             ['organization_id' => $org->id, 'account_number' => '01234567890123'],
             [
                 'organization_id'    => $org->id,
-                'account_name'       => 'Apex Trading — HBL Current Account',
+                'account_title'      => 'Apex Trading - HBL Current Account',
                 'bank_name'          => 'Habib Bank Limited',
                 'branch_code'        => 'HBL-KHI-0002',
                 'account_number'     => '01234567890123',
                 'currency'           => 'PKR',
                 'current_balance'    => 5000000.00,
-                'gl_account_id'      => $cashAccount?->id,
+                'account_id'        => $cashAccount?->id,
                 'is_active'          => true,
             ]
         );

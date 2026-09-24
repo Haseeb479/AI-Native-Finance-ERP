@@ -62,10 +62,6 @@ return new class extends Migration
             $table->index(['organization_id', 'is_active']);
         });
 
-        // Add self-referencing foreign key after accounts table is created
-        Schema::table('accounts', function (Blueprint $table) {
-            $table->foreign('parent_account_id')->references('id')->on('accounts')->nullOnDelete();
-        });
     }
 
     /**
@@ -73,10 +69,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('accounts', function (Blueprint $table) {
-            $table->dropForeign(['parent_account_id']);
-        });
-
         Schema::dropIfExists('accounts');
         Schema::dropIfExists('account_groups');
         Schema::dropIfExists('account_types');

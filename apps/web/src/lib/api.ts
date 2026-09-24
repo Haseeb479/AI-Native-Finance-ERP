@@ -251,4 +251,38 @@ export const erpApi = {
     const res = await apiFetch<any[]>(`/organizations/${orgId}/audit-logs`);
     return res.data || [];
   },
+
+  // 10. Revenue Recognition (ASC 606 / IFRS 15)
+  getRevenueContracts: async (orgId: string) => {
+    const res = await apiFetch<any[]>(`/organizations/${orgId}/revenue-contracts`);
+    return res.data || [];
+  },
+
+  getRevenueContract: async (orgId: string, contractId: string) => {
+    const res = await apiFetch(`/organizations/${orgId}/revenue-contracts/${contractId}`);
+    return res.data;
+  },
+
+  createRevenueContract: async (orgId: string, data: any) => {
+    const res = await apiFetch(`/organizations/${orgId}/revenue-contracts`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return res.data;
+  },
+
+  recognizeRevenueSchedule: async (orgId: string, scheduleId: string) => {
+    const res = await apiFetch(`/organizations/${orgId}/revenue-schedules/${scheduleId}/recognize`, {
+      method: "POST",
+    });
+    return res.data;
+  },
+
+  amendRevenueContract: async (orgId: string, contractId: string, data: any) => {
+    const res = await apiFetch(`/organizations/${orgId}/revenue-contracts/${contractId}/amend`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return res.data;
+  },
 };
