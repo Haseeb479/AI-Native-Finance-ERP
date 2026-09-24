@@ -77,7 +77,7 @@ class MockLLMAdapter(BaseLLMAdapter):
 
         if response_model == FinancialQAResponse:
             return FinancialQAResponse(
-                answer="You currently have 16 open sales invoices pending collection totaling PKR 3,240,000, and 3 journal entries awaiting manager approval.",
+                answer="You currently have 16 pending invoices totaling PKR 3,240,000, and 3 journal entries awaiting manager approval.",
                 key_metrics={
                     "pending_invoices_count": "16",
                     "pending_invoices_amount": "PKR 3,240,000",
