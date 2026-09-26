@@ -25,9 +25,12 @@ class AiRunLog extends Model
         'model',
         'input_tokens',
         'output_tokens',
+        'cached_tokens',
+        'provider_request_id',
         'total_cost',
         'status',
         'latency_ms',
+        'retry_count',
         'error_message',
         'metadata',
     ];
@@ -36,8 +39,10 @@ class AiRunLog extends Model
         'prompt_version' => 'integer',
         'input_tokens' => 'integer',
         'output_tokens' => 'integer',
+        'cached_tokens' => 'integer',
         'total_cost' => 'decimal:6',
         'latency_ms' => 'integer',
+        'retry_count' => 'integer',
         'metadata' => 'array',
     ];
 

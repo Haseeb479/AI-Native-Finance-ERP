@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'ai' => [
+        'url' => env('AI_SERVICE_URL', 'http://localhost:8001'),
+        'internal_secret' => env('AI_INTERNAL_SECRET', 'ai-native-finance-erp-internal-service-secret-key'),
+    ],
+
 ];

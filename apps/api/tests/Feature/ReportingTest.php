@@ -83,11 +83,13 @@ class ReportingTest extends TestCase
     private function postEntry(
         string $date,
         string $description,
-        array $lines // [['account_id'=>..., 'debit'=>..., 'credit'=>...], ...]
+        array $lines, // [['account_id'=>..., 'debit'=>..., 'credit'=>...], ...]
+        string $sourceType = 'invoice'
     ) {
         $draft = $this->postingEngine->createDraft($this->org, [
             'entry_date'  => $date,
             'description' => $description,
+            'source_type' => $sourceType,
             'currency'    => 'PKR',
             'lines'       => $lines,
         ], $this->owner);

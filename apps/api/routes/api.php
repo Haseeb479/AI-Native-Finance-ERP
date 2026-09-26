@@ -52,19 +52,33 @@ Route::prefix('v1')->group(function () {
         ], $healthy ? 200 : 503);
     });
 
-    // Authentication Routes
+    // Authentication Routes with rate limiting (P1-01)
     Route::prefix('auth')->group(function () {
-        Route::post('/register', [\App\Http\Controllers\Api\V1\AuthController::class, 'register']);
-        Route::post('/login', [\App\Http\Controllers\Api\V1\AuthController::class, 'login']);
+        Route::post('/register', [\App\Http\Controllers\Api\V1\AuthController::class, 'register'])->middleware('throttle:10,1');
+        Route::post('/login', [\App\Http\Controllers\Api\V1\AuthController::class, 'login'])->middleware('throttle:15,1');
+
+        Route::post('/forgot-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
+        Route::post('/reset-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [\App\Http\Controllers\Api\V1\AuthController::class, 'logout']);
             Route::get('/me', [\App\Http\Controllers\Api\V1\AuthController::class, 'me']);
+
+            // Session Lifecycle (P1-03)
+            Route::get('/sessions', [\App\Http\Controllers\Api\V1\AuthController::class, 'sessions']);
+            Route::delete('/sessions/{id}', [\App\Http\Controllers\Api\V1\AuthController::class, 'revokeSession']);
+            Route::post('/sessions/revoke-others', [\App\Http\Controllers\Api\V1\AuthController::class, 'revokeOtherSessions']);
+            Route::post('/sessions/revoke-all', [\App\Http\Controllers\Api\V1\AuthController::class, 'revokeAllSessions']);
+
+            // Password & Verification Management (P1-05)
+            Route::post('/change-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'changePassword']);
+            Route::post('/email/verification-notification', [\App\Http\Controllers\Api\V1\AuthController::class, 'sendVerificationNotification']);
+            Route::post('/email/verify', [\App\Http\Controllers\Api\V1\AuthController::class, 'verifyEmail']);
         });
     });
 
     // Multi-Tenant Protected Routes
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'api.limiter'])->group(function () {
         Route::get('/organizations', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'index']);
         Route::post('/organizations', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'store']);
         Route::get('/organizations/{id}', [\App\Http\Controllers\Api\V1\OrganizationController::class, 'show']);
@@ -88,6 +102,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/fiscal-years', [\App\Http\Controllers\Api\V1\PeriodController::class, 'storeFiscalYear']);
         Route::get('/organizations/{orgId}/periods', [\App\Http\Controllers\Api\V1\PeriodController::class, 'indexPeriods']);
         Route::post('/organizations/{orgId}/periods/{periodId}/close', [\App\Http\Controllers\Api\V1\PeriodController::class, 'close']);
+        Route::post('/organizations/{orgId}/periods/{periodId}/soft-close', [\App\Http\Controllers\Api\V1\PeriodController::class, 'softClose']);
+        Route::post('/organizations/{orgId}/periods/{periodId}/hard-close', [\App\Http\Controllers\Api\V1\PeriodController::class, 'hardClose']);
         Route::post('/organizations/{orgId}/periods/{periodId}/reopen', [\App\Http\Controllers\Api\V1\PeriodController::class, 'reopen']);
         Route::post('/organizations/{orgId}/periods/{periodId}/lock', [\App\Http\Controllers\Api\V1\PeriodController::class, 'lock']);
 
@@ -251,5 +267,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/revenue-contracts/{contractId}', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'showContract']);
         Route::post('/organizations/{orgId}/revenue-contracts/{contractId}/amend', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'amendContract']);
         Route::post('/organizations/{orgId}/revenue-schedules/{scheduleId}/recognize', [\App\Http\Controllers\Api\V1\RevenueRecognitionController::class, 'recognizeSchedule']);
+    });
+
+    // Internal Service Routes (FastAPI <-> Laravel Secure RPC) (P1-12, P1-14)
+    Route::prefix('internal')->middleware('internal.service')->group(function () {
+        Route::get('/organizations/{orgId}/accounts/lookup', [\App\Http\Controllers\Api\V1\Internal\InternalAiCapabilityController::class, 'lookupAccount']);
+        Route::get('/organizations/{orgId}/transactions/search', [\App\Http\Controllers\Api\V1\Internal\InternalAiCapabilityController::class, 'searchTransactions']);
+        Route::post('/organizations/{orgId}/ai/drafts', [\App\Http\Controllers\Api\V1\Internal\InternalAiCapabilityController::class, 'createDraft']);
+        Route::post('/organizations/{orgId}/ai/drafts/{draftId}/approve', [\App\Http\Controllers\Api\V1\Internal\InternalAiCapabilityController::class, 'approveDraft']);
     });
 });

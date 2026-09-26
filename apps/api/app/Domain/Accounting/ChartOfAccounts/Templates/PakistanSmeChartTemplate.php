@@ -64,6 +64,8 @@ class PakistanSmeChartTemplate
                 'normal_balance' => 'debit',
                 'is_reconcilable' => true,
                 'is_system' => true,
+                'is_control_account' => true,
+                'control_type' => 'ar_control',
             ],
             [
                 'code' => '1040',
@@ -140,6 +142,8 @@ class PakistanSmeChartTemplate
                 'normal_balance' => 'credit',
                 'is_reconcilable' => true,
                 'is_system' => true,
+                'is_control_account' => true,
+                'control_type' => 'ap_control',
             ],
             [
                 'code' => '2020',
@@ -398,6 +402,8 @@ class PakistanSmeChartTemplate
                         'is_active' => true,
                         'is_reconcilable' => $def['is_reconcilable'] ?? false,
                         'is_system' => $def['is_system'] ?? false,
+                        'is_control_account' => $def['is_control_account'] ?? false,
+                        'control_type' => $def['control_type'] ?? null,
                     ]
                 );
 

@@ -178,4 +178,59 @@ class PeriodManager
 
         return $period;
     }
+
+    /**
+     * Soft-close an accounting period (locks operational subledger entries, allows accountant adjustments).
+     */
+    public function softClosePeriod(AccountingPeriod $period, User $user): AccountingPeriod
+    {
+        $oldStatus = $period->status;
+
+        $period->update([
+            'status' => 'soft_closed',
+            'closed_at' => $period->closed_at ?? now(),
+            'closed_by' => $period->closed_by ?? $user->id,
+        ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $period->organization_id,
+                $user,
+                'period:soft_closed',
+                $period,
+                ['status' => $oldStatus],
+                ['status' => 'soft_closed']
+            );
+        }
+
+        return $period;
+    }
+
+    /**
+     * Hard-close an accounting period (complete freeze against all entries and adjustments).
+     */
+    public function hardClosePeriod(AccountingPeriod $period, User $user): AccountingPeriod
+    {
+        $oldStatus = $period->status;
+
+        $period->update([
+            'status' => 'hard_closed',
+            'closed_at' => $period->closed_at ?? now(),
+            'closed_by' => $period->closed_by ?? $user->id,
+        ]);
+
+        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+            app(\App\Domain\Audit\Services\AuditService::class)->log(
+                $period->organization_id,
+                $user,
+                'period:hard_closed',
+                $period,
+                ['status' => $oldStatus],
+                ['status' => 'hard_closed']
+            );
+        }
+
+        return $period;
+    }
 }
+

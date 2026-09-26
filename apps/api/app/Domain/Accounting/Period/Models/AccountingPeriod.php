@@ -59,14 +59,34 @@ class AccountingPeriod extends Model
         return $this->status === 'open';
     }
 
+    public function isSoftClosed(): bool
+    {
+        return $this->status === 'soft_closed';
+    }
+
+    public function isHardClosed(): bool
+    {
+        return in_array($this->status, ['hard_closed', 'closed', 'locked'], true);
+    }
+
     public function isClosed(): bool
     {
-        return $this->status === 'closed';
+        return $this->isHardClosed();
     }
 
     public function isLocked(): bool
     {
-        return $this->status === 'locked';
+        return $this->isSoftClosed() || $this->isHardClosed();
+    }
+
+    public function canPostOperational(): bool
+    {
+        return $this->isOpen();
+    }
+
+    public function canPostAdjustments(): bool
+    {
+        return $this->isOpen() || $this->isSoftClosed();
     }
 
     public function canPost(): bool
@@ -85,5 +105,14 @@ class AccountingPeriod extends Model
 
         return $query->whereDate('start_date', '<=', $dateStr)
                      ->whereDate('end_date', '>=', $dateStr);
+    }
+
+    public function containsDate(Carbon|string $date): bool
+    {
+        $dateStr = $date instanceof Carbon ? $date->toDateString() : Carbon::parse($date)->toDateString();
+        $startStr = $this->start_date instanceof Carbon ? $this->start_date->toDateString() : (string) $this->start_date;
+        $endStr = $this->end_date instanceof Carbon ? $this->end_date->toDateString() : (string) $this->end_date;
+
+        return $startStr <= $dateStr && $endStr >= $dateStr;
     }
 }

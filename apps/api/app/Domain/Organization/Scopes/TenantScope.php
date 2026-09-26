@@ -2,25 +2,26 @@
 
 namespace App\Domain\Organization\Scopes;
 
+use App\Domain\Organization\Context\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
 
 class TenantScope implements Scope
 {
-    /**
-     * The active organization ID for the current request.
-     */
-    protected static ?string $currentOrganizationId = null;
+    private static function context(): TenantContext
+    {
+        return app(TenantContext::class);
+    }
 
     public static function setOrganizationId(?string $organizationId): void
     {
-        static::$currentOrganizationId = $organizationId;
+        static::context()->setOrganization($organizationId);
     }
 
     public static function getOrganizationId(): ?string
     {
-        return static::$currentOrganizationId;
+        return static::context()->getOrganizationId();
     }
 
     /**
@@ -28,8 +29,9 @@ class TenantScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        if (static::$currentOrganizationId) {
-            $builder->where($model->qualifyColumn('organization_id'), static::$currentOrganizationId);
+        $orgId = static::getOrganizationId();
+        if ($orgId) {
+            $builder->where($model->qualifyColumn('organization_id'), $orgId);
         }
     }
 }

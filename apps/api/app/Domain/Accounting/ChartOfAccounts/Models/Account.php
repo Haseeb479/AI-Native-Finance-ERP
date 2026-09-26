@@ -30,13 +30,21 @@ class Account extends Model
         'is_active',
         'is_reconcilable',
         'is_system',
+        'is_control_account',
+        'control_type',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'is_reconcilable' => 'boolean',
         'is_system' => 'boolean',
+        'is_control_account' => 'boolean',
     ];
+
+    public function isControlAccount(): bool
+    {
+        return (bool) $this->is_control_account;
+    }
 
     public function type(): BelongsTo
     {

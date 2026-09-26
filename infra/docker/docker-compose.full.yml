@@ -88,8 +88,7 @@ services:
       dockerfile: Dockerfile
     container_name: finance_erp_ai
     restart: unless-stopped
-    ports:
-      - "8001:8001"
+    # AI port kept strictly internal to private finance_network (P0-02)
     environment:
       ENVIRONMENT: production
       LLM_PROVIDER: mock
@@ -123,7 +122,6 @@ services:
     depends_on:
       - web
       - api
-      - ai
     networks:
       - finance_network
 

@@ -258,7 +258,7 @@ class ComprehensiveE2EAndInvariantTest extends TestCase
             $draft = $postingEngine->createDraft($this->org, [
                 'entry_date'  => '2025-09-01',
                 'description' => "Test Entry #{$i} — Amount {$amount}",
-                'source_type' => 'manual',
+                'source_type' => 'customer_payment',
                 'currency'    => 'PKR',
                 'lines' => [
                     ['account_id' => $cashAccount->id, 'debit' => $amount, 'credit' => 0],

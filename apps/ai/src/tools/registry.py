@@ -47,8 +47,9 @@ class ToolRegistry:
 
         tool = self._tools[request.tool_name]
 
-        # 3. Verify server-side permission
-        if tool.required_permission not in request.user_permissions and "*" not in request.user_permissions:
+        # 3. Verify server-side permission derived from verified service token
+        user_perms = request.user_permissions if request.user_permissions is not None else []
+        if tool.required_permission not in user_perms and "*" not in user_perms:
             return ToolExecutionResult(
                 tool_name=request.tool_name,
                 success=False,

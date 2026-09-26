@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Accounting\Journal\Models\JournalEntry;
 use App\Domain\Accounting\Posting\Exceptions\ClosedPeriodException;
+use App\Domain\Accounting\Posting\Exceptions\ControlAccountProtectedException;
 use App\Domain\Accounting\Posting\Exceptions\ImmutableJournalException;
 use App\Domain\Accounting\Posting\Exceptions\UnbalancedJournalException;
 use App\Domain\Accounting\Posting\Services\PostingEngine;
@@ -13,6 +14,7 @@ use App\Http\Requests\Journal\CreateJournalEntryRequest;
 use App\Http\Requests\Journal\UpdateJournalEntryRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Throwable;
 
 class JournalController extends Controller
@@ -166,7 +168,7 @@ class JournalController extends Controller
                 ],
                 'errors' => [],
             ], 201);
-        } catch (UnbalancedJournalException|ClosedPeriodException $e) {
+        } catch (UnbalancedJournalException|ClosedPeriodException|ControlAccountProtectedException|InvalidArgumentException $e) {
             return response()->json([
                 'data' => null,
                 'meta' => ['timestamp' => now()->toISOString()],
@@ -276,6 +278,17 @@ class JournalController extends Controller
                     ],
                 ],
             ], 422);
+        } catch (ControlAccountProtectedException|InvalidArgumentException $e) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toISOString()],
+                'errors' => [
+                    [
+                        'code' => 'ACCOUNTING_RULE_VIOLATION',
+                        'message' => $e->getMessage(),
+                    ],
+                ],
+            ], 422);
         }
     }
 
@@ -327,7 +340,7 @@ class JournalController extends Controller
                 ],
                 'errors' => [],
             ]);
-        } catch (UnbalancedJournalException|ClosedPeriodException|ImmutableJournalException $e) {
+        } catch (UnbalancedJournalException|ClosedPeriodException|ImmutableJournalException|InvalidArgumentException $e) {
             return response()->json([
                 'data' => null,
                 'meta' => ['timestamp' => now()->toISOString()],

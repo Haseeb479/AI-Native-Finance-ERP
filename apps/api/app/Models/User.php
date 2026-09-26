@@ -46,6 +46,13 @@ class User extends Authenticatable
         return $membership?->pivot?->role;
     }
 
+    /**
+     * OWNER WILDCARD & SEPARATION OF DUTIES POLICY (P0-10):
+     * The organization 'owner' role holds top-level tenant authority and defaults to wildcard
+     * permissions for operational continuity.
+     * When strict Separation of Duties (SoD) is enabled, maker-checker invariants still apply:
+     * a maker cannot post or approve their own draft records.
+     */
     public function hasPermissionInOrganization(string $permission, string|\App\Domain\Organization\Models\Organization $organization): bool
     {
         $roleName = $this->roleInOrganization($organization);
@@ -67,5 +74,31 @@ class User extends Authenticatable
         }
 
         return $role->permissions->contains('name', $permission);
+    }
+
+    /**
+     * Get verified server-side permissions for a user in a given organization.
+     */
+    public function getPermissionsForOrganization(string|\App\Domain\Organization\Models\Organization $organization): array
+    {
+        $roleName = $this->roleInOrganization($organization);
+
+        if (! $roleName) {
+            return [];
+        }
+
+        if ($roleName === 'owner') {
+            return ['*'];
+        }
+
+        $role = \App\Domain\Identity\Models\Role::where('name', $roleName)
+            ->with('permissions')
+            ->first();
+
+        if (! $role) {
+            return [];
+        }
+
+        return $role->permissions->pluck('name')->all();
     }
 }

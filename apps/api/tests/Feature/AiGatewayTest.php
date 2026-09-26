@@ -159,4 +159,129 @@ class AiGatewayTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    public function test_ai_gateway_generates_valid_signed_jwt_token(): void
+    {
+        $gatewayService = app(\App\Domain\AI\Services\AiGatewayService::class);
+        $token = $gatewayService->generateInternalServiceToken($this->org, $this->owner);
+
+        $this->assertNotEmpty($token);
+        $parts = explode('.', $token);
+        $this->assertCount(3, $parts, "JWT must consist of header, payload, and signature.");
+
+        $header = json_decode(base64_decode(strtr($parts[0], '-_', '+/')), true);
+        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+
+        $this->assertEquals('HS256', $header['alg']);
+        $this->assertEquals('laravel-finance-erp', $payload['iss']);
+        $this->assertEquals('ai-tool-gateway', $payload['aud']);
+        $this->assertEquals($this->org->id, $payload['organization_id']);
+        $this->assertEquals($this->owner->id, $payload['user_id']);
+        $this->assertNotEmpty($payload['jti']);
+        $this->assertGreaterThan(time(), $payload['exp']);
+    }
+
+    public function test_ask_copilot_uses_server_authoritative_context(): void
+    {
+        Http::fake([
+            '*copilot/qa*' => Http::response([
+                'answer' => 'Your financial position is balanced.',
+                'confidence' => 0.98,
+                'referenced_accounts' => [],
+                'evidence' => [],
+                'caveats' => [],
+                'flagged_for_review' => false,
+            ], 200),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$this->token}")
+            ->postJson("/api/v1/organizations/{$this->org->id}/ai/copilot/qa", [
+                'query' => 'What is our current financial health?',
+                'financial_context' => [
+                    'fake_bank_balance' => 9999999999.0, // Untrusted caller data
+                ],
+            ]);
+
+        $response->assertStatus(200);
+
+        Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+            $context = $request['financial_context'] ?? [];
+            // Verify server-authoritative fields were sent
+            return isset($context['is_trial_balance_balanced'])
+                && isset($context['total_debit'])
+                && isset($context['total_credit'])
+                && $request->hasHeader('Authorization');
+        });
+    }
+
+    public function test_ai_gateway_records_provider_reported_metrics_and_request_id(): void
+    {
+        Http::fake([
+            '*classify/transaction*' => Http::response([
+                'suggested_account' => [
+                    'account_code' => '6010',
+                    'account_name' => 'IT Software',
+                    'confidence' => 0.99,
+                    'rationale' => 'SaaS subscription',
+                ],
+                'usage_metadata' => [
+                    'prompt_tokens' => 142,
+                    'completion_tokens' => 48,
+                    'cached_tokens' => 16,
+                    'request_id' => 'req-gemini-prod-9921',
+                    'actual_cost' => 0.000021,
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$this->token}")
+            ->postJson("/api/v1/organizations/{$this->org->id}/ai/classify-transaction", [
+                'description' => 'GitHub Enterprise licenses',
+                'amount' => 12000.00,
+                'currency' => 'PKR',
+            ]);
+
+        $response->assertStatus(200);
+
+        $log = AiRunLog::where('organization_id', $this->org->id)
+            ->where('prompt_key', 'classify_transaction')
+            ->latest()
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertEquals(142, $log->input_tokens);
+        $this->assertEquals(48, $log->output_tokens);
+        $this->assertEquals(16, $log->cached_tokens);
+        $this->assertEquals('req-gemini-prod-9921', $log->provider_request_id);
+        $this->assertEquals(0.000021, (float) $log->total_cost);
+    }
+
+    public function test_ai_gateway_blocks_requests_when_quota_exceeded(): void
+    {
+        // Set quota to exhausted
+        \App\Domain\AI\Models\AiQuota::create([
+            'organization_id' => $this->org->id,
+            'feature' => 'classify_transaction',
+            'monthly_token_quota' => 100,
+            'monthly_spend_quota' => 0.0100,
+            'tokens_used_this_month' => 150, // Exceeded
+            'spend_used_this_month' => 0.0200,
+            'hard_limit_enabled' => true,
+            'soft_alert_threshold_percent' => 80,
+            'last_reset_date' => now()->toDateString(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$this->token}")
+            ->postJson("/api/v1/organizations/{$this->org->id}/ai/classify-transaction", [
+                'description' => 'Should be blocked by quota limiter',
+                'amount' => 5000.00,
+                'currency' => 'PKR',
+            ]);
+
+        // Expect 502 with AiQuotaExceededException envelope
+        $response->assertStatus(502)
+            ->assertJsonPath('errors.0.code', 'AI_EXECUTION_ERROR');
+        $this->assertStringContainsString('exceeded its monthly AI quota', $response->json('errors.0.message'));
+    }
 }
+

@@ -311,4 +311,102 @@ class PeriodController extends Controller
             'errors' => [],
         ]);
     }
+
+    /**
+     * Soft-close an accounting period (blocks operational transactions, allows adjusting journals).
+     */
+    public function softClose(Request $request, string $orgId, string $periodId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+
+        if (! $organization) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toISOString()],
+                'errors' => [
+                    [
+                        'code' => 'ORGANIZATION_NOT_FOUND',
+                        'message' => 'Organization not found or access denied.',
+                    ],
+                ],
+            ], 404);
+        }
+
+        if (! $this->canManagePeriods($request, $organization)) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toISOString()],
+                'errors' => [
+                    [
+                        'code' => 'FORBIDDEN',
+                        'message' => 'You do not have permission to soft-close accounting periods.',
+                    ],
+                ],
+            ], 403);
+        }
+
+        $period = AccountingPeriod::withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
+            ->findOrFail($periodId);
+
+        $softClosed = $this->periodManager->softClosePeriod($period, $request->user());
+
+        return response()->json([
+            'data' => $softClosed,
+            'meta' => [
+                'message' => "Period {$softClosed->name} soft-closed successfully.",
+                'timestamp' => now()->toISOString(),
+            ],
+            'errors' => [],
+        ]);
+    }
+
+    /**
+     * Hard-close an accounting period (permanent audit freeze).
+     */
+    public function hardClose(Request $request, string $orgId, string $periodId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+
+        if (! $organization) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toISOString()],
+                'errors' => [
+                    [
+                        'code' => 'ORGANIZATION_NOT_FOUND',
+                        'message' => 'Organization not found or access denied.',
+                    ],
+                ],
+            ], 404);
+        }
+
+        if (! $this->canManagePeriods($request, $organization)) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toISOString()],
+                'errors' => [
+                    [
+                        'code' => 'FORBIDDEN',
+                        'message' => 'You do not have permission to hard-close accounting periods.',
+                    ],
+                ],
+            ], 403);
+        }
+
+        $period = AccountingPeriod::withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
+            ->findOrFail($periodId);
+
+        $hardClosed = $this->periodManager->hardClosePeriod($period, $request->user());
+
+        return response()->json([
+            'data' => $hardClosed,
+            'meta' => [
+                'message' => "Period {$hardClosed->name} hard-closed successfully.",
+                'timestamp' => now()->toISOString(),
+            ],
+            'errors' => [],
+        ]);
+    }
 }

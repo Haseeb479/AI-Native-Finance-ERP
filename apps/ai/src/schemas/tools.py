@@ -22,10 +22,10 @@ class ToolDefinition(BaseModel):
 class ToolExecutionRequest(BaseModel):
     tool_name: str
     arguments: Dict[str, Any]
-    organization_id: str
-    entity_id: str
-    user_id: str
-    user_permissions: List[str]
+    organization_id: Optional[str] = None
+    entity_id: Optional[str] = None
+    user_id: Optional[str] = None
+    user_permissions: Optional[List[str]] = None
 
 class ToolExecutionResult(BaseModel):
     tool_name: str

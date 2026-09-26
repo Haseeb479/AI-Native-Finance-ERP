@@ -25,6 +25,12 @@ class AISettings(BaseSettings):
     MAX_TOKENS_PER_REQUEST: int = 4096
     TEMPERATURE: float = 0.1  # Low temperature for deterministic accounting outputs
     
+    # Internal Service-to-Service Authentication (P0-01)
+    INTERNAL_SERVICE_SECRET: str = "ai-native-finance-erp-internal-service-secret-key"
+    JWT_ALGORITHM: str = "HS256"
+    SERVICE_ISSUER: str = "laravel-finance-erp"
+    SERVICE_AUDIENCE: str = "ai-tool-gateway"
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
