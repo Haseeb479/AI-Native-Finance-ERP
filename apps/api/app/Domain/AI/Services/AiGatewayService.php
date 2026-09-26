@@ -270,6 +270,7 @@ class AiGatewayService
         $startTime = microtime(true);
         $promptInfo = $this->promptRegistry->getTemplate('journal_draft', $organization);
 
+        $internalToken = $this->generateInternalServiceToken($organization, $user);
         $endpoint = "{$this->aiServiceUrl}/v1/copilot/draft-journal";
         $payload = [
             'instruction' => $instruction,
@@ -285,7 +286,7 @@ class AiGatewayService
         $estOutputTokens = 120;
 
         try {
-            $response = Http::timeout(20)->post($endpoint, $payload);
+            $response = Http::withToken($internalToken)->timeout(20)->post($endpoint, $payload);
             if (! $response->successful()) {
                 throw new \RuntimeException("Journal draft service returned HTTP {$response->status()}");
             }
@@ -341,6 +342,7 @@ class AiGatewayService
         $startTime = microtime(true);
         $promptInfo = $this->promptRegistry->getTemplate('explain_report', $organization);
 
+        $internalToken = $this->generateInternalServiceToken($organization, $user);
         $endpoint = "{$this->aiServiceUrl}/v1/copilot/explain-report";
         $payload = [
             'report_type' => $reportType,
@@ -356,7 +358,7 @@ class AiGatewayService
         $estOutputTokens = 180;
 
         try {
-            $response = Http::timeout(20)->post($endpoint, $payload);
+            $response = Http::withToken($internalToken)->timeout(20)->post($endpoint, $payload);
             if (! $response->successful()) {
                 throw new \RuntimeException("Report explanation service returned HTTP {$response->status()}");
             }

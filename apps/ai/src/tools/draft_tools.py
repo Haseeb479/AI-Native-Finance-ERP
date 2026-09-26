@@ -11,6 +11,13 @@ from apps.ai.src.auth.service_auth import create_internal_token
 async def handle_draft_journal(args: Dict[str, Any], context: ToolExecutionRequest) -> Dict[str, Any]:
     # Ensure debits == credits in the draft proposition
     lines = args.get("lines", [])
+    if not lines or len(lines) < 2:
+        raise ValueError("Cannot create journal draft with fewer than 2 lines.")
+
+    for idx, line in enumerate(lines, start=1):
+        if not (line.get("account_id") or line.get("account_code") or line.get("account_name")):
+            raise ValueError(f"Line {idx} must specify an account_id, account_code, or account_name for deterministic resolution.")
+
     total_debit = sum(float(l.get("debit", 0)) for l in lines)
     total_credit = sum(float(l.get("credit", 0)) for l in lines)
 

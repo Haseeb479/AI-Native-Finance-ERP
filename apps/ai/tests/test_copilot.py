@@ -20,6 +20,9 @@ async def test_financial_qa_copilot(client: AsyncClient):
     assert "pending_invoices_count" in data["key_metrics"]
     assert len(data["suggested_actions"]) > 0
     assert data["confidence"] > 0.8
+    assert len(data["evidence"]) >= 1
+    assert data["groundedness_score"] >= 0.75
+    assert data["evidence"][0]["verified"] is True
     assert data["flagged_for_review"] is False
 
 @pytest.mark.asyncio

@@ -50,8 +50,31 @@ async def ask_financial_qa(request: FinancialQARequest):
         system_instruction=QA_SYSTEM_PROMPT,
         response_model=FinancialQAResponse,
     )
+
+    # P1-15: Server-side groundedness validation of evidence citations
+    if response.evidence:
+        context_keys = {str(k).lower(): str(v).lower() for k, v in (request.financial_context or {}).items()}
+        verified_count = 0
+        for citation in response.evidence:
+            metric_key = citation.metric_or_code.lower()
+            if metric_key in context_keys:
+                citation.verified = True
+                verified_count += 1
+            else:
+                # Check substring match in context values
+                matched = any(citation.stated_value.lower() in v for v in context_keys.values())
+                citation.verified = matched
+                if matched:
+                    verified_count += 1
+
+        response.groundedness_score = round(verified_count / len(response.evidence), 2)
+        if response.groundedness_score < 0.75:
+            response.flagged_for_review = True
+
     if flagged:
         response.flagged_for_review = True
+        response.groundedness_score = min(response.groundedness_score, 0.5)
+
     return response
 
 @router.post("/draft-journal", response_model=JournalDraftResponse)

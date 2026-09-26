@@ -10,6 +10,7 @@ from apps.ai.src.schemas.extraction import (
     InvoiceLineItem,
 )
 from apps.ai.src.schemas.qa import (
+    EvidenceCitation,
     FinancialQAResponse,
     JournalDraftResponse,
     JournalDraftLine,
@@ -83,11 +84,30 @@ class MockLLMAdapter(BaseLLMAdapter):
                     "pending_invoices_amount": "PKR 3,240,000",
                     "unreconciled_transactions": "24",
                 },
+                evidence=[
+                    EvidenceCitation(
+                        source_type="subledger",
+                        record_id="subledger_invoices",
+                        metric_or_code="open_invoices",
+                        period_or_date="current",
+                        stated_value="16",
+                        verified=True,
+                    ),
+                    EvidenceCitation(
+                        source_type="general_ledger",
+                        record_id="cash_asset_account",
+                        metric_or_code="cash_balance",
+                        period_or_date="current",
+                        stated_value="PKR 12,500,000",
+                        verified=True,
+                    ),
+                ],
                 suggested_actions=[
                     "Send payment reminders for invoices overdue > 30 days",
                     "Review pending journal draft #JE-2025-00042",
                 ],
                 confidence=0.95,
+                groundedness_score=1.0,
                 flagged_for_review=False,
             ) # type: ignore
 
@@ -130,6 +150,24 @@ class MockLLMAdapter(BaseLLMAdapter):
                         account_or_category="Software & Cloud Subscriptions",
                         movement_description="Reduced by PKR 25,000 following server optimization.",
                         impact_level="medium",
+                    ),
+                ],
+                evidence=[
+                    EvidenceCitation(
+                        source_type="report",
+                        record_id="pnl_q1",
+                        metric_or_code="revenue",
+                        period_or_date="Q1 FY 2025-2026",
+                        stated_value="PKR 500,000",
+                        verified=True,
+                    ),
+                    EvidenceCitation(
+                        source_type="report",
+                        record_id="pnl_q1",
+                        metric_or_code="gross_profit",
+                        period_or_date="Q1 FY 2025-2026",
+                        stated_value="PKR 350,000",
+                        verified=True,
                     ),
                 ],
                 risk_flags=[

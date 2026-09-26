@@ -56,6 +56,11 @@ def detect_prompt_injection(text: str) -> Tuple[bool, List[str], str]:
             reasons.append(f"Prompt breakout marker detected: {marker}")
             cleaned_text = re.sub(re.escape(marker), "[STRIPPED_MARKER]", cleaned_text, flags=re.IGNORECASE)
 
+    # Disarm HTML/script injection tags
+    if re.search(r"<\s*script", cleaned_text, re.IGNORECASE):
+        cleaned_text = re.sub(r"<\s*script[^>]*>.*?<\s*/\s*script\s*>", "[SCRIPT_STRIPPED]", cleaned_text, flags=re.DOTALL | re.IGNORECASE)
+        cleaned_text = re.sub(r"<\s*script[^>]*>", "[SCRIPT_STRIPPED]", cleaned_text, flags=re.IGNORECASE)
+
     return flagged, reasons, cleaned_text
 
 def sanitize_untrusted_document_text(text: str) -> Tuple[str, bool]:

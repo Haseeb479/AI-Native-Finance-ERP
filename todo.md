@@ -242,31 +242,33 @@ Current tools return hardcoded/demo data.
 - [ ] Evidence returned with results.
 
 ## P1-13 — Deterministic account resolution
-LLM account suggestion -> server lookup -> organization validation -> active account validation -> confidence -> human review.
+- [x] LLM account suggestion -> server lookup -> organization validation -> active account validation -> confidence -> human review.
+- [x] Reject lines lacking deterministic account identifiers in draft tools.
 
 ## P1-14 — Persist AI drafts
 Do not return fake IDs such as draft-jr-902.
 
 Create persisted AI draft/workflow records with:
-- [ ] organization/entity
-- [ ] user
-- [ ] AI run
-- [ ] input
-- [ ] proposed lines
-- [ ] validation result
-- [ ] status
-- [ ] approval
-- [ ] resulting journal
-- [ ] version/timestamps
+- [x] organization/entity
+- [x] user
+- [x] AI run
+- [x] input
+- [x] proposed lines
+- [x] validation result
+- [x] status
+- [x] approval
+- [x] resulting journal
+- [x] version/timestamps
 
 ## P1-15 — Add evidence to AI answers
 Record:
-- [ ] source report/query
-- [ ] period
-- [ ] accounts/transactions
-- [ ] source documents
-- [ ] retrieval timestamp
-- [ ] model/prompt version
+- [x] source report/query
+- [x] period
+- [x] accounts/transactions
+- [x] source documents
+- [x] retrieval timestamp
+- [x] model/prompt version
+- [x] structured EvidenceCitation with verification & groundedness_score
 
 ## P1-16 — Replace estimated token/cost accounting
 File: AiGatewayService.php
@@ -274,38 +276,38 @@ File: AiGatewayService.php
 Current token/cost values are estimated. Use provider-reported usage where available.
 
 Store:
-- [ ] prompt tokens
-- [ ] completion tokens
-- [ ] cached tokens
-- [ ] provider/model
-- [ ] provider request ID
-- [ ] actual cost
-- [ ] latency
-- [ ] retry count
+- [x] prompt tokens
+- [x] completion tokens
+- [x] cached tokens
+- [x] provider/model
+- [x] provider request ID
+- [x] actual cost
+- [x] latency
+- [x] retry count
 
 ## P1-17 — AI quotas and budgets
 Per organization/user/plan/feature:
-- [ ] token quota
-- [ ] cost budget
-- [ ] rate limit
-- [ ] concurrency limit
-- [ ] overage policy
+- [x] token quota
+- [x] cost budget
+- [x] rate limit
+- [x] concurrency limit
+- [x] overage policy
 
 ## P1-18 — Real AI evaluation suite
-Directory: tests/ai-evals/
+Directory: apps/ai/tests/data/golden_eval_dataset.json & test_evaluation.py
 
 Cases:
-- [ ] accounting Q&A
-- [ ] wrong/missing context
-- [ ] hallucination
-- [ ] tenant isolation
-- [ ] prompt injection
-- [ ] tool abuse
-- [ ] ambiguous requests
-- [ ] tax/currency
-- [ ] journal balance
-- [ ] closed period
-- [ ] approval bypass
+- [x] accounting Q&A
+- [x] wrong/missing context
+- [x] hallucination
+- [x] tenant isolation
+- [x] prompt injection
+- [x] tool abuse
+- [x] ambiguous requests
+- [x] tax/currency
+- [x] journal balance
+- [x] closed period
+- [x] approval bypass
 
 # P1 — ACCOUNTING
 
