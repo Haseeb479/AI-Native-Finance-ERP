@@ -31,8 +31,12 @@ async def handle_get_account(args: Dict[str, Any], context: ToolExecutionRequest
                     "organization_id": context.organization_id,
                     "evidence_source": "postgresql://general_ledger",
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(f"Upstream ledger lookup failed: {str(e)}")
+
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError(f"Failed to query account {account_code} from production ledger.")
 
     return {
         "account_code": account_code,

@@ -59,8 +59,12 @@ async def handle_draft_journal(args: Dict[str, Any], context: ToolExecutionReque
                     "evidence_source": f"postgresql://ai_drafts/{data.get('draft_id')}",
                     "message": data.get("message", "Journal draft persisted successfully. Must be approved and posted via the posting engine."),
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(f"Production draft persistence failed: {str(e)}")
+
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError("Production draft persistence failed: upstream ledger API did not return success.")
 
     # Deterministic fallback with real UUID if backend API server is disconnected
     persisted_draft_id = str(uuid.uuid4())

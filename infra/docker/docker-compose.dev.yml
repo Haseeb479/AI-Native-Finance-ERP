@@ -1,0 +1,145 @@
+name: finance-erp-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance_dev_postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5434}:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-finance_erp}
+      POSTGRES_USER: ${DB_USERNAME:-finance_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret_local_password}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-finance_user} -d ${DB_DATABASE:-finance_erp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finance_dev_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: finance_dev_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finance_dev_network
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: finance_dev_minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_dev_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finance_dev_network
+
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    container_name: finance_dev_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: ${APP_KEY:-base64:7B5pC6f0Z4yWqM1hK9xL2jR8vT3nE5sY6uI4oP0aA2c=}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-finance_erp}
+      DB_USERNAME: ${DB_USERNAME:-finance_user}
+      DB_PASSWORD: ${DB_PASSWORD:-secret_local_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AI_SERVICE_URL: http://ai:8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev_shared_internal_secret_change_in_prod}
+    volumes:
+      - ../../apps/api:/var/www/html
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - finance_dev_network
+
+  ai:
+    build:
+      context: ../../apps/ai
+      dockerfile: Dockerfile
+    container_name: finance_dev_ai
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      ENVIRONMENT: development
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      APP_PORT: 8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev_shared_internal_secret_change_in_prod}
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    volumes:
+      - ../../apps/ai:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - finance_dev_network
+
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+    container_name: finance_dev_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      INTERNAL_API_URL: http://api:8000/api/v1
+    volumes:
+      - ../../apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    networks:
+      - finance_dev_network
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+  minio_dev_data:
+
+networks:
+  finance_dev_network:
+    driver: bridge

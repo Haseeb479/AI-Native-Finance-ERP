@@ -34,6 +34,7 @@ class JournalEntry extends Model
         'posted_by',
         'reversal_of_id',
         'created_by',
+        'idempotency_key',
     ];
 
     protected $casts = [
@@ -93,22 +94,43 @@ class JournalEntry extends Model
         return $this->status === 'voided';
     }
 
+    public function totalDebitString(): string
+    {
+        $total = '0.0000';
+        foreach ($this->lines as $line) {
+            $total = bcadd($total, (string) $line->debit, 4);
+        }
+        return $total;
+    }
+
+    public function totalCreditString(): string
+    {
+        $total = '0.0000';
+        foreach ($this->lines as $line) {
+            $total = bcadd($total, (string) $line->credit, 4);
+        }
+        return $total;
+    }
+
     public function totalDebit(): float
     {
-        return (float) $this->lines->sum(fn ($line) => (float) $line->debit);
+        return (float) $this->totalDebitString();
     }
 
     public function totalCredit(): float
     {
-        return (float) $this->lines->sum(fn ($line) => (float) $line->credit);
+        return (float) $this->totalCreditString();
     }
 
     /**
-     * Invariant: Total Debit == Total Credit
+     * Invariant: Total Debit == Total Credit and Total Debit > 0 using arbitrary-precision bcmath (P1 Tier 1).
      */
     public function isBalanced(): bool
     {
-        return abs($this->totalDebit() - $this->totalCredit()) < 0.0001 && $this->totalDebit() > 0;
+        $debit = $this->totalDebitString();
+        $credit = $this->totalCreditString();
+
+        return bccomp($debit, $credit, 4) === 0 && bccomp($debit, '0.0000', 4) === 1;
     }
 
     public function scopePosted(Builder $query): Builder

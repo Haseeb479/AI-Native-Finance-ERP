@@ -247,3 +247,39 @@ async def test_unbalanced_journal_draft_rejected(client: AsyncClient):
     data = response.json()
     assert data["success"] is False
     assert "Cannot create unbalanced journal draft" in data["error"]
+
+@pytest.mark.asyncio
+async def test_distributed_replay_protection_async_blocks_duplicate():
+    """Verify ReplayProtection async distributed check rejects repeated nonce."""
+    from apps.ai.src.auth.service_auth import ReplayProtection
+    rp = ReplayProtection(ttl_seconds=60)
+    nonce = "dist-nonce-abc-123"
+    
+    # First record succeeds
+    assert await rp.check_and_record_async(nonce) is True
+    # Replay check fails
+    assert await rp.check_and_record_async(nonce) is False
+
+def test_production_environment_rejects_default_secret():
+    """Booting with ENVIRONMENT=production and default secret must raise ValueError."""
+    from apps.ai.src.config import AISettings
+    with pytest.raises(ValueError) as exc:
+        s = AISettings(
+            ENVIRONMENT="production",
+            INTERNAL_SERVICE_SECRET="ai-native-finance-erp-internal-service-secret-key",
+            DEFAULT_LLM_PROVIDER="gemini"
+        )
+        s.validate_production_readiness()
+    assert "Security Violation: Production environment cannot use default insecure INTERNAL_SERVICE_SECRET" in str(exc.value)
+
+def test_production_environment_rejects_mock_llm_adapter(monkeypatch):
+    """Factory must refuse MockLLMAdapter in production."""
+    from apps.ai.src.adapters.factory import get_llm_adapter
+    from apps.ai.src.config import settings
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "DEFAULT_LLM_PROVIDER", "mock")
+    
+    with pytest.raises(RuntimeError) as exc:
+        get_llm_adapter("mock")
+    assert "MockLLMAdapter is strictly forbidden in production" in str(exc.value)
+

@@ -1,0 +1,190 @@
+name: finance-erp-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance_prod_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-finance_erp}
+      POSTGRES_USER: ${DB_USERNAME:-finance_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided in production}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-finance_user} -d ${DB_DATABASE:-finance_erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: finance_prod_redis
+    restart: always
+    command: >
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+        redis-server --requirepass "$$REDIS_PASSWORD";
+      else
+        redis-server;
+      fi'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - finance_prod_network
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: finance_prod_minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID must be provided in production}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY must be provided in production}
+    command: server /data
+    volumes:
+      - minio_prod_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    container_name: finance_prod_api
+    restart: always
+    ports:
+      - "${API_BIND_PORT:-8000}:8000"
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY must be provided in production}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-finance_erp}
+      DB_USERNAME: ${DB_USERNAME:-finance_user}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided in production}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      AI_SERVICE_URL: http://ai:8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      SESSION_SECURE_COOKIE: "true"
+      SANCTUM_STATEFUL_DOMAINS: ${APP_DOMAINS:-localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+  ai:
+    build:
+      context: ../../apps/ai
+      dockerfile: Dockerfile
+    container_name: finance_prod_ai
+    restart: always
+    # Security: AI port 8001 is NEVER exposed to the public internet / host.
+    # It is accessible strictly by the api container over internal bridge network.
+    expose:
+      - "8001"
+    environment:
+      ENVIRONMENT: production
+      LLM_PROVIDER: ${LLM_PROVIDER:?LLM_PROVIDER must be configured in production (e.g. groq, deepseek, anthropic)}
+      APP_PORT: 8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+    container_name: finance_prod_web
+    restart: always
+    ports:
+      - "${WEB_BIND_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      INTERNAL_API_URL: http://api:8000/api/v1
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  minio_prod_data:
+
+networks:
+  finance_prod_network:
+    driver: bridge

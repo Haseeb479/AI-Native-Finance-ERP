@@ -45,4 +45,41 @@ class HealthCheckTest extends TestCase
                 'errors',
             ]);
     }
+
+    /**
+     * Test the production readiness endpoint returns dynamic checks for database, AI, and test suite.
+     */
+    public function test_production_readiness_returns_dynamic_metrics(): void
+    {
+        $response = $this->getJson('/api/v1/health/production-readiness');
+
+        $response->assertJsonStructure([
+            'data' => [
+                'status',
+                'ready',
+                'total_checks',
+                'passing_checks',
+                'failing_checks',
+                'checks' => [
+                    'database',
+                    'critical_tables',
+                    'migrations',
+                    'cache',
+                    'environment',
+                    'configuration',
+                    'accounting_modules',
+                    'ai_service',
+                    'test_suite' => [
+                        'pass',
+                        'status',
+                        'description',
+                        'details' => [
+                            'test_files_count',
+                            'discovered_test_methods',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
 }

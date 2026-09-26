@@ -22,11 +22,11 @@ Change:
 - Add replay protection.
 
 Acceptance:
-- [ ] Forged user_permissions cannot elevate privileges.
-- [ ] Forged organization_id/entity_id cannot switch scope.
-- [ ] Forged user_id cannot impersonate.
-- [ ] Expired or invalid signed requests fail.
-- [ ] Direct unauthenticated tool execution fails.
+- [x] Forged user_permissions cannot elevate privileges.
+- [x] Forged organization_id/entity_id cannot switch scope.
+- [x] Forged user_id cannot impersonate.
+- [x] Expired or invalid signed requests fail.
+- [x] Direct unauthenticated tool execution fails.
 
 ## P0-02 — Remove public exposure of the AI service
 Files: infra/docker/docker-compose.full.yml, infra/nginx/nginx.conf
@@ -35,20 +35,20 @@ Change:
 Internet -> Nginx -> Laravel API -> private AI network -> FastAPI.
 Do not publish port 8001 in production. Do not expose the tool API publicly.
 
-- [ ] AI port private.
-- [ ] Only trusted backend services can reach FastAPI.
-- [ ] Direct internet access fails.
+- [x] AI port private.
+- [x] Only trusted backend services can reach FastAPI.
+- [x] Direct internet access fails.
 
 ## P0-03 — Remove hardcoded demo credentials
 File: apps/web/src/app/page.tsx
 
 Finding: demo login credentials are embedded in client-side source.
 
-- [ ] Remove credentials.
-- [ ] No passwords/tokens/API keys in frontend source.
-- [ ] Add secret scanning.
-- [ ] Check git history for accidentally committed credentials.
-- [ ] Use server-controlled demo mode if a demo environment is needed.
+- [x] Remove credentials.
+- [x] No passwords/tokens/API keys in frontend source.
+- [x] Add secret scanning.
+- [x] Check git history for accidentally committed credentials.
+- [x] Use server-controlled demo mode if a demo environment is needed.
 
 ## P0-04 — Make financial AI context server-authoritative
 Files: AiGatewayController.php, AiGatewayService.php, apps/ai/src/api/v1/copilot.py
@@ -58,60 +58,60 @@ Current risk: caller-provided financial_context/report_data can be presented to 
 Required flow:
 User -> Laravel authorization -> reporting/domain query -> verified facts -> AI -> answer + evidence.
 
-- [ ] Browser cannot define authoritative balances.
-- [ ] AI retrieves only authorized organization/entity data.
-- [ ] Cross-tenant retrieval impossible.
-- [ ] Financial answers contain evidence/source references.
+- [x] Browser cannot define authoritative balances.
+- [x] AI retrieves only authorized organization/entity data.
+- [x] Cross-tenant retrieval impossible.
+- [x] Financial answers contain evidence/source references.
 
 ## P0-05 — Make posting concurrency-safe
 File: apps/api/app/Domain/Accounting/Posting/Services/PostingEngine.php
 
 Current risk: postEntry checks draft state and updates without a row-locking transaction.
 
-- [ ] Use DB transaction.
-- [ ] SELECT journal FOR UPDATE.
-- [ ] Re-check status inside transaction.
-- [ ] Re-check period inside transaction.
-- [ ] Make second concurrent post idempotent.
-- [ ] Add concurrent posting test.
+- [x] Use DB transaction.
+- [x] SELECT journal FOR UPDATE.
+- [x] Re-check status inside transaction.
+- [x] Re-check period inside transaction.
+- [x] Make second concurrent post idempotent.
+- [x] Add concurrent posting test.
 
 ## P0-06 — Make journal entry numbering concurrency-safe
 File: PostingEngine.php
 
 Current risk: read latest entry -> increment -> insert can race.
 
-- [ ] DB sequence/counter row or safe retry on unique constraint.
-- [ ] Concurrent test with at least 100 creates.
-- [ ] No duplicate entry_number.
+- [x] DB sequence/counter row or safe retry on unique constraint.
+- [x] Concurrent test with at least 100 creates.
+- [x] No duplicate entry_number.
 
 ## P0-07 — Enforce journal-line invariants
 Files: journal request classes, PostingEngine.php, journal migration.
 
 Each line:
-- [ ] debit >= 0
-- [ ] credit >= 0
-- [ ] cannot have both debit and credit
-- [ ] cannot have both zero
+- [x] debit >= 0
+- [x] credit >= 0
+- [x] cannot have both debit and credit
+- [x] cannot have both zero
 
 Each journal:
-- [ ] at least 2 lines
-- [ ] debit == credit
-- [ ] debit total > 0
-- [ ] accounts belong to same organization
-- [ ] accounts active/not deleted
-- [ ] entity belongs to organization
-- [ ] period belongs to organization
-- [ ] period covers entry date
-- [ ] currency/exchange rate valid
+- [x] at least 2 lines
+- [x] debit == credit
+- [x] debit total > 0
+- [x] accounts belong to same organization
+- [x] accounts active/not deleted
+- [x] entity belongs to organization
+- [x] period belongs to organization
+- [x] period covers entry date
+- [x] currency/exchange rate valid
 
 Add PostgreSQL constraints where practical.
 
 ## P0-08 — Enforce tenant consistency below controllers
 Every financial service must independently verify:
-- [ ] account.organization_id == journal.organization_id
-- [ ] journal_line.organization_id == journal.organization_id
-- [ ] entity.organization_id == journal.organization_id
-- [ ] period.organization_id == journal.organization_id
+- [x] account.organization_id == journal.organization_id
+- [x] journal_line.organization_id == journal.organization_id
+- [x] entity.organization_id == journal.organization_id
+- [x] period.organization_id == journal.organization_id
 
 Add direct service-level cross-tenant tests.
 

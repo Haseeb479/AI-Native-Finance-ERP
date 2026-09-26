@@ -78,7 +78,7 @@ export function clearStoredSession() {
   localStorage.removeItem(USER_KEY);
 }
 
-// Low-level fetch wrapper with auth header injection
+// Low-level fetch wrapper with secure cookie proxy and auth header fallback
 export async function apiFetch<T = any>(
   endpoint: string,
   options: RequestInit = {}
@@ -100,9 +100,20 @@ export async function apiFetch<T = any>(
     headers["X-Organization-Id"] = org.id;
   }
 
-  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
+  // When executed in the browser, route through the Next.js secure cookie proxy
+  // unless an absolute URL is specified
+  let url = endpoint;
+  if (!endpoint.startsWith("http")) {
+    if (typeof window !== "undefined") {
+      const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+      url = `/api/proxy${cleanEndpoint}`;
+    } else {
+      url = `${API_BASE_URL}${endpoint}`;
+    }
+  }
 
   const res = await fetch(url, {
+    credentials: "same-origin",
     ...options,
     headers,
   });
@@ -113,7 +124,7 @@ export async function apiFetch<T = any>(
     if (res.status >= 500) {
       throw new Error("ERP server unavailable. Start PostgreSQL and the Laravel API, then try again.");
     }
-    const errorMsg = json?.errors?.[0]?.message || json?.errors?.[0] || res.statusText || "Request failed";
+    const errorMsg = json?.errors?.[0]?.message || json?.errors?.[0] || json?.error || res.statusText || "Request failed";
     throw new Error(errorMsg);
   }
 
@@ -133,8 +144,21 @@ export const erpApi = {
     return apiFetch("/health/production-readiness");
   },
 
-  // 2. Auth & Session
+  // 2. Auth & Session (Secure HttpOnly Cookie Powered)
   login: async (email: string, password: string) => {
+    if (typeof window !== "undefined") {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email, password, device_name: "web_dashboard" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || json?.message || "Authentication failed.");
+      }
+      return json.data;
+    }
+
     const res = await apiFetch("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password, device_name: "web_dashboard" }),
@@ -143,13 +167,28 @@ export const erpApi = {
   },
 
   getMe: async () => {
+    if (typeof window !== "undefined") {
+      const res = await fetch("/api/auth/session", {
+        headers: { Accept: "application/json" },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.authenticated) {
+        throw new Error(json?.error || "Not authenticated.");
+      }
+      return json.data;
+    }
+
     const res = await apiFetch("/auth/me");
     return res.data;
   },
 
   logout: async () => {
     try {
-      await apiFetch("/auth/logout", { method: "POST" });
+      if (typeof window !== "undefined") {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } else {
+        await apiFetch("/auth/logout", { method: "POST" });
+      }
     } finally {
       clearStoredSession();
     }

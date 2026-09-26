@@ -67,19 +67,17 @@ class ProductionReadinessController extends Controller
             $allPass = false;
         }
 
-        // ── 8. Test Suite Summary (static, updated after each CI run) ─────────
-        $checks['test_suite'] = [
-            'pass'        => true,
-            'status'      => 'ok',
-            'description' => 'PHPUnit test suite',
-            'details'     => [
-                'total_tests'      => 139,
-                'total_assertions' => 1100,
-                'failures'         => 0,
-                'last_run'         => '2026-09-23',
-                'note'             => 'Run: php artisan test --colors=never to verify',
-            ],
-        ];
+        // ── 8. AI Service & Secret Configuration ──────────────────────────────
+        $checks['ai_service'] = $this->checkAiService();
+        if (! $checks['ai_service']['pass']) {
+            $allPass = false;
+        }
+
+        // ── 9. Test Suite Discovery & State (Dynamic) ─────────────────────────
+        $checks['test_suite'] = $this->checkTestSuite();
+        if (! $checks['test_suite']['pass']) {
+            $allPass = false;
+        }
 
         $statusCode = $allPass ? 200 : 503;
         $status     = $allPass ? 'production_ready' : 'not_ready';
@@ -334,6 +332,77 @@ class ProductionReadinessController extends Controller
                 'online'  => count($servicesToCheck) - count($failed),
                 'failed'  => $failed,
                 'modules' => $modules,
+            ],
+        ];
+    }
+
+    private function checkAiService(): array
+    {
+        $url = config('services.ai.url', 'http://localhost:8001');
+        $secret = config('services.ai.internal_secret');
+        $env = config('app.env');
+
+        $issues = [];
+        if ($env === 'production' && ($secret === 'ai-native-finance-erp-internal-service-secret-key' || empty($secret))) {
+            $issues[] = 'Production environment cannot use default or empty AI_INTERNAL_SECRET';
+        }
+
+        $online = false;
+        $latencyMs = null;
+        try {
+            $start = microtime(true);
+            $response = \Illuminate\Support\Facades\Http::timeout(1)->get("{$url}/health");
+            $latencyMs = round((microtime(true) - $start) * 1000, 2);
+            $online = $response->successful();
+        } catch (Throwable $e) {
+            $online = false;
+        }
+
+        $pass = empty($issues);
+
+        return [
+            'pass' => $pass,
+            'status' => $pass ? ($online ? 'ok' : 'degraded') : 'error',
+            'description' => 'AI Service & Security Configuration',
+            'details' => [
+                'service_url' => $url,
+                'online' => $online,
+                'latency_ms' => $latencyMs,
+                'secret_configured' => ! empty($secret) && $secret !== 'ai-native-finance-erp-internal-service-secret-key',
+                'issues' => $issues,
+            ],
+        ];
+    }
+
+    private function checkTestSuite(): array
+    {
+        $unitFiles = glob(base_path('tests/Unit/*Test.php')) ?: [];
+        $featureFiles = glob(base_path('tests/Feature/*Test.php')) ?: [];
+        $testFiles = array_merge($unitFiles, $featureFiles);
+
+        $totalTestMethods = 0;
+        foreach ($testFiles as $file) {
+            $content = @file_get_contents($file);
+            if ($content) {
+                $totalTestMethods += preg_match_all('/public\s+function\s+test_/i', $content);
+            }
+        }
+
+        $reportPath = storage_path('app/test-results.json');
+        $hasReport = file_exists($reportPath);
+        $reportData = $hasReport ? json_decode(@file_get_contents($reportPath), true) : null;
+
+        return [
+            'pass' => true,
+            'status' => 'ok',
+            'description' => 'Automated test suite coverage',
+            'details' => [
+                'test_files_count' => count($testFiles),
+                'discovered_test_methods' => $totalTestMethods,
+                'unit_suites' => count($unitFiles),
+                'feature_suites' => count($featureFiles),
+                'last_ci_report' => $reportData,
+                'note' => "Discovered {$totalTestMethods} test methods across " . count($testFiles) . " test suites dynamically.",
             ],
         ];
     }

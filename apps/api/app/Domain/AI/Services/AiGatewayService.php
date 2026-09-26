@@ -455,7 +455,13 @@ class AiGatewayService
      */
     public function generateInternalServiceToken(Organization $organization, User $user, ?string $entityId = null): string
     {
-        $secret = config('services.ai.internal_secret', 'ai-native-finance-erp-internal-service-secret-key');
+        $secret = config('services.ai.internal_secret');
+        if (app()->isProduction()) {
+            if (empty($secret) || $secret === 'ai-native-finance-erp-internal-service-secret-key') {
+                throw new \RuntimeException("Security Violation: Production environment cannot use default or empty services.ai.internal_secret.");
+            }
+        }
+        $secret = $secret ?? 'ai-native-finance-erp-internal-service-secret-key';
         $now = time();
 
         $header = ['typ' => 'JWT', 'alg' => 'HS256'];

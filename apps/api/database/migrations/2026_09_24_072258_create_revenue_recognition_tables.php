@@ -27,7 +27,7 @@ return new class extends Migration
             $table->foreignUuid('deferred_revenue_account_id')->constrained('accounts')->restrictOnDelete();
             $table->foreignUuid('revenue_account_id')->constrained('accounts')->restrictOnDelete();
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['organization_id', 'contract_number']);
@@ -46,7 +46,7 @@ return new class extends Migration
             $table->string('status', 20)->default('pending'); // pending, posted, cancelled
             $table->foreignUuid('journal_entry_id')->nullable()->constrained('journal_entries')->nullOnDelete();
             $table->timestamp('recognized_at')->nullable();
-            $table->foreignUuid('recognized_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('recognized_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
 

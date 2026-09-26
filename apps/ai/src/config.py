@@ -15,6 +15,9 @@ class AISettings(BaseSettings):
     # Core API Service URL (Laravel Backend)
     BACKEND_API_URL: str = "http://127.0.0.1:8000/api/v1"
     
+    # Distributed Cache / Replay Protection (P1-10)
+    REDIS_URL: Optional[str] = None
+    
     # LLM Provider Configuration
     DEFAULT_LLM_PROVIDER: str = "mock"  # "gemini", "openai", "anthropic", "mock"
     GEMINI_API_KEY: Optional[str] = None
@@ -37,4 +40,14 @@ class AISettings(BaseSettings):
         extra="ignore"
     )
 
+    def validate_production_readiness(self):
+        """Strict production security assertions."""
+        if self.ENVIRONMENT == "production":
+            if self.INTERNAL_SERVICE_SECRET == "ai-native-finance-erp-internal-service-secret-key":
+                raise ValueError("Security Violation: Production environment cannot use default insecure INTERNAL_SERVICE_SECRET.")
+            if self.DEFAULT_LLM_PROVIDER == "mock":
+                raise ValueError("Configuration Violation: Production environment cannot use 'mock' LLM provider.")
+
 settings = AISettings()
+settings.validate_production_readiness()
+

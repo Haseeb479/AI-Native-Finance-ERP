@@ -17,13 +17,36 @@ class VerifiedClaims(BaseModel):
     exp: int
     iat: int
 
+try:
+    import redis.asyncio as aioredis
+except ImportError:
+    aioredis = None
+
 class ReplayProtection:
     """
-    In-memory replay prevention tracking nonces within the valid token lifetime window.
+    Distributed Redis-backed replay protection with in-memory TTL fallback for offline/isolated tests.
     """
-    def __init__(self, ttl_seconds: int = 300):
+    def __init__(self, ttl_seconds: int = 300, redis_url: Optional[str] = None):
         self._seen_nonces: Dict[str, float] = {}
         self._ttl = ttl_seconds
+        self._redis_url = redis_url or settings.REDIS_URL
+        self._redis_client = None
+        if self._redis_url and aioredis:
+            try:
+                self._redis_client = aioredis.from_url(self._redis_url, decode_responses=True)
+            except Exception:
+                self._redis_client = None
+
+    async def check_and_record_async(self, jti: str) -> bool:
+        if self._redis_client:
+            try:
+                # Atomic SET key value EX ttl NX: returns True only if key was newly set
+                was_set = await self._redis_client.set(f"ai_nonce:{jti}", "1", ex=self._ttl, nx=True)
+                return bool(was_set)
+            except Exception:
+                pass  # Fall back to in-memory
+
+        return self.check_and_record(jti)
 
     def check_and_record(self, jti: str) -> bool:
         now = time.time()
@@ -38,6 +61,7 @@ class ReplayProtection:
         self._seen_nonces.clear()
 
 replay_cache = ReplayProtection()
+
 
 def create_internal_token(
     organization_id: str,
@@ -100,7 +124,8 @@ async def require_verified_claims(
         raise HTTPException(status_code=401, detail=f"Invalid service token: {str(e)}")
 
     jti = payload.get("jti")
-    if not jti or not replay_cache.check_and_record(jti):
+    nonce_valid = await replay_cache.check_and_record_async(jti) if jti else False
+    if not nonce_valid:
         raise HTTPException(
             status_code=401,
             detail="Replay attack detected: token nonce has already been used."
