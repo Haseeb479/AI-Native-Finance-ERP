@@ -22,11 +22,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, bcmath, zip, curl
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, sqlite3, bcmath, zip, curl
           coverage: none
 
       - name: Cache Composer Dependencies
@@ -42,10 +42,12 @@ jobs:
       - name: Prepare Environment
         run: |
           cp .env.example .env
-          php artisan key:generate
+          mkdir -p database
+          touch database/database.sqlite
+          php artisan key:generate --no-interaction --force
 
-      - name: Run PHPUnit Test Suite (139 Feature Tests)
-        run: php vendor/phpunit/phpunit/phpunit --colors=never
+      - name: Run PHPUnit Test Suite
+        run: php -d memory_limit=512M vendor/bin/phpunit --colors=never
 
   fastapi-ai:
     name: FastAPI AI Microservice Tests
