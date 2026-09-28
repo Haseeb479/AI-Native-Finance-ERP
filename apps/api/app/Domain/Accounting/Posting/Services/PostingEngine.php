@@ -448,50 +448,57 @@ class PostingEngine
             throw new InvalidArgumentException("Only posted journal entries can be reversed.");
         }
 
-        // Prevent double reversal
-        $alreadyReversed = JournalEntry::withoutGlobalScopes()
-            ->where('reversal_of_id', $originalEntry->id)
-            ->whereIn('status', ['draft', 'posted'])
-            ->exists();
-        if ($alreadyReversed) {
-            throw new InvalidArgumentException("Journal entry {$originalEntry->entry_number} has already been reversed.");
-        }
+        return DB::transaction(function () use ($originalEntry, $user, $reason) {
+            $lockedOriginal = JournalEntry::withoutGlobalScopes()
+                ->where('id', $originalEntry->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $organization = Organization::findOrFail($originalEntry->organization_id);
-        $reversalDate = now();
-        $period = $this->periodManager->getOpenPeriodForDate($organization, $reversalDate);
+            // P1-21: Concurrency-safe double reversal guard locked inside transaction
+            $alreadyReversed = JournalEntry::withoutGlobalScopes()
+                ->where('reversal_of_id', $lockedOriginal->id)
+                ->whereIn('status', ['draft', 'posted'])
+                ->lockForUpdate()
+                ->exists();
 
-        if (! $period) {
-            // Fall back to original entry's period if open
-            if ($originalEntry->period?->canPost()) {
-                $period = $originalEntry->period;
-                $reversalDate = Carbon::parse($originalEntry->entry_date);
-            } else {
-                throw new ClosedPeriodException("No open accounting period available to post reversal.");
+            if ($alreadyReversed) {
+                throw new InvalidArgumentException("Journal entry {$lockedOriginal->entry_number} has already been reversed.");
             }
-        }
 
-        return DB::transaction(function () use ($organization, $originalEntry, $period, $reversalDate, $user, $reason) {
+            $organization = Organization::findOrFail($lockedOriginal->organization_id);
+            $reversalDate = now();
+            $period = $this->periodManager->getOpenPeriodForDate($organization, $reversalDate);
+
+            if (! $period) {
+                // Fall back to original entry's period if open
+                if ($lockedOriginal->period?->canPost()) {
+                    $period = $lockedOriginal->period;
+                    $reversalDate = Carbon::parse($lockedOriginal->entry_date);
+                } else {
+                    throw new ClosedPeriodException("No open accounting period available to post reversal.");
+                }
+            }
+
             $entryNumber = $this->generateEntryNumber($organization, $reversalDate);
 
             $reversalEntry = JournalEntry::withoutGlobalScopes()->create([
                 'organization_id' => $organization->id,
-                'entity_id' => $originalEntry->entity_id,
+                'entity_id' => $lockedOriginal->entity_id,
                 'accounting_period_id' => $period->id,
                 'entry_number' => $entryNumber,
                 'entry_date' => $reversalDate->toDateString(),
                 'status' => 'draft',
                 'source_type' => 'reversal',
-                'source_id' => $originalEntry->id,
-                'reversal_of_id' => $originalEntry->id,
-                'description' => "Reversal of {$originalEntry->entry_number}: " . ($reason ?? 'Correction entry'),
-                'currency' => $originalEntry->currency,
-                'exchange_rate' => $originalEntry->exchange_rate,
+                'source_id' => $lockedOriginal->id,
+                'reversal_of_id' => $lockedOriginal->id,
+                'description' => "Reversal of {$lockedOriginal->entry_number}: " . ($reason ?? 'Correction entry'),
+                'currency' => $lockedOriginal->currency,
+                'exchange_rate' => $lockedOriginal->exchange_rate,
                 'created_by' => $user->id,
             ]);
 
             $lineNumber = 1;
-            foreach ($originalEntry->lines as $line) {
+            foreach ($lockedOriginal->lines as $line) {
                 // Invert debits and credits
                 JournalLine::withoutGlobalScopes()->create([
                     'organization_id' => $organization->id,

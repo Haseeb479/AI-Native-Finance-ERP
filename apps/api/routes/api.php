@@ -205,6 +205,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'indexFixedAssets']);
         Route::post('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'storeFixedAsset']);
 
+        // P1-25: Automated Subledger to GL Reconciliation
+        Route::get('/organizations/{organization}/reconciliations/subledger', [\App\Http\Controllers\Api\V1\ReconciliationController::class, 'subledgerReport']);
+
         // Step 24: Multi-Entity, Multi-Currency & Intercompany Consolidation
         Route::get('/organizations/{orgId}/entities', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'indexEntities']);
         Route::post('/organizations/{orgId}/entities', [\App\Http\Controllers\Api\V1\ConsolidationController::class, 'storeEntity']);

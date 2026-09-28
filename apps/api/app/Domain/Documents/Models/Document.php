@@ -40,6 +40,9 @@ class Document extends Model
         'human_review_notes',
         'linkable_type',
         'linkable_id',
+        'malware_status',
+        'malware_scanned_at',
+        'malware_scan_notes',
     ];
 
     protected $casts = [
@@ -47,6 +50,7 @@ class Document extends Model
         'extracted_data' => 'array',
         'extraction_confidence' => 'decimal:2',
         'human_reviewed_at' => 'datetime',
+        'malware_scanned_at' => 'datetime',
         'file_size_bytes' => 'integer',
     ];
 
@@ -98,15 +102,32 @@ class Document extends Model
         return $this->human_review_status === 'approved';
     }
 
+    public function isMalwareClean(): bool
+    {
+        return $this->malware_status === 'clean';
+    }
+
+    public function isQuarantined(): bool
+    {
+        return $this->malware_status === 'quarantined';
+    }
+
     /**
      * Generate a temporary signed URL for document preview (never expose raw storage path).
+     * Enforces P1-28 (max 15 min expiry) and P1-27 (blocks quarantined files).
      */
     public function getSignedUrl(int $expiresInMinutes = 5): ?string
     {
+        if ($this->malware_status !== 'clean') {
+            throw new \InvalidArgumentException("Cannot generate temporary URL for document with malware status: {$this->malware_status}");
+        }
+
+        $cappedMinutes = min(max(1, $expiresInMinutes), 15);
+
         try {
             return Storage::disk($this->storage_disk)->temporaryUrl(
                 $this->storage_path,
-                now()->addMinutes($expiresInMinutes)
+                now()->addMinutes($cappedMinutes)
             );
         } catch (\Exception $e) {
             // Fallback for local/fake disks in testing

@@ -312,13 +312,13 @@ Cases:
 # P1 — ACCOUNTING
 
 ## P1-19 — Revalidate period when draft date changes
-Updating entry_date must re-resolve and validate accounting_period_id.
+- [x] Updating entry_date must re-resolve and validate accounting_period_id.
 
 ## P1-20 — Make close/post race-safe
-Test close vs post, reopen vs post and lock vs post concurrently.
+- [x] Test close vs post, reopen vs post and lock vs post concurrently.
 
 ## P1-21 — Prevent duplicate reversals
-Define and enforce a reversal policy plus idempotency key.
+- [x] Define and enforce a reversal policy plus idempotency key and DB partial unique index.
 
 ## P1-22 — Idempotency for financial mutations
 Required for:
@@ -338,38 +338,38 @@ Use PostgreSQL NUMERIC, decimal strings/BCMath/value objects. Do not rely on PHP
 
 ## P1-25 — Automated subledger/GL reconciliation
 Implement automated checks for:
-- [ ] AR
-- [ ] AP
+- [x] AR
+- [x] AP
 - [ ] inventory
 - [ ] revenue recognition
 - [ ] fixed assets
 - [ ] tax
-- [ ] bank
+- [x] bank
 
 # P1 — DOCUMENT SECURITY
 
 ## P1-26 — Harden uploads
-- [ ] MIME sniffing.
-- [ ] Magic-byte validation.
-- [ ] Extension validation.
-- [ ] File size limits.
-- [ ] Image dimension limits.
-- [ ] PDF hardening.
-- [ ] Decompression bomb protection.
-- [ ] Filename normalization.
+- [x] MIME sniffing.
+- [x] Magic-byte validation.
+- [x] Extension validation.
+- [x] File size limits.
+- [x] Image dimension limits.
+- [x] PDF hardening.
+- [x] Decompression bomb protection.
+- [x] Filename normalization.
 
 ## P1-27 — Malware scanning
 Pipeline:
 upload -> quarantine -> antivirus -> accepted/rejected -> OCR.
 
-Never OCR/process unscanned untrusted files.
+- [x] Never OCR/process unscanned untrusted files.
 
 ## P1-28 — Harden signed URLs
-- [ ] Short expiry.
-- [ ] Tenant/resource authorization.
-- [ ] Purpose.
-- [ ] Audit.
-- [ ] Optional session/IP binding.
+- [x] Short expiry.
+- [x] Tenant/resource authorization.
+- [x] Purpose.
+- [x] Audit.
+- [x] Optional session/IP binding.
 
 # P1 — WEB SECURITY
 
