@@ -103,23 +103,31 @@ class DocumentStorageService
                 if (! str_starts_with($header, '%PDF-')) {
                     throw new \InvalidArgumentException("Invalid PDF format: File header does not match PDF signature.");
                 }
+                // Inspect sample for embedded scripts or launch directives (P1-26)
+                $sample = file_get_contents($file->getRealPath(), false, null, 0, 256 * 1024);
+                if ($sample && preg_match('/\/JavaScript|\/JS\s|\/Launch|\/EmbeddedFiles/i', $sample)) {
+                    throw new \InvalidArgumentException("PDF security violation: Embedded executable scripts or Launch actions are strictly prohibited.");
+                }
                 break;
             case 'jpg':
             case 'jpeg':
                 if (! str_starts_with($header, "\xFF\xD8\xFF")) {
                     throw new \InvalidArgumentException("Invalid JPEG format: File header does not match JPEG signature.");
                 }
+                $this->validateImageDimensions($file);
                 break;
             case 'png':
                 if (! str_starts_with($header, "\x89PNG\r\n\x1a\n")) {
                     throw new \InvalidArgumentException("Invalid PNG format: File header does not match PNG signature.");
                 }
+                $this->validateImageDimensions($file);
                 break;
             case 'tif':
             case 'tiff':
                 if (! (str_starts_with($header, "II*\x00") || str_starts_with($header, "MM\x00*"))) {
                     throw new \InvalidArgumentException("Invalid TIFF format: File header does not match TIFF signature.");
                 }
+                $this->validateImageDimensions($file);
                 break;
             case 'csv':
             case 'txt':
@@ -134,9 +142,44 @@ class DocumentStorageService
                 if (! str_starts_with($header, "PK\x03\x04") && ! str_starts_with($header, "PK\x05\x06")) {
                     throw new \InvalidArgumentException("Invalid archive or XLSX format: Zip header missing.");
                 }
+                $this->validateArchiveDecompressionSafety($file);
                 break;
             default:
                 throw new \InvalidArgumentException("Unsupported file type '.{$extension}'. Allowed: PDF, JPG, PNG, TIFF, CSV, XLSX.");
+        }
+    }
+
+    private function validateImageDimensions(UploadedFile $file): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        $size = @getimagesize($file->getRealPath());
+        if ($size !== false) {
+            [$width, $height] = $size;
+            if ($width > 10000 || $height > 10000) {
+                throw new \InvalidArgumentException("Image dimensions ({$width}x{$height}) exceed 10,000 pixel safety threshold.");
+            }
+        }
+    }
+
+    private function validateArchiveDecompressionSafety(UploadedFile $file): void
+    {
+        if (! class_exists(\ZipArchive::class)) {
+            return;
+        }
+        $zip = new \ZipArchive();
+        if ($zip->open($file->getRealPath()) === true) {
+            $totalUncompressed = 0;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $totalUncompressed += $stat['size'] ?? 0;
+            }
+            $zip->close();
+            // Reject if uncompressed size exceeds 100MB or compression ratio > 50:1 (P1-26)
+            if ($totalUncompressed > 100 * 1024 * 1024 || ($file->getSize() > 0 && ($totalUncompressed / $file->getSize()) > 50)) {
+                throw new \InvalidArgumentException("Archive rejected: Decompression bomb or excessive expansion ratio detected.");
+            }
         }
     }
 

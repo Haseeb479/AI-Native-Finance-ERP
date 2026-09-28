@@ -173,4 +173,74 @@ class DocumentSecurityTest extends TestCase
 
         $doc->getSignedUrl(5);
     }
+
+    /**
+     * P1-26: PDF hardening rejects embedded executable scripts or Launch directives.
+     */
+    public function test_rejects_pdf_with_executable_javascript_payload(): void
+    {
+        $maliciousPdf = "%PDF-1.4\n1 0 obj\n<< /Type /Action /S /JavaScript /JS (app.alert('pwned');) >>\nendobj\n%%EOF";
+        $file = UploadedFile::fake()->createWithContent('exploit.pdf', $maliciousPdf);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("Embedded executable scripts or Launch actions are strictly prohibited");
+
+        $this->storageService->store($file, $this->org, $this->user, 'invoice');
+    }
+
+    /**
+     * P1-27: OCR extraction strictly refuses to process quarantined files.
+     */
+    public function test_ocr_service_strictly_blocks_quarantined_files(): void
+    {
+        $doc = Document::create([
+            'organization_id' => $this->org->id,
+            'uploaded_by' => $this->user->id,
+            'document_number' => 'DOC-2025-00100',
+            'document_type' => 'invoice',
+            'original_filename' => 'quarantined.pdf',
+            'storage_disk' => 's3',
+            'storage_path' => "documents/{$this->org->id}/quarantined.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size_bytes' => 1024,
+            'ocr_status' => 'pending',
+            'human_review_status' => 'not_required',
+            'malware_status' => 'quarantined',
+        ]);
+
+        $ocrService = app(\App\Domain\Documents\Services\OcrService::class);
+        $result = $ocrService->extractFromDocument($doc, $this->user);
+
+        $this->assertEquals('failed', $result->ocr_status);
+        $this->assertEquals('rejected', $result->human_review_status);
+        $this->assertStringContainsString('Blocked OCR', $result->human_review_notes);
+    }
+
+    /**
+     * P1-28: REST API returns 422 DOCUMENT_QUARANTINED when previewing infected file.
+     */
+    public function test_preview_url_endpoint_returns_422_when_document_quarantined(): void
+    {
+        $doc = Document::create([
+            'organization_id' => $this->org->id,
+            'uploaded_by' => $this->user->id,
+            'document_number' => 'DOC-2025-00101',
+            'document_type' => 'invoice',
+            'original_filename' => 'eicar.pdf',
+            'storage_disk' => 's3',
+            'storage_path' => "documents/{$this->org->id}/eicar.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size_bytes' => 1024,
+            'ocr_status' => 'pending',
+            'human_review_status' => 'not_required',
+            'malware_status' => 'quarantined',
+            'malware_scan_notes' => 'EICAR detected',
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$this->token}")
+            ->getJson("/api/v1/organizations/{$this->org->id}/documents/{$doc->id}/preview-url");
+
+        $response->assertStatus(422)
+            ->assertJsonPath('errors.0.code', 'DOCUMENT_QUARANTINED');
+    }
 }

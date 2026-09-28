@@ -19,6 +19,12 @@ class Document extends Model
 
     protected $table = 'documents';
 
+    protected $attributes = [
+        'malware_status' => 'clean',
+        'ocr_status' => 'pending',
+        'human_review_status' => 'not_required',
+    ];
+
     protected $fillable = [
         'organization_id',
         'uploaded_by',

@@ -139,7 +139,27 @@ class DocumentController extends Controller
         if (!$org) return $this->unauthorizedResponse();
 
         $document = Document::where('organization_id', $org->id)->findOrFail($id);
-        $url = $this->storageService->getSignedUrl($document, 5);
+
+        try {
+            $url = $this->storageService->getSignedUrl($document, 5);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'data' => null,
+                'meta' => [],
+                'errors' => [[
+                    'code' => 'DOCUMENT_QUARANTINED',
+                    'message' => $e->getMessage(),
+                ]],
+            ], 422);
+        }
+
+        \Illuminate\Support\Facades\Log::info("Signed URL generated for document {$document->id}", [
+            'document_id' => $document->id,
+            'user_id' => $request->user()?->id,
+            'organization_id' => $org->id,
+            'ip' => $request->ip(),
+            'purpose' => 'preview',
+        ]);
 
         return response()->json([
             'data' => [

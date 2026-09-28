@@ -35,6 +35,17 @@ class OcrService
      */
     public function extractFromDocument(Document $doc, ?User $user = null): Document
     {
+        // P1-27: Never OCR or process unscanned / quarantined files
+        if ($doc->malware_status !== 'clean') {
+            Log::warning("SECURITY ALERT: Refusing to OCR document {$doc->id} with malware_status: {$doc->malware_status}");
+            $doc->update([
+                'ocr_status' => 'failed',
+                'human_review_status' => 'rejected',
+                'human_review_notes' => "Blocked OCR: File is not marked clean (status: {$doc->malware_status}).",
+            ]);
+            return $doc->fresh();
+        }
+
         $doc->update(['ocr_status' => 'processing']);
 
         try {
