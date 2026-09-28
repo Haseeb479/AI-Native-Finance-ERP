@@ -75,7 +75,7 @@ jobs:
       - name: Run Pytest Suite (Guardrails, Copilot Q&A, Tools)
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m pytest tests/ -v
+        run: python -m pytest -v
 
   nextjs-web:
     name: Next.js Web Production Build
