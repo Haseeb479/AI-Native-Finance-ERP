@@ -1,5 +1,7 @@
 import time
 import uuid
+import hashlib
+import json
 from typing import Dict, List, Optional
 import jwt
 from pydantic import BaseModel
@@ -142,3 +144,73 @@ async def require_verified_claims(
         exp=payload["exp"],
         iat=payload["iat"],
     )
+
+def hash_tool_arguments(args: Dict[str, Any]) -> str:
+    """Computes deterministic SHA-256 hash of tool arguments to prevent post-approval parameter tampering."""
+    canonical_json = json.dumps(args, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+
+def create_approval_token(
+    tool_name: str,
+    arguments: Dict[str, Any],
+    organization_id: str,
+    approver_user_id: str,
+    entity_id: Optional[str] = None,
+    expires_in_seconds: int = 900,  # 15 minutes max
+    secret: Optional[str] = None,
+) -> str:
+    """
+    Generate a tamper-proof cryptographic approval token for an AI side-effect action.
+    """
+    now = int(time.time())
+    args_hash = hash_tool_arguments(arguments)
+    payload = {
+        "iss": settings.SERVICE_ISSUER,
+        "aud": "ai_action_gate",
+        "type": "ai_action_approval",
+        "tool_name": tool_name,
+        "args_hash": args_hash,
+        "organization_id": organization_id,
+        "entity_id": entity_id,
+        "approver_user_id": approver_user_id,
+        "jti": str(uuid.uuid4()),
+        "iat": now,
+        "exp": now + min(expires_in_seconds, 900),
+    }
+    return jwt.encode(payload, secret or settings.INTERNAL_SERVICE_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+def verify_approval_token(
+    token: str,
+    expected_tool_name: str,
+    arguments: Dict[str, Any],
+    organization_id: str,
+    secret: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Cryptographically verify that an action was approved by an authorized user and that arguments have not been altered.
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            secret or settings.INTERNAL_SERVICE_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+            audience="ai_action_gate",
+            issuer=settings.SERVICE_ISSUER,
+            options={"require": ["exp", "iss", "aud", "jti", "tool_name", "args_hash", "organization_id", "approver_user_id"]}
+        )
+    except jwt.ExpiredSignatureError:
+        raise PermissionError("Approval token has expired. Re-approval is required.")
+    except jwt.InvalidTokenError as e:
+        raise PermissionError(f"Invalid approval token: {str(e)}")
+
+    if payload.get("tool_name") != expected_tool_name:
+        raise PermissionError(f"Approval token mismatch: token was approved for '{payload.get('tool_name')}', not '{expected_tool_name}'.")
+
+    if payload.get("organization_id") != organization_id:
+        raise PermissionError("Approval token tenant mismatch: token does not belong to this organization.")
+
+    current_hash = hash_tool_arguments(arguments)
+    if payload.get("args_hash") != current_hash:
+        raise PermissionError("Action arguments have changed since approval was granted. Tampering detected; re-approval is required.")
+
+    return payload

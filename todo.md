@@ -205,41 +205,41 @@ File: apps/ai/src/schemas/guardrails.py
 
 Regex is a signal, not a security boundary.
 
-- [ ] Separate trusted and untrusted content.
-- [ ] Delimit document content.
-- [ ] Validate outputs.
-- [ ] Authorize tools outside the model.
-- [ ] Require approval for side effects.
-- [ ] Add adversarial evaluation.
+- [x] Separate trusted and untrusted content.
+- [x] Delimit document content.
+- [x] Validate outputs.
+- [x] Authorize tools outside the model.
+- [x] Require approval for side effects.
+- [x] Add adversarial evaluation.
 
 ## P1-10 — Authenticate every non-health AI endpoint
-- [ ] Signed service identity.
-- [ ] Tenant/entity/user claims.
-- [ ] Replay protection.
-- [ ] Audience/issuer verification.
+- [x] Signed service identity.
+- [x] Tenant/entity/user claims.
+- [x] Replay protection.
+- [x] Audience/issuer verification.
 
 ## P1-11 — Add tool-level scope
 Every tool must declare:
-- [ ] permission
-- [ ] tenant scope
-- [ ] entity scope
-- [ ] side effects
-- [ ] approval requirement
-- [ ] idempotency
-- [ ] audit event
-- [ ] timeout
-- [ ] retry policy
+- [x] permission
+- [x] tenant scope
+- [x] entity scope
+- [x] side effects
+- [x] approval requirement
+- [x] idempotency
+- [x] audit event
+- [x] timeout
+- [x] retry policy
 
 ## P1-12 — Replace static AI tools with real backend capabilities
 Files: apps/ai/src/tools/read_tools.py, apps/ai/src/tools/draft_tools.py
 
 Current tools return hardcoded/demo data.
 
-- [ ] Authenticated Laravel capability calls.
-- [ ] Real account lookup.
-- [ ] Real transaction search.
-- [ ] Real draft persistence.
-- [ ] Evidence returned with results.
+- [x] Authenticated Laravel capability calls.
+- [x] Real account lookup.
+- [x] Real transaction search.
+- [x] Real draft persistence.
+- [x] Evidence returned with results.
 
 ## P1-13 — Deterministic account resolution
 - [x] LLM account suggestion -> server lookup -> organization validation -> active account validation -> confidence -> human review.

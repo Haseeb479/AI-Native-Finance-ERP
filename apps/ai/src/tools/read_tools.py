@@ -54,12 +54,18 @@ tool_get_account = ToolDefinition(
     purpose="Fetch verified Chart of Accounts record and ledger balance by account code from backend",
     category=ToolCategory.READ,
     required_permission="accounting.view",
+    permission="accounting.view",
+    tenant_scope=True,
+    entity_scope=False,
     input_schema={"type": "object", "properties": {"account_code": {"type": "string"}}, "required": ["account_code"]},
     output_schema={"type": "object", "properties": {"account_code": {"type": "string"}, "current_balance": {"type": "string"}}},
     side_effects=False,
+    approval_required=False,
     idempotent=True,
     audit_event="tool_read_account",
-    failure_behavior="Return null if account does not exist",
+    failure_behavior="Return error result if account does not exist",
+    timeout_seconds=10.0,
+    retry_policy={"max_retries": 2, "backoff_seconds": 0.5},
 )
 
 # Tool 2: search_transactions
@@ -91,12 +97,18 @@ tool_search_transactions = ToolDefinition(
     purpose="Search posted general ledger transactions by description, date, or amount",
     category=ToolCategory.READ,
     required_permission="accounting.view",
+    permission="accounting.view",
+    tenant_scope=True,
+    entity_scope=False,
     input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
     output_schema={"type": "object", "properties": {"results": {"type": "array"}}},
     side_effects=False,
+    approval_required=False,
     idempotent=True,
     audit_event="tool_search_transactions",
     failure_behavior="Return empty list",
+    timeout_seconds=10.0,
+    retry_policy={"max_retries": 2, "backoff_seconds": 0.5},
 )
 
 def register_read_tools():

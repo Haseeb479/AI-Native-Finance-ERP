@@ -283,3 +283,120 @@ def test_production_environment_rejects_mock_llm_adapter(monkeypatch):
         get_llm_adapter("mock")
     assert "MockLLMAdapter is strictly forbidden in production" in str(exc.value)
 
+@pytest.mark.asyncio
+async def test_tools_declare_complete_p1_11_metadata():
+    """P1-11: Every registered tool must declare full scope and policy metadata."""
+    from apps.ai.src.tools.registry import registry
+    tools = registry.list_tools()
+    assert len(tools) >= 4
+    for tool in tools:
+        assert isinstance(tool.permission, str) and len(tool.permission) > 0
+        assert isinstance(tool.tenant_scope, bool)
+        assert isinstance(tool.entity_scope, bool)
+        assert isinstance(tool.side_effects, bool)
+        assert isinstance(tool.approval_required, bool)
+        assert isinstance(tool.idempotent, bool)
+        assert isinstance(tool.audit_event, str) and len(tool.audit_event) > 0
+        assert isinstance(tool.timeout_seconds, float) and tool.timeout_seconds > 0
+        assert "max_retries" in tool.retry_policy
+        assert "backoff_seconds" in tool.retry_policy
+
+@pytest.mark.asyncio
+async def test_ai_approval_gate_intercepts_unapproved_side_effects(client: AsyncClient):
+    """P1-09 & P1-11: Side effect tools requiring approval are intercepted by AI gate."""
+    token = create_internal_token(
+        organization_id="org-pk-001",
+        user_id="user-479",
+        user_permissions=["accounting.journal.post"],
+    )
+    payload = {
+        "tool_name": "execute_ledger_adjustment",
+        "arguments": {
+            "draft_id": "draft-uuid-12345",
+            "reason": "Auditor year-end adjustment",
+        },
+    }
+    response = await client.post(
+        "/v1/tools/execute",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    res = response.json()
+    assert res["success"] is True
+    assert res["status"] == "pending_approval"
+    assert res["requires_approval"] is True
+    assert res["approval_context"]["tool_name"] == "execute_ledger_adjustment"
+    assert res["approval_context"]["organization_id"] == "org-pk-001"
+    assert res["data"]["gate_status"] == "pending_human_review"
+    assert "requires explicit human approval" in res["data"]["message"]
+
+@pytest.mark.asyncio
+async def test_ai_approval_gate_rejects_tampered_approval_token(client: AsyncClient):
+    """P1-09: Post-approval argument tampering must be caught cryptographically."""
+    from apps.ai.src.auth.service_auth import create_approval_token
+    token = create_internal_token(
+        organization_id="org-pk-001",
+        user_id="user-479",
+        user_permissions=["accounting.journal.post"],
+    )
+    original_args = {"draft_id": "draft-uuid-12345", "reason": "Authorized reason"}
+    approval_token = create_approval_token(
+        tool_name="execute_ledger_adjustment",
+        arguments=original_args,
+        organization_id="org-pk-001",
+        approver_user_id="cfo-user-999",
+    )
+    tampered_payload = {
+        "tool_name": "execute_ledger_adjustment",
+        "arguments": {
+            "draft_id": "draft-uuid-MALICIOUS-999",
+            "reason": "Authorized reason",
+        },
+        "approval_token": approval_token,
+    }
+    response = await client.post(
+        "/v1/tools/execute",
+        json=tampered_payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    res = response.json()
+    assert res["success"] is False
+    assert res["status"] == "failed"
+    assert "Tampering detected" in res["error"]
+
+@pytest.mark.asyncio
+async def test_ai_approval_gate_executes_with_valid_cryptographic_token(client: AsyncClient):
+    """P1-09: Valid approval token passes gate and executes capability."""
+    from apps.ai.src.auth.service_auth import create_approval_token
+    token = create_internal_token(
+        organization_id="org-pk-001",
+        user_id="user-479",
+        user_permissions=["accounting.journal.post"],
+    )
+    args = {"draft_id": "draft-uuid-12345", "reason": "Approved year-end allocation"}
+    approval_token = create_approval_token(
+        tool_name="execute_ledger_adjustment",
+        arguments=args,
+        organization_id="org-pk-001",
+        approver_user_id="cfo-user-999",
+    )
+    payload = {
+        "tool_name": "execute_ledger_adjustment",
+        "arguments": args,
+        "approval_token": approval_token,
+    }
+    response = await client.post(
+        "/v1/tools/execute",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    res = response.json()
+    assert res["success"] is True
+    assert res["status"] == "completed"
+    assert res["requires_approval"] is False
+    assert res["data"]["status"] == "approved"
+
+

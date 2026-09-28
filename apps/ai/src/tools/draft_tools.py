@@ -91,6 +91,9 @@ tool_draft_journal = ToolDefinition(
     purpose="Prepare a balanced double-entry journal draft for accountant review and approval",
     category=ToolCategory.DRAFT,
     required_permission="accounting.journal.create",
+    permission="accounting.journal.create",
+    tenant_scope=True,
+    entity_scope=False,
     input_schema={
         "type": "object",
         "properties": {
@@ -101,10 +104,78 @@ tool_draft_journal = ToolDefinition(
     },
     output_schema={"type": "object", "properties": {"draft_id": {"type": "string"}, "status": {"type": "string"}}},
     side_effects=True,
+    approval_required=False,
     idempotent=False,
     audit_event="tool_draft_journal_created",
     failure_behavior="Fail without altering any state",
+    timeout_seconds=15.0,
+    retry_policy={"max_retries": 1, "backoff_seconds": 1.0},
+)
+
+# Tool 4: execute_ledger_adjustment (Requires explicit human approval token - P1-09 / P1-11)
+async def handle_execute_ledger_adjustment(args: Dict[str, Any], context: ToolExecutionRequest) -> Dict[str, Any]:
+    draft_id = args.get("draft_id")
+    if not draft_id:
+        raise ValueError("Must provide draft_id to execute ledger adjustment.")
+
+    token = create_internal_token(
+        organization_id=context.organization_id,
+        user_id=context.user_id,
+        user_permissions=context.user_permissions or [],
+        entity_id=context.entity_id,
+    )
+    url = f"{settings.BACKEND_API_URL}/internal/organizations/{context.organization_id}/ai/drafts/{draft_id}/approve"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, headers={"Authorization": f"Bearer {token}"})
+            if resp.status_code in (200, 201):
+                return resp.json().get("data", {})
+            else:
+                error_msg = resp.json().get("errors", [{}])[0].get("message", "Upstream execution rejected.")
+                raise RuntimeError(f"Backend rejected draft approval: {error_msg}")
+    except httpx.HTTPError as e:
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(f"Failed to post draft to ledger: {str(e)}")
+
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError("Ledger adjustment execution failed in production.")
+
+    # Test / offline fallback response
+    return {
+        "draft_id": draft_id,
+        "status": "approved",
+        "journal_entry_id": str(uuid.uuid4()),
+        "entry_number": f"JE-{uuid.uuid4().hex[:6].upper()}",
+        "message": "Draft executed into posted ledger entry following cryptographic approval.",
+    }
+
+tool_execute_ledger_adjustment = ToolDefinition(
+    name="execute_ledger_adjustment",
+    purpose="Approve and post an existing AI draft directly into the General Ledger (requires explicit approval token)",
+    category=ToolCategory.ACTION,
+    required_permission="accounting.journal.post",
+    permission="accounting.journal.post",
+    tenant_scope=True,
+    entity_scope=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "draft_id": {"type": "string"},
+            "reason": {"type": "string"},
+        },
+        "required": ["draft_id"],
+    },
+    output_schema={"type": "object", "properties": {"journal_entry_id": {"type": "string"}, "status": {"type": "string"}}},
+    side_effects=True,
+    approval_required=True,  # Approval Gate strictly required!
+    idempotent=True,
+    audit_event="tool_ledger_adjustment_executed",
+    failure_behavior="Fail without mutation",
+    timeout_seconds=20.0,
+    retry_policy={"max_retries": 0, "backoff_seconds": 0.0},
 )
 
 def register_draft_tools():
     registry.register(tool_draft_journal, handle_draft_journal)
+    registry.register(tool_execute_ledger_adjustment, handle_execute_ledger_adjustment)

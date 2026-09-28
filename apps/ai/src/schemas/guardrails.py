@@ -101,18 +101,22 @@ def assert_tool_execution_authorized(
     has_human_approval: bool = False
 ) -> None:
     """
-    Enforces authorization outside the model:
-    Verifies user has permission and side effects require approval.
+    Enforces authorization outside the model (P1-09):
+    1. Verifies caller has explicit required permission.
+    2. Enforces approval requirement for side-effect actions.
     """
-    if "*" not in user_permissions and tool_definition.required_permission not in user_permissions:
+    perm = getattr(tool_definition, "permission", None) or getattr(tool_definition, "required_permission", "")
+    if "*" not in user_permissions and perm not in user_permissions:
         raise PermissionError(
-            f"Permission denied: User lacks required permission '{tool_definition.required_permission}' for tool '{tool_definition.name}'."
+            f"Permission denied: User lacks required permission '{perm}' for tool '{tool_definition.name}'."
         )
 
-    # If tool performs mutations and requires approval, ensure side_effects are bounded
-    if getattr(tool_definition, "side_effects", False) and getattr(tool_definition, "requires_approval", True):
-        # Tools with side effects must generate drafts or require explicit confirmation
-        pass
+    # If tool performs mutations and requires approval, ensure explicit approval is provided
+    if getattr(tool_definition, "side_effects", False) and getattr(tool_definition, "approval_required", False):
+        if not has_human_approval:
+            raise PermissionError(
+                f"Action gate violation: Tool '{tool_definition.name}' has side effects and requires verified human approval before execution."
+            )
 
 def assert_no_direct_mutation(tool_name: str) -> None:
     """
