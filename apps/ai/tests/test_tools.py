@@ -284,7 +284,7 @@ def test_production_environment_rejects_mock_llm_adapter(monkeypatch):
     assert "MockLLMAdapter is strictly forbidden in production" in str(exc.value)
 
 @pytest.mark.asyncio
-async def test_tools_declare_complete_p1_11_metadata():
+async def test_tools_declare_complete_p1_11_metadata(client: AsyncClient):
     """P1-11: Every registered tool must declare full scope and policy metadata."""
     from apps.ai.src.tools.registry import registry
     tools = registry.list_tools()

@@ -20,19 +20,32 @@ class ToolRegistry:
         self._tools: Dict[str, ToolDefinition] = {}
         self._handlers: Dict[str, Callable[[Dict[str, Any], ToolExecutionRequest], Any]] = {}
 
+    def _ensure_default_tools_registered(self):
+        if not self._tools:
+            try:
+                from apps.ai.src.tools.read_tools import register_read_tools
+                from apps.ai.src.tools.draft_tools import register_draft_tools
+                register_read_tools()
+                register_draft_tools()
+            except ImportError:
+                pass
+
     def register(self, definition: ToolDefinition, handler: Callable):
         self._tools[definition.name] = definition
         self._handlers[definition.name] = handler
 
     def get_tool(self, name: str) -> ToolDefinition:
+        self._ensure_default_tools_registered()
         if name not in self._tools:
             raise KeyError(f"Tool '{name}' is not registered.")
         return self._tools[name]
 
     def list_tools(self) -> List[ToolDefinition]:
+        self._ensure_default_tools_registered()
         return list(self._tools.values())
 
     async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
+        self._ensure_default_tools_registered()
         start_time = time.time()
         
         # 1. Enforce guardrails: prohibit any direct balance mutation or arbitrary SQL
