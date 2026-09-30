@@ -100,6 +100,13 @@ export async function apiFetch<T = any>(
     headers["X-Organization-Id"] = org.id;
   }
 
+  if (!headers["X-Correlation-ID"]) {
+    headers["X-Correlation-ID"] =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `web-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+
   // When executed in the browser, route through the Next.js secure cookie proxy
   // unless an absolute URL is specified
   let url = endpoint;

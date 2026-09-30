@@ -332,6 +332,10 @@ Required for:
 
 ## P1-23 — Database accounting constraints
 Add PostgreSQL constraints for non-negative amounts, valid status values, required foreign keys and critical uniqueness.
+- [x] Non-negative amounts on journals, lines, invoices, bills, items.
+- [x] Valid status values checked at DB level.
+- [x] Critical foreign keys and cascade/restrict rules.
+- [x] DB-level double-entry balanced journal trigger on PostgreSQL.
 
 ## P1-24 — Remove float arithmetic from financial authority
 Use PostgreSQL NUMERIC, decimal strings/BCMath/value objects. Do not rely on PHP float comparisons for authoritative accounting.
@@ -403,14 +407,14 @@ Create dedicated files. Production must not publish PostgreSQL, Redis, MinIO con
 The full Compose currently uses mock provider. Keep mock for test/demo only. Production readiness must fail if required provider credentials are absent.
 
 ## P1-35 — Observability
-- [ ] Structured JSON logs.
-- [ ] Request/correlation ID.
-- [ ] Organization/user/job/AI-run IDs.
-- [ ] Metrics.
+- [x] Structured JSON logs.
+- [x] Request/correlation ID (X-Correlation-ID end-to-end: Web -> Laravel -> FastAPI).
+- [x] Organization/user/job/AI-run IDs in log context.
+- [x] Metrics (token consumption, latency_ms, cost).
 - [ ] Queue depth.
-- [ ] DB/provider health.
-- [ ] Error tracking.
-- [ ] No secret/financial-payload leakage.
+- [x] DB/provider health.
+- [x] Error tracking.
+- [x] No secret/financial-payload leakage (redactor processor & recursive mask).
 
 ## P1-36 — Backup/restore verification
 - [ ] Automated backups.
@@ -422,10 +426,10 @@ The full Compose currently uses mock provider. Keep mock for test/demo only. Pro
 
 ## P1-37 — Migration safety
 - [ ] Backup before risky migration.
-- [ ] Compatibility checks.
-- [ ] Lock/timeout strategy.
-- [ ] Rollback plan.
-- [ ] Staging verification.
+- [x] Compatibility checks (PostgreSQL production vs SQLite testing).
+- [x] Lock/timeout strategy and transactional DDL ($withinTransaction = true).
+- [x] Rollback plan (atomic down() handlers).
+- [x] Staging verification.
 
 # P1 — CI/CD
 

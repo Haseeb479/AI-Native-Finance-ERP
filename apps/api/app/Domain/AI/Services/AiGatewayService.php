@@ -23,6 +23,26 @@ class AiGatewayService
     }
 
     /**
+     * Build distributed tracing and correlation headers for AI microservice calls (P1-35).
+     */
+    private function getCorrelationHeaders(?string $token = null): array
+    {
+        $correlationId = request()?->header('X-Correlation-ID')
+            ?: \Illuminate\Support\Facades\Context::get('correlation_id')
+            ?: (string) \Illuminate\Support\Str::uuid();
+
+        $headers = [
+            'X-Correlation-ID' => $correlationId,
+        ];
+
+        if ($token) {
+            $headers['Authorization'] = "Bearer {$token}";
+        }
+
+        return $headers;
+    }
+
+    /**
      * Check if organization has available token and budget quota (P1-17).
      */
     public function assertQuotaAvailable(Organization $organization, ?User $user = null, string $feature = 'all'): AiQuota
@@ -115,7 +135,7 @@ class AiGatewayService
         $estOutputTokens = 40;
 
         try {
-            $response = Http::timeout(15)->post($endpoint, $payload);
+            $response = Http::withHeaders($this->getCorrelationHeaders())->timeout(15)->post($endpoint, $payload);
 
             if (! $response->successful()) {
                 $status = 'failed';
@@ -214,7 +234,7 @@ class AiGatewayService
         $estOutputTokens = 90;
 
         try {
-            $response = Http::withToken($internalToken)->timeout(20)->post($endpoint, $payload);
+            $response = Http::withHeaders($this->getCorrelationHeaders($internalToken))->timeout(20)->post($endpoint, $payload);
             if (! $response->successful()) {
                 throw new \RuntimeException("Copilot service returned HTTP {$response->status()}");
             }
@@ -286,7 +306,7 @@ class AiGatewayService
         $estOutputTokens = 120;
 
         try {
-            $response = Http::withToken($internalToken)->timeout(20)->post($endpoint, $payload);
+            $response = Http::withHeaders($this->getCorrelationHeaders($internalToken))->timeout(20)->post($endpoint, $payload);
             if (! $response->successful()) {
                 throw new \RuntimeException("Journal draft service returned HTTP {$response->status()}");
             }
@@ -358,7 +378,7 @@ class AiGatewayService
         $estOutputTokens = 180;
 
         try {
-            $response = Http::withToken($internalToken)->timeout(20)->post($endpoint, $payload);
+            $response = Http::withHeaders($this->getCorrelationHeaders($internalToken))->timeout(20)->post($endpoint, $payload);
             if (! $response->successful()) {
                 throw new \RuntimeException("Report explanation service returned HTTP {$response->status()}");
             }
@@ -444,7 +464,7 @@ class AiGatewayService
             'user_id' => $user->id,
         ];
 
-        $response = Http::withToken($token)->timeout(20)->post($endpoint, $payload);
+        $response = Http::withHeaders($this->getCorrelationHeaders($token))->timeout(20)->post($endpoint, $payload);
         if (! $response->successful()) {
             throw new \RuntimeException("Tool microservice returned HTTP {$response->status()}: " . $response->body());
         }

@@ -58,6 +58,20 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        'json' => [
+            'driver' => 'monolog',
+            'handler' => StreamHandler::class,
+            'handler_with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter' => \Monolog\Formatter\JsonFormatter::class,
+            'processors' => [
+                PsrLogMessageProcessor::class,
+                \App\Logging\SensitiveDataRedactor::class,
+            ],
+            'level' => env('LOG_LEVEL', 'info'),
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

@@ -46,6 +46,15 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
       headers["Idempotency-Key"] = idempotencyKey;
     }
 
+    const correlationId =
+      req.headers.get("X-Correlation-ID") ||
+      req.headers.get("X-Request-ID") ||
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `proxy-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+
+    headers["X-Correlation-ID"] = correlationId;
+
     const init: RequestInit = {
       method: req.method,
       headers,
@@ -58,11 +67,14 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
     const response = await fetch(targetUrl, init);
     const data = await response.text();
 
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": response.headers.get("Content-Type") || "application/json",
+      "X-Correlation-ID": response.headers.get("X-Correlation-ID") || correlationId,
+    };
+
     return new NextResponse(data, {
       status: response.status,
-      headers: {
-        "Content-Type": response.headers.get("Content-Type") || "application/json",
-      },
+      headers: responseHeaders,
     });
   } catch (error: any) {
     return NextResponse.json(
