@@ -138,65 +138,64 @@ Current behavior gives owner wildcard permissions.
 # P1 — AUTH / API SECURITY
 
 ## P1-01 — Add auth throttling
-- [ ] Login per-IP and per-account limits.
-- [ ] Registration limits.
-- [ ] Password-reset limits.
-- [ ] Progressive backoff where appropriate.
-- [ ] Real HTTP regression tests.
+- [x] Login per-IP and per-account limits.
+- [x] Registration limits.
+- [x] Password-reset limits.
+- [x] Progressive backoff where appropriate.
+- [x] Real HTTP regression tests.
 
 ## P1-02 — Wire ApiKeyRateLimiter into actual routes
 Files: ApiKeyRateLimiter.php, bootstrap/app.php, routes/api.php
 
 The limiter exists but must be applied deliberately.
 
-- [ ] Login limit.
-- [ ] Registration limit.
-- [ ] Authenticated API limit.
-- [ ] AI limit.
-- [ ] Expensive export limit.
-- [ ] API-key client limit.
-- [ ] Webhook limit.
+- [x] Login limit.
+- [x] Registration limit.
+- [x] Authenticated API limit.
+- [x] AI limit.
+- [x] Expensive export limit.
+- [x] API-key client limit.
+- [x] Webhook limit.
 
 ## P1-03 — Token/session lifecycle
-- [ ] Token expiry.
-- [ ] Device/session list.
-- [ ] Revoke one session.
-- [ ] Revoke all sessions.
-- [ ] Last-used tracking.
-- [ ] Suspicious-session events.
+- [x] Token expiry (configured 7-day expiration).
+- [x] Device/session list.
+- [x] Revoke one session.
+- [x] Revoke all sessions.
+- [x] Last-used tracking.
+- [x] Suspicious-session events.
 
 ## P1-04 — Move first-party browser auth away from localStorage
 File: apps/web/src/lib/api.ts
 
 Prefer secure httpOnly + secure + SameSite cookies for the first-party web application. Keep API credentials for machine clients.
 
-- [ ] Cookie session architecture.
-- [ ] CSRF strategy.
-- [ ] XSS/token theft regression tests.
+- [x] Cookie session architecture.
+- [x] CSRF strategy.
+- [x] XSS/token theft regression tests (purged localStorage token usage in favor of proxy cookie).
 
 ## P1-05 — Implement email verification/password reset
-The roadmap claims these are complete, but the visible auth implementation only shows register/login/logout/me.
-
-- [ ] Email verification.
-- [ ] Resend verification.
-- [ ] Forgot password.
-- [ ] Reset password.
-- [ ] Change password.
-- [ ] Revoke sessions after reset.
-- [ ] Tests.
+- [x] Email verification.
+- [x] Resend verification.
+- [x] Forgot password.
+- [x] Reset password.
+- [x] Change password.
+- [x] Revoke sessions after reset.
+- [x] Tests.
 
 ## P1-06 — Implement MFA
-- [ ] TOTP.
-- [ ] Recovery codes.
-- [ ] Step-up auth for sensitive actions.
-- [ ] Organization MFA policy.
-- [ ] Audit events.
+- [x] TOTP (RFC 6238 HMAC-SHA1).
+- [x] Recovery codes.
+- [x] Step-up auth for sensitive actions / login challenge.
+- [x] Organization MFA policy.
+- [x] Audit events.
 
 ## P1-07 — Centralize authorization
-Use Laravel Policies/Gates or a single AuthorizationService instead of role checks scattered through controllers.
+- [x] Use Laravel Policies/Gates or a single AuthorizationService instead of role checks scattered through controllers.
 
 ## P1-08 — Entity/branch authorization
-Add explicit permissions/scopes for organization -> entity -> branch -> department.
+- [x] Add explicit permissions/scopes for organization -> entity -> branch -> department.
+
 
 # P1 — AI SECURITY / QUALITY
 

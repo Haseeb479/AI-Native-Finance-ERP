@@ -46,22 +46,69 @@ class AuthController extends Controller
     }
 
     /**
-     * Authenticate user credentials and return an API token.
+     * Authenticate user credentials and return an API token or 2FA challenge.
+     * P1-01: Progressive backoff, per-account failure lockout.
+     * P1-06: TOTP MFA challenge gate.
      */
     public function login(LoginRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $email = strtolower(trim($validated['email']));
 
-        $user = User::where('email', $validated['email'])->first();
+        $accountThrottleKey = "auth_throttle_account:{$email}";
+        $attempts = (int) \Illuminate\Support\Facades\Cache::get($accountThrottleKey, 0);
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+        if ($attempts >= 5) {
+            $lockoutSeconds = min(300, 30 * pow(2, $attempts - 5));
             return response()->json([
                 'data' => null,
                 'meta' => [
                     'timestamp' => now()->toIso8601String(),
+                    'retry_after' => $lockoutSeconds,
+                ],
+                'errors' => ["Account temporarily locked due to too many failed login attempts. Retry after {$lockoutSeconds} seconds."],
+            ], 429, ['Retry-After' => $lockoutSeconds]);
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            \Illuminate\Support\Facades\Cache::put($accountThrottleKey, $attempts + 1, now()->addMinutes(15));
+            return response()->json([
+                'data' => null,
+                'meta' => [
+                    'timestamp' => now()->toIso8601String(),
+                    'remaining_attempts' => max(0, 5 - ($attempts + 1)),
                 ],
                 'errors' => ['Invalid email or password.'],
             ], 401);
+        }
+
+        // Reset failed counter upon valid credentials
+        \Illuminate\Support\Facades\Cache::forget($accountThrottleKey);
+
+        // Check if TOTP Multi-Factor Authentication is enabled (P1-06)
+        if ($user->hasEnabledTwoFactor()) {
+            $challengeToken = \Illuminate\Support\Str::random(64);
+            \Illuminate\Support\Facades\Cache::put("mfa_challenge_{$challengeToken}", [
+                'user_id' => $user->id,
+                'device_name' => $validated['device_name'] ?? 'api_client',
+            ], now()->addMinutes(5));
+
+            return response()->json([
+                'data' => [
+                    'mfa_required' => true,
+                    'mfa_challenge_token' => $challengeToken,
+                    'user' => [
+                        'id' => $user->id,
+                        'email' => $user->email,
+                    ],
+                ],
+                'meta' => [
+                    'timestamp' => now()->toIso8601String(),
+                ],
+                'errors' => [],
+            ], 200);
         }
 
         $deviceName = $validated['device_name'] ?? 'api_client';
@@ -83,6 +130,75 @@ class AuthController extends Controller
             'errors' => [],
         ], 200);
     }
+
+    /**
+     * Complete MFA challenge for login (P1-06).
+     */
+    public function challengeLogin(Request $request): JsonResponse
+    {
+        $request->validate([
+            'mfa_challenge_token' => ['required', 'string'],
+            'code' => ['required', 'string'],
+        ]);
+
+        $challengeData = \Illuminate\Support\Facades\Cache::get("mfa_challenge_{$request->mfa_challenge_token}");
+        if (! $challengeData) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toIso8601String()],
+                'errors' => ['Invalid or expired MFA challenge session. Please log in again.'],
+            ], 422);
+        }
+
+        $user = User::find($challengeData['user_id']);
+        if (! $user) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toIso8601String()],
+                'errors' => ['User account not found.'],
+            ], 404);
+        }
+
+        $mfaService = app(\App\Domain\Security\Services\MfaService::class);
+        $code = trim($request->code);
+        $verified = false;
+
+        if (strlen($code) === 6 && ctype_digit($code)) {
+            $verified = $mfaService->verifyCode($user->two_factor_secret, $code);
+        } else {
+            $verified = $mfaService->verifyAndConsumeRecoveryCode($user, $code);
+        }
+
+        if (! $verified) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toIso8601String()],
+                'errors' => ['Invalid two-factor authentication code or recovery code.'],
+            ], 422);
+        }
+
+        \Illuminate\Support\Facades\Cache::forget("mfa_challenge_{$request->mfa_challenge_token}");
+
+        $deviceName = $challengeData['device_name'] ?? 'api_client';
+        $token = $user->createToken($deviceName)->plainTextToken;
+
+        return response()->json([
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'token' => $token,
+                'token_type' => 'Bearer',
+            ],
+            'meta' => [
+                'timestamp' => now()->toIso8601String(),
+            ],
+            'errors' => [],
+        ], 200);
+    }
+
 
     /**
      * Revoke current user's active API token.

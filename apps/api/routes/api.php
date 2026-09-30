@@ -59,10 +59,20 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/forgot-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
         Route::post('/reset-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
+        Route::post('/mfa/challenge', [\App\Http\Controllers\Api\V1\AuthController::class, 'challengeLogin'])->middleware('throttle:5,1');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [\App\Http\Controllers\Api\V1\AuthController::class, 'logout']);
             Route::get('/me', [\App\Http\Controllers\Api\V1\AuthController::class, 'me']);
+
+            // Multi-Factor Authentication (MFA / TOTP) (P1-06)
+            Route::prefix('mfa')->group(function () {
+                Route::post('/setup', [\App\Http\Controllers\Api\V1\MfaController::class, 'setup']);
+                Route::post('/confirm', [\App\Http\Controllers\Api\V1\MfaController::class, 'confirm'])->middleware('throttle:5,1');
+                Route::post('/verify', [\App\Http\Controllers\Api\V1\MfaController::class, 'verify'])->middleware('throttle:5,1');
+                Route::post('/disable', [\App\Http\Controllers\Api\V1\MfaController::class, 'disable'])->middleware('throttle:5,1');
+                Route::post('/recovery-codes', [\App\Http\Controllers\Api\V1\MfaController::class, 'regenerateRecoveryCodes'])->middleware('throttle:5,1');
+            });
 
             // Session Lifecycle (P1-03)
             Route::get('/sessions', [\App\Http\Controllers\Api\V1\AuthController::class, 'sessions']);
@@ -76,6 +86,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/email/verify', [\App\Http\Controllers\Api\V1\AuthController::class, 'verifyEmail']);
         });
     });
+
 
     // Multi-Tenant Protected Routes
     Route::middleware(['auth:sanctum', 'api.limiter'])->group(function () {

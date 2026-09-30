@@ -30,14 +30,13 @@ export interface AuthSession {
   organization?: OrganizationSummary;
 }
 
-// Storage helpers
-const TOKEN_KEY = "erp_auth_token";
+// Storage helpers (P1-04: Token is strictly stored in HttpOnly cookies, not in localStorage)
 const ORG_KEY = "erp_current_org";
 const USER_KEY = "erp_user_profile";
 
 export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  // For browser runtime, auth tokens are stored exclusively in HttpOnly cookies
+  return null;
 }
 
 export function getStoredOrg(): OrganizationSummary | null {
@@ -64,7 +63,8 @@ export function getStoredUser(): UserProfile | null {
 
 export function setStoredSession(token: string, user: UserProfile, org?: OrganizationSummary) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(TOKEN_KEY, token);
+  // Ensure legacy localStorage token is purged (P1-04)
+  localStorage.removeItem("erp_auth_token");
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (org) {
     localStorage.setItem(ORG_KEY, JSON.stringify(org));
@@ -73,10 +73,11 @@ export function setStoredSession(token: string, user: UserProfile, org?: Organiz
 
 export function clearStoredSession() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("erp_auth_token");
   localStorage.removeItem(ORG_KEY);
   localStorage.removeItem(USER_KEY);
 }
+
 
 // Low-level fetch wrapper with secure cookie proxy and auth header fallback
 export async function apiFetch<T = any>(
