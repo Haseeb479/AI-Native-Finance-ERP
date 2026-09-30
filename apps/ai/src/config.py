@@ -33,6 +33,14 @@ class AISettings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     SERVICE_ISSUER: str = "laravel-finance-erp"
     SERVICE_AUDIENCE: str = "ai-tool-gateway"
+
+    # CORS Whitelisting (P1-29)
+    CORS_ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
     
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -46,8 +54,15 @@ class AISettings(BaseSettings):
             if self.INTERNAL_SERVICE_SECRET == "ai-native-finance-erp-internal-service-secret-key":
                 raise ValueError("Security Violation: Production environment cannot use default insecure INTERNAL_SERVICE_SECRET.")
             if self.DEFAULT_LLM_PROVIDER == "mock":
-                raise ValueError("Configuration Violation: Production environment cannot use 'mock' LLM provider.")
+                raise ValueError("Configuration Violation: Production environment cannot use 'mock' LLM provider in production (P1-34).")
+            if self.DEFAULT_LLM_PROVIDER == "gemini" and not self.GEMINI_API_KEY:
+                raise ValueError("Configuration Violation: GEMINI_API_KEY must be configured when DEFAULT_LLM_PROVIDER is 'gemini'.")
+            if self.DEFAULT_LLM_PROVIDER == "openai" and not self.OPENAI_API_KEY:
+                raise ValueError("Configuration Violation: OPENAI_API_KEY must be configured when DEFAULT_LLM_PROVIDER is 'openai'.")
+            if self.DEFAULT_LLM_PROVIDER == "anthropic" and not self.ANTHROPIC_API_KEY:
+                raise ValueError("Configuration Violation: ANTHROPIC_API_KEY must be configured when DEFAULT_LLM_PROVIDER is 'anthropic'.")
 
 settings = AISettings()
 settings.validate_production_readiness()
+
 

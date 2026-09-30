@@ -90,11 +90,12 @@ services:
     restart: unless-stopped
     # AI port kept strictly internal to private finance_network (P0-02)
     environment:
-      ENVIRONMENT: production
-      LLM_PROVIDER: mock
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       APP_PORT: 8001
     networks:
       - finance_network
+
 
   web:
     build:

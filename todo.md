@@ -382,50 +382,50 @@ File: apps/ai/src/main.py
 
 Current wildcard origins/methods/headers are not production-safe.
 
-- [ ] Explicit trusted origins.
-- [ ] Explicit methods.
-- [ ] Explicit headers.
-- [ ] No wildcard credentials policy.
+- [x] Explicit trusted origins.
+- [x] Explicit methods.
+- [x] Explicit headers.
+- [x] No wildcard credentials policy.
 
 ## P1-30 — Security headers
-Add HSTS, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy and frame-ancestors.
+- [x] Add HSTS, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy and frame-ancestors.
 
 ## P1-31 — CSRF strategy
-Document and test cross-origin state-changing requests, especially if cookie auth is adopted.
+- [x] Document and test cross-origin state-changing requests, especially if cookie auth is adopted.
 
 # P1 — PRODUCTION INFRA
 
 ## P1-32 — Remove production fallback secrets
 File: infra/docker/docker-compose.full.yml
 
-Remove default APP_KEY, database password and MinIO credentials. Use deployment secrets.
+- [x] Remove default APP_KEY, database password and MinIO credentials. Use deployment secrets (:? required syntax in prod compose).
 
 ## P1-33 — Separate dev/staging/prod Compose
-Create dedicated files. Production must not publish PostgreSQL, Redis, MinIO console or FastAPI.
+- [x] Create dedicated files. Production must not publish PostgreSQL, Redis, MinIO console or FastAPI.
 
 ## P1-34 — Real production LLM
-The full Compose currently uses mock provider. Keep mock for test/demo only. Production readiness must fail if required provider credentials are absent.
+- [x] The full Compose currently uses mock provider. Keep mock for test/demo only. Production readiness must fail if required provider credentials are absent.
 
 ## P1-35 — Observability
 - [x] Structured JSON logs.
 - [x] Request/correlation ID (X-Correlation-ID end-to-end: Web -> Laravel -> FastAPI).
 - [x] Organization/user/job/AI-run IDs in log context.
 - [x] Metrics (token consumption, latency_ms, cost).
-- [ ] Queue depth.
+- [x] Queue depth.
 - [x] DB/provider health.
 - [x] Error tracking.
 - [x] No secret/financial-payload leakage (redactor processor & recursive mask).
 
 ## P1-36 — Backup/restore verification
-- [ ] Automated backups.
-- [ ] Scheduled restore tests.
-- [ ] RPO.
-- [ ] RTO.
-- [ ] Integrity verification.
-- [ ] DR runbook.
+- [x] Automated backups.
+- [x] Scheduled restore tests.
+- [x] RPO.
+- [x] RTO.
+- [x] Integrity verification.
+- [x] DR runbook.
 
 ## P1-37 — Migration safety
-- [ ] Backup before risky migration.
+- [x] Backup before risky migration.
 - [x] Compatibility checks (PostgreSQL production vs SQLite testing).
 - [x] Lock/timeout strategy and transactional DDL ($withinTransaction = true).
 - [x] Rollback plan (atomic down() handlers).
@@ -460,10 +460,11 @@ Populate and run:
 ## P1-40 — Remove static test counts from readiness
 File: ProductionReadinessController.php
 
-Current test totals/date are hardcoded. Use real CI/release metadata.
+- [x] Dynamic test method discovery across Unit/Feature and CI test-results.json report.
 
 ## P1-41 — Fix readiness configuration checks
-Ensure readiness checks match real Sanctum/auth configuration and actual dependency health.
+- [x] Ensure readiness checks match real Sanctum/auth configuration and actual dependency health.
+
 
 # P2 — ARCHITECTURE / MAINTAINABILITY
 
