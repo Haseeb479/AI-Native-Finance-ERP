@@ -270,21 +270,35 @@ class InvoiceService
         }
 
         return DB::transaction(function () use ($organization, $invoice, $journalLines, $user) {
-            $oldStatus = $invoice->status;
+            $lockedInvoice = SalesInvoice::withoutGlobalScopes()
+                ->where('id', $invoice->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            // Create and post balanced journal
+            if ($lockedInvoice->isPosted()) {
+                return $lockedInvoice->fresh(['customer', 'lines.revenueAccount', 'journalEntry']);
+            }
+
+            if (! in_array($lockedInvoice->status, ['draft', 'approved'])) {
+                throw new InvalidArgumentException("Only draft or approved invoices can be posted.");
+            }
+
+            $oldStatus = $lockedInvoice->status;
+
+            // Create and post balanced journal with deterministic idempotency key
             $draftJournal = $this->postingEngine->createDraft($organization, [
-                'entry_date' => $invoice->issue_date->toDateString(),
+                'entry_date' => $lockedInvoice->issue_date->toDateString(),
                 'source_type' => 'invoice',
-                'source_id' => $invoice->id,
-                'description' => "Sales Invoice {$invoice->invoice_number} posted for customer {$invoice->customer->name}",
-                'currency' => $invoice->currency,
+                'source_id' => $lockedInvoice->id,
+                'idempotency_key' => "post-invoice-{$lockedInvoice->id}",
+                'description' => "Sales Invoice {$lockedInvoice->invoice_number} posted for customer {$lockedInvoice->customer->name}",
+                'currency' => $lockedInvoice->currency,
                 'lines' => $journalLines,
             ], $user);
 
             $postedJournal = $this->postingEngine->postEntry($draftJournal, $user);
 
-            $invoice->update([
+            $lockedInvoice->update([
                 'status' => 'sent',
                 'posted_at' => now(),
                 'journal_entry_id' => $postedJournal->id,
@@ -292,21 +306,21 @@ class InvoiceService
 
             if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
                 app(\App\Domain\Audit\Services\AuditService::class)->log(
-                    $invoice->organization_id,
+                    $lockedInvoice->organization_id,
                     $user,
                     'invoice:posted',
-                    $invoice,
+                    $lockedInvoice,
                     ['status' => $oldStatus],
                     [
                         'status' => 'sent',
-                        'posted_at' => $invoice->posted_at->toIso8601String(),
+                        'posted_at' => $lockedInvoice->posted_at->toIso8601String(),
                         'journal_entry_id' => $postedJournal->id,
-                        'total_amount' => (string) $invoice->total_amount,
+                        'total_amount' => (string) $lockedInvoice->total_amount,
                     ]
                 );
             }
 
-            return $invoice->fresh(['customer', 'lines.revenueAccount', 'journalEntry']);
+            return $lockedInvoice->fresh(['customer', 'lines.revenueAccount', 'journalEntry']);
         });
     }
 
@@ -315,21 +329,6 @@ class InvoiceService
      */
     public function recordPayment(SalesInvoice $invoice, array $paymentData, User $user): SalesInvoice
     {
-        if ($invoice->isDraft()) {
-            throw new InvalidArgumentException("Cannot record payment on an unposted draft invoice.");
-        }
-
-        $amount = (float) $paymentData['amount'];
-        $balanceDue = $invoice->balanceDue();
-
-        if ($amount <= 0 || $amount > round($balanceDue + 0.01, 2)) {
-            throw new InvalidArgumentException(sprintf(
-                'Payment amount (PKR %.2f) cannot exceed outstanding invoice balance (PKR %.2f).',
-                $amount,
-                $balanceDue
-            ));
-        }
-
         $organization = Organization::findOrFail($invoice->organization_id);
 
         // Resolve Bank or Cash Account
@@ -352,24 +351,48 @@ class InvoiceService
             ? Carbon::parse($paymentData['payment_date'])
             : $invoice->issue_date;
 
+        $amount = (float) $paymentData['amount'];
+
         return DB::transaction(function () use ($organization, $invoice, $amount, $bankAccountId, $arAccount, $paymentDate, $paymentData, $user) {
+            $lockedInvoice = SalesInvoice::withoutGlobalScopes()
+                ->where('id', $invoice->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedInvoice->isDraft()) {
+                throw new InvalidArgumentException("Cannot record payment on an unposted draft invoice.");
+            }
+
+            $balanceDue = $lockedInvoice->balanceDue();
+
+            if ($amount <= 0 || $amount > round($balanceDue + 0.01, 2)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Payment amount (PKR %.2f) cannot exceed outstanding invoice balance (PKR %.2f).',
+                    $amount,
+                    $balanceDue
+                ));
+            }
+
+            $paymentKey = $paymentData['idempotency_key'] ?? ("pay-inv-{$lockedInvoice->id}-" . hash('sha256', "{$amount}|{$paymentDate->toDateString()}|" . ($paymentData['reference'] ?? '')));
+
             // Post Payment Journal: Debit Bank, Credit AR
             $journalDraft = $this->postingEngine->createDraft($organization, [
                 'entry_date' => $paymentDate->toDateString(),
                 'source_type' => 'customer_payment',
-                'source_id' => $invoice->id,
-                'description' => "Payment received for Invoice {$invoice->invoice_number} from {$invoice->customer->name}. Ref: " . ($paymentData['reference'] ?? 'Direct Transfer'),
-                'currency' => $invoice->currency,
+                'source_id' => $lockedInvoice->id,
+                'idempotency_key' => $paymentKey,
+                'description' => "Payment received for Invoice {$lockedInvoice->invoice_number} from {$lockedInvoice->customer->name}. Ref: " . ($paymentData['reference'] ?? 'Direct Transfer'),
+                'currency' => $lockedInvoice->currency,
                 'lines' => [
                     [
                         'account_id' => $bankAccountId,
-                        'description' => "Customer payment received - Invoice {$invoice->invoice_number}",
+                        'description' => "Customer payment received - Invoice {$lockedInvoice->invoice_number}",
                         'debit' => $amount,
                         'credit' => 0.0000,
                     ],
                     [
                         'account_id' => $arAccount->id,
-                        'description' => "AR cleared for Invoice {$invoice->invoice_number}",
+                        'description' => "AR cleared for Invoice {$lockedInvoice->invoice_number}",
                         'debit' => 0.0000,
                         'credit' => $amount,
                     ],
@@ -379,16 +402,16 @@ class InvoiceService
             $this->postingEngine->postEntry($journalDraft, $user);
 
             // Update invoice payment state
-            $newPaid = round((float) $invoice->amount_paid + $amount, 4);
-            $newBalance = max(0.0, (float) $invoice->total_amount - $newPaid);
+            $newPaid = round((float) $lockedInvoice->amount_paid + $amount, 4);
+            $newBalance = max(0.0, (float) $lockedInvoice->total_amount - $newPaid);
             $newStatus = $newBalance < 0.0001 ? 'paid' : 'partial';
 
-            $invoice->update([
+            $lockedInvoice->update([
                 'amount_paid' => $newPaid,
                 'status' => $newStatus,
             ]);
 
-            return $invoice->fresh(['customer', 'lines', 'journalEntry']);
+            return $lockedInvoice->fresh(['customer', 'lines', 'journalEntry']);
         });
     }
 }

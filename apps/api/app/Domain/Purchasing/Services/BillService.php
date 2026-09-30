@@ -278,20 +278,34 @@ class BillService
         ];
 
         return DB::transaction(function () use ($organization, $bill, $journalLines, $user) {
-            $oldStatus = $bill->status;
+            $lockedBill = PurchaseBill::withoutGlobalScopes()
+                ->where('id', $bill->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedBill->isPosted()) {
+                return $lockedBill->fresh(['vendor', 'lines.expenseAccount', 'journalEntry']);
+            }
+
+            if (! in_array($lockedBill->status, ['draft', 'approved'])) {
+                throw new InvalidArgumentException("Only draft or approved purchase bills can be posted.");
+            }
+
+            $oldStatus = $lockedBill->status;
 
             $draftJournal = $this->postingEngine->createDraft($organization, [
-                'entry_date' => $bill->bill_date->toDateString(),
+                'entry_date' => $lockedBill->bill_date->toDateString(),
                 'source_type' => 'bill',
-                'source_id' => $bill->id,
-                'description' => "Purchase Bill {$bill->bill_number} posted from vendor {$bill->vendor->name}",
-                'currency' => $bill->currency,
+                'source_id' => $lockedBill->id,
+                'idempotency_key' => "post-bill-{$lockedBill->id}",
+                'description' => "Purchase Bill {$lockedBill->bill_number} posted from vendor {$lockedBill->vendor->name}",
+                'currency' => $lockedBill->currency,
                 'lines' => $journalLines,
             ], $user);
 
             $postedJournal = $this->postingEngine->postEntry($draftJournal, $user);
 
-            $bill->update([
+            $lockedBill->update([
                 'status' => 'received',
                 'posted_at' => now(),
                 'journal_entry_id' => $postedJournal->id,
@@ -299,21 +313,21 @@ class BillService
 
             if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
                 app(\App\Domain\Audit\Services\AuditService::class)->log(
-                    $bill->organization_id,
+                    $lockedBill->organization_id,
                     $user,
                     'bill:posted',
-                    $bill,
+                    $lockedBill,
                     ['status' => $oldStatus],
                     [
                         'status' => 'received',
-                        'posted_at' => $bill->posted_at->toIso8601String(),
+                        'posted_at' => $lockedBill->posted_at->toIso8601String(),
                         'journal_entry_id' => $postedJournal->id,
-                        'total_amount' => (string) $bill->total_amount,
+                        'total_amount' => (string) $lockedBill->total_amount,
                     ]
                 );
             }
 
-            return $bill->fresh(['vendor', 'lines.expenseAccount', 'journalEntry']);
+            return $lockedBill->fresh(['vendor', 'lines.expenseAccount', 'journalEntry']);
         });
     }
 
@@ -322,21 +336,6 @@ class BillService
      */
     public function recordPayment(PurchaseBill $bill, array $paymentData, User $user): PurchaseBill
     {
-        if ($bill->isDraft()) {
-            throw new InvalidArgumentException("Cannot record payment on an unposted draft bill.");
-        }
-
-        $amount = (float) $paymentData['amount'];
-        $balanceDue = $bill->balanceDue();
-
-        if ($amount <= 0 || $amount > round($balanceDue + 0.01, 2)) {
-            throw new InvalidArgumentException(sprintf(
-                'Payment amount (PKR %.2f) cannot exceed outstanding bill balance (PKR %.2f).',
-                $amount,
-                $balanceDue
-            ));
-        }
-
         $organization = Organization::findOrFail($bill->organization_id);
 
         // Resolve Bank or Cash Account
@@ -359,24 +358,48 @@ class BillService
             ? Carbon::parse($paymentData['payment_date'])
             : $bill->bill_date;
 
+        $amount = (float) $paymentData['amount'];
+
         return DB::transaction(function () use ($organization, $bill, $amount, $bankAccountId, $apAccount, $paymentDate, $paymentData, $user) {
+            $lockedBill = PurchaseBill::withoutGlobalScopes()
+                ->where('id', $bill->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedBill->isDraft()) {
+                throw new InvalidArgumentException("Cannot record payment on an unposted draft bill.");
+            }
+
+            $balanceDue = $lockedBill->balanceDue();
+
+            if ($amount <= 0 || $amount > round($balanceDue + 0.01, 2)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Payment amount (PKR %.2f) cannot exceed outstanding bill balance (PKR %.2f).',
+                    $amount,
+                    $balanceDue
+                ));
+            }
+
+            $paymentKey = $paymentData['idempotency_key'] ?? ("pay-bill-{$lockedBill->id}-" . hash('sha256', "{$amount}|{$paymentDate->toDateString()}|" . ($paymentData['reference'] ?? '')));
+
             // Post Disbursement Journal: Debit AP, Credit Bank
             $journalDraft = $this->postingEngine->createDraft($organization, [
                 'entry_date' => $paymentDate->toDateString(),
                 'source_type' => 'vendor_payment',
-                'source_id' => $bill->id,
-                'description' => "Payment disbursed for Bill {$bill->bill_number} to {$bill->vendor->name}. Ref: " . ($paymentData['reference'] ?? 'Cheque/Wire'),
-                'currency' => $bill->currency,
+                'source_id' => $lockedBill->id,
+                'idempotency_key' => $paymentKey,
+                'description' => "Payment disbursed for Bill {$lockedBill->bill_number} to {$lockedBill->vendor->name}. Ref: " . ($paymentData['reference'] ?? 'Cheque/Wire'),
+                'currency' => $lockedBill->currency,
                 'lines' => [
                     [
                         'account_id' => $apAccount->id,
-                        'description' => "AP cleared for Bill {$bill->bill_number}",
+                        'description' => "AP cleared for Bill {$lockedBill->bill_number}",
                         'debit' => $amount,
                         'credit' => 0.0000,
                     ],
                     [
                         'account_id' => $bankAccountId,
-                        'description' => "Disbursement for Bill {$bill->bill_number}",
+                        'description' => "Disbursement for Bill {$lockedBill->bill_number}",
                         'debit' => 0.0000,
                         'credit' => $amount,
                     ],
@@ -386,16 +409,16 @@ class BillService
             $this->postingEngine->postEntry($journalDraft, $user);
 
             // Update bill payment status
-            $newPaid = round((float) $bill->amount_paid + $amount, 4);
-            $newBalance = max(0.0, (float) $bill->net_payable - $newPaid);
+            $newPaid = round((float) $lockedBill->amount_paid + $amount, 4);
+            $newBalance = max(0.0, (float) $lockedBill->net_payable - $newPaid);
             $newStatus = $newBalance < 0.0001 ? 'paid' : 'partial';
 
-            $bill->update([
+            $lockedBill->update([
                 'amount_paid' => $newPaid,
                 'status' => $newStatus,
             ]);
 
-            return $bill->fresh(['vendor', 'lines', 'journalEntry']);
+            return $lockedBill->fresh(['vendor', 'lines', 'journalEntry']);
         });
     }
 }

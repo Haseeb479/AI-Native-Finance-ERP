@@ -14,10 +14,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(\App\Http\Middleware\EnsureCorrelationId::class);
+        $middleware->api(append: [
+            \App\Http\Middleware\EnsureIdempotency::class,
+        ]);
 
         $middleware->alias([
             'api.limiter' => \App\Http\Middleware\ApiKeyRateLimiter::class,
             'internal.service' => \App\Http\Middleware\VerifyInternalServiceToken::class,
+            'idempotent' => \App\Http\Middleware\EnsureIdempotency::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

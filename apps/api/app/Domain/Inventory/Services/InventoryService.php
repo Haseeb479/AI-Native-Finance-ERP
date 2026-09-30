@@ -114,19 +114,24 @@ class InventoryService
         }
 
         return DB::transaction(function () use ($product, $warehouse, $quantity, $unitCost, $refType, $refId, $user, $notes) {
-            $stock = WarehouseStock::withoutGlobalScopes()->firstOrCreate(
-                [
+            $stock = WarehouseStock::withoutGlobalScopes()
+                ->where('organization_id', $product->organization_id)
+                ->where('product_id', $product->id)
+                ->where('warehouse_id', $warehouse->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $stock) {
+                $stock = WarehouseStock::withoutGlobalScopes()->create([
                     'organization_id' => $product->organization_id,
                     'product_id' => $product->id,
                     'warehouse_id' => $warehouse->id,
-                ],
-                [
                     'quantity_on_hand' => 0.0000,
                     'quantity_reserved' => 0.0000,
                     'weighted_average_cost' => $unitCost,
                     'total_valuation' => 0.0000,
-                ]
-            );
+                ]);
+            }
 
             $currentQty = (float) $stock->quantity_on_hand;
             $currentValuation = (float) $stock->total_valuation;
@@ -195,6 +200,7 @@ class InventoryService
                 ->where('organization_id', $product->organization_id)
                 ->where('product_id', $product->id)
                 ->where('warehouse_id', $warehouse->id)
+                ->lockForUpdate()
                 ->first();
 
             $currentQty = $stock ? (float) $stock->quantity_on_hand : 0.0;
@@ -295,18 +301,24 @@ class InventoryService
         ?User $user = null
     ): StockMovement {
         return DB::transaction(function () use ($product, $warehouse, $newQuantity, $unitCost, $reason, $user) {
-            $stock = WarehouseStock::withoutGlobalScopes()->firstOrCreate(
-                [
+            $stock = WarehouseStock::withoutGlobalScopes()
+                ->where('organization_id', $product->organization_id)
+                ->where('product_id', $product->id)
+                ->where('warehouse_id', $warehouse->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $stock) {
+                $stock = WarehouseStock::withoutGlobalScopes()->create([
                     'organization_id' => $product->organization_id,
                     'product_id' => $product->id,
                     'warehouse_id' => $warehouse->id,
-                ],
-                [
                     'quantity_on_hand' => 0.0000,
+                    'quantity_reserved' => 0.0000,
                     'weighted_average_cost' => $unitCost ?? (float) $product->cost_price,
                     'total_valuation' => 0.0000,
-                ]
-            );
+                ]);
+            }
 
             $currentQty = (float) $stock->quantity_on_hand;
             $qtyDiff = round($newQuantity - $currentQty, 4);

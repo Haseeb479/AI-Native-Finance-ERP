@@ -94,30 +94,37 @@ class PeriodManager
      */
     public function closePeriod(AccountingPeriod $period, User $user): AccountingPeriod
     {
-        if ($period->isClosed()) {
-            return $period;
-        }
+        return DB::transaction(function () use ($period, $user) {
+            $lockedPeriod = AccountingPeriod::withoutGlobalScopes()
+                ->where('id', $period->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $oldStatus = $period->status;
+            if ($lockedPeriod->isClosed()) {
+                return $lockedPeriod;
+            }
 
-        $period->update([
-            'status' => 'closed',
-            'closed_at' => now(),
-            'closed_by' => $user->id,
-        ]);
+            $oldStatus = $lockedPeriod->status;
 
-        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
-            app(\App\Domain\Audit\Services\AuditService::class)->log(
-                $period->organization_id,
-                $user,
-                'period:closed',
-                $period,
-                ['status' => $oldStatus],
-                ['status' => 'closed', 'closed_at' => $period->closed_at->toIso8601String()]
-            );
-        }
+            $lockedPeriod->update([
+                'status' => 'closed',
+                'closed_at' => now(),
+                'closed_by' => $user->id,
+            ]);
 
-        return $period;
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $lockedPeriod->organization_id,
+                    $user,
+                    'period:closed',
+                    $lockedPeriod,
+                    ['status' => $oldStatus],
+                    ['status' => 'closed', 'closed_at' => $lockedPeriod->closed_at->toIso8601String()]
+                );
+            }
+
+            return $lockedPeriod;
+        });
     }
 
     /**
@@ -129,27 +136,34 @@ class PeriodManager
             throw new InvalidArgumentException('A valid reason is required to reopen an accounting period.');
         }
 
-        $oldStatus = $period->status;
+        return DB::transaction(function () use ($period, $user, $reason) {
+            $lockedPeriod = AccountingPeriod::withoutGlobalScopes()
+                ->where('id', $period->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $period->update([
-            'status' => 'open',
-            'reopened_at' => now(),
-            'reopened_by' => $user->id,
-            'reopen_reason' => trim($reason),
-        ]);
+            $oldStatus = $lockedPeriod->status;
 
-        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
-            app(\App\Domain\Audit\Services\AuditService::class)->log(
-                $period->organization_id,
-                $user,
-                'period:reopened',
-                $period,
-                ['status' => $oldStatus],
-                ['status' => 'open', 'reopened_at' => $period->reopened_at->toIso8601String(), 'reason' => $reason]
-            );
-        }
+            $lockedPeriod->update([
+                'status' => 'open',
+                'reopened_at' => now(),
+                'reopened_by' => $user->id,
+                'reopen_reason' => trim($reason),
+            ]);
 
-        return $period;
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $lockedPeriod->organization_id,
+                    $user,
+                    'period:reopened',
+                    $lockedPeriod,
+                    ['status' => $oldStatus],
+                    ['status' => 'open', 'reopened_at' => $lockedPeriod->reopened_at->toIso8601String(), 'reason' => $reason]
+                );
+            }
+
+            return $lockedPeriod;
+        });
     }
 
     /**
@@ -157,26 +171,33 @@ class PeriodManager
      */
     public function lockPeriod(AccountingPeriod $period, User $user): AccountingPeriod
     {
-        $oldStatus = $period->status;
+        return DB::transaction(function () use ($period, $user) {
+            $lockedPeriod = AccountingPeriod::withoutGlobalScopes()
+                ->where('id', $period->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $period->update([
-            'status' => 'locked',
-            'closed_at' => $period->closed_at ?? now(),
-            'closed_by' => $period->closed_by ?? $user->id,
-        ]);
+            $oldStatus = $lockedPeriod->status;
 
-        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
-            app(\App\Domain\Audit\Services\AuditService::class)->log(
-                $period->organization_id,
-                $user,
-                'period:locked',
-                $period,
-                ['status' => $oldStatus],
-                ['status' => 'locked']
-            );
-        }
+            $lockedPeriod->update([
+                'status' => 'locked',
+                'closed_at' => $lockedPeriod->closed_at ?? now(),
+                'closed_by' => $lockedPeriod->closed_by ?? $user->id,
+            ]);
 
-        return $period;
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $lockedPeriod->organization_id,
+                    $user,
+                    'period:locked',
+                    $lockedPeriod,
+                    ['status' => $oldStatus],
+                    ['status' => 'locked']
+                );
+            }
+
+            return $lockedPeriod;
+        });
     }
 
     /**
@@ -184,26 +205,33 @@ class PeriodManager
      */
     public function softClosePeriod(AccountingPeriod $period, User $user): AccountingPeriod
     {
-        $oldStatus = $period->status;
+        return DB::transaction(function () use ($period, $user) {
+            $lockedPeriod = AccountingPeriod::withoutGlobalScopes()
+                ->where('id', $period->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $period->update([
-            'status' => 'soft_closed',
-            'closed_at' => $period->closed_at ?? now(),
-            'closed_by' => $period->closed_by ?? $user->id,
-        ]);
+            $oldStatus = $lockedPeriod->status;
 
-        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
-            app(\App\Domain\Audit\Services\AuditService::class)->log(
-                $period->organization_id,
-                $user,
-                'period:soft_closed',
-                $period,
-                ['status' => $oldStatus],
-                ['status' => 'soft_closed']
-            );
-        }
+            $lockedPeriod->update([
+                'status' => 'soft_closed',
+                'closed_at' => $lockedPeriod->closed_at ?? now(),
+                'closed_by' => $lockedPeriod->closed_by ?? $user->id,
+            ]);
 
-        return $period;
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $lockedPeriod->organization_id,
+                    $user,
+                    'period:soft_closed',
+                    $lockedPeriod,
+                    ['status' => $oldStatus],
+                    ['status' => 'soft_closed', 'closed_at' => $lockedPeriod->closed_at->toIso8601String()]
+                );
+            }
+
+            return $lockedPeriod;
+        });
     }
 
     /**
@@ -211,26 +239,34 @@ class PeriodManager
      */
     public function hardClosePeriod(AccountingPeriod $period, User $user): AccountingPeriod
     {
-        $oldStatus = $period->status;
+        return DB::transaction(function () use ($period, $user) {
+            $lockedPeriod = AccountingPeriod::withoutGlobalScopes()
+                ->where('id', $period->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $period->update([
-            'status' => 'hard_closed',
-            'closed_at' => $period->closed_at ?? now(),
-            'closed_by' => $period->closed_by ?? $user->id,
-        ]);
+            $oldStatus = $lockedPeriod->status;
 
-        if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
-            app(\App\Domain\Audit\Services\AuditService::class)->log(
-                $period->organization_id,
-                $user,
-                'period:hard_closed',
-                $period,
-                ['status' => $oldStatus],
-                ['status' => 'hard_closed']
-            );
-        }
+            $lockedPeriod->update([
+                'status' => 'hard_closed',
+                'closed_at' => $lockedPeriod->closed_at ?? now(),
+                'closed_by' => $lockedPeriod->closed_by ?? $user->id,
+            ]);
 
-        return $period;
+            if (class_exists(\App\Domain\Audit\Services\AuditService::class)) {
+                app(\App\Domain\Audit\Services\AuditService::class)->log(
+                    $lockedPeriod->organization_id,
+                    $user,
+                    'period:hard_closed',
+                    $lockedPeriod,
+                    ['status' => $oldStatus],
+                    ['status' => 'hard_closed']
+                );
+            }
+
+            return $lockedPeriod;
+        });
     }
 }
+
 

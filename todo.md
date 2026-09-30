@@ -322,13 +322,13 @@ Cases:
 
 ## P1-22 — Idempotency for financial mutations
 Required for:
-- [ ] journal create/post/reverse
-- [ ] invoice/bill post
-- [ ] payment
-- [ ] reconciliation
-- [ ] inventory movement
-- [ ] revenue recognition
-- [ ] imports
+- [x] journal create/post/reverse
+- [x] invoice/bill post
+- [x] payment
+- [x] reconciliation
+- [x] inventory movement
+- [x] revenue recognition
+- [x] imports
 
 ## P1-23 — Database accounting constraints
 Add PostgreSQL constraints for non-negative amounts, valid status values, required foreign keys and critical uniqueness.

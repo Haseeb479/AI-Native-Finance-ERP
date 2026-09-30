@@ -181,7 +181,16 @@ class RevenueRecognitionService
         $organization = Organization::findOrFail($schedule->organization_id);
 
         return DB::transaction(function () use ($organization, $contract, $schedule, $user) {
-            $amount = (float) $schedule->amount;
+            $lockedSchedule = RevenueSchedule::withoutGlobalScopes()
+                ->where('id', $schedule->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedSchedule->status === 'posted') {
+                return $lockedSchedule;
+            }
+
+            $amount = (float) $lockedSchedule->amount;
 
             // Build double-entry lines:
             // 1. Debit Deferred Revenue (reduces liability)
@@ -201,12 +210,13 @@ class RevenueRecognitionService
                 ],
             ];
 
-            // Post balanced journal entry via PostingEngine
+            // Post balanced journal entry via PostingEngine with deterministic idempotency key
             $draft = $this->postingEngine->createDraft($organization, [
-                'entry_date' => $schedule->schedule_date->toDateString(),
-                'accounting_period_id' => $schedule->accounting_period_id,
+                'entry_date' => $lockedSchedule->schedule_date->toDateString(),
+                'accounting_period_id' => $lockedSchedule->accounting_period_id,
                 'source_type' => 'revenue_recognition',
-                'source_id' => $schedule->id,
+                'source_id' => $lockedSchedule->id,
+                'idempotency_key' => "revrec-schedule-{$lockedSchedule->id}",
                 'description' => "RevRec Amortization: Contract #{$contract->contract_number} ({$contract->title})",
                 'currency' => $contract->currency ?? $organization->base_currency ?? 'PKR',
                 'lines' => $journalLines,
@@ -219,7 +229,7 @@ class RevenueRecognitionService
                 ->where('status', 'posted')
                 ->sum('amount') + $amount;
 
-            $schedule->update([
+            $lockedSchedule->update([
                 'status' => 'posted',
                 'journal_entry_id' => $postedJournal->id,
                 'cumulative_recognized' => $cumulative,
