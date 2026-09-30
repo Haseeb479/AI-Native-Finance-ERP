@@ -57,18 +57,31 @@ async def ask_financial_qa(request: FinancialQARequest):
         verified_count = 0
         for citation in response.evidence:
             metric_key = citation.metric_or_code.lower()
+            norm_stated = citation.stated_value.replace(",", "").replace(" ", "").lower()
+
             if metric_key in context_keys:
-                citation.verified = True
-                verified_count += 1
+                context_val = context_keys[metric_key]
+                norm_context = context_val.replace(",", "").replace(" ", "").lower()
+                # Verify that stated value matches or is contained in context value
+                if norm_stated in norm_context or norm_context in norm_stated:
+                    citation.verified = True
+                    verified_count += 1
+                else:
+                    citation.verified = False
             else:
-                # Check substring match in context values
-                matched = any(citation.stated_value.lower() in v for v in context_keys.values())
+                # Check substring match in any context values
+                matched = any(norm_stated in str(v).replace(",", "").replace(" ", "").lower() for v in context_keys.values())
                 citation.verified = matched
                 if matched:
                     verified_count += 1
 
         response.groundedness_score = round(verified_count / len(response.evidence), 2)
         if response.groundedness_score < 0.75:
+            response.flagged_for_review = True
+    else:
+        # If no financial context provided or empty evidence
+        if not request.financial_context:
+            response.groundedness_score = 0.50
             response.flagged_for_review = True
 
     if flagged:

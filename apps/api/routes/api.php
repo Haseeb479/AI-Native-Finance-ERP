@@ -156,6 +156,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/bank-accounts/{bankAccountId}/import-statement', [\App\Http\Controllers\Api\V1\BankController::class, 'importStatement']);
         Route::get('/organizations/{orgId}/bank-accounts/{bankAccountId}/transactions', [\App\Http\Controllers\Api\V1\BankController::class, 'transactions']);
         Route::get('/organizations/{orgId}/bank-accounts/{bankAccountId}/suggestions', [\App\Http\Controllers\Api\V1\BankController::class, 'suggestions']);
+        Route::post('/organizations/{orgId}/bank-accounts/{bankAccountId}/auto-reconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'autoReconcile']);
         Route::post('/organizations/{orgId}/bank-transactions/{transactionId}/reconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'reconcile']);
         Route::post('/organizations/{orgId}/bank-transactions/{transactionId}/unreconcile', [\App\Http\Controllers\Api\V1\BankController::class, 'unreconcile']);
 

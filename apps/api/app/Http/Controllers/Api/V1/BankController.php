@@ -268,4 +268,28 @@ class BankController extends Controller
             'errors' => [],
         ]);
     }
+
+    /**
+     * Automatically reconcile transactions meeting high-confidence match criteria.
+     */
+    public function autoReconcile(Request $request, string $orgId, string $bankAccountId): JsonResponse
+    {
+        $org = $this->getAuthorizedOrganization($request, $orgId);
+        if (!$org) {
+            return $this->unauthorizedResponse();
+        }
+
+        $bankAccount = BankAccount::where('organization_id', $org->id)->findOrFail($bankAccountId);
+        $minConfidence = (float) $request->input('min_confidence', 0.90);
+
+        $result = $this->reconciliationService->autoReconcile($bankAccount, $minConfidence, $request->user());
+
+        return response()->json([
+            'data' => $result,
+            'meta' => [
+                'message' => "Auto-reconciled {$result['auto_reconciled_count']} transaction(s).",
+            ],
+            'errors' => [],
+        ]);
+    }
 }

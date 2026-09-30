@@ -344,10 +344,10 @@ Use PostgreSQL NUMERIC, decimal strings/BCMath/value objects. Do not rely on PHP
 Implement automated checks for:
 - [x] AR
 - [x] AP
-- [ ] inventory
-- [ ] revenue recognition
-- [ ] fixed assets
-- [ ] tax
+- [x] inventory
+- [x] revenue recognition
+- [x] fixed assets
+- [x] tax
 - [x] bank
 
 # P1 — DOCUMENT SECURITY

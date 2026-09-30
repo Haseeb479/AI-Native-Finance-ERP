@@ -250,4 +250,68 @@ class ReconciliationService
 
         return $transaction;
     }
+
+    /**
+     * Automatically reconcile unreconciled transactions that match candidate GL journal entries
+     * above a defined confidence threshold (default >= 0.90).
+     *
+     * @return array{
+     *     total_evaluated: int,
+     *     auto_reconciled_count: int,
+     *     reconciled_transactions: array<int, array{bank_transaction_id: string, journal_entry_id: string, confidence: float, reason: string}>,
+     *     skipped_count: int
+     * }
+     */
+    public function autoReconcile(
+        BankAccount $bankAccount,
+        float $minConfidence = 0.90,
+        ?User $user = null
+    ): array {
+        $suggestions = $this->suggestMatches($bankAccount);
+        $reconciled = [];
+        $usedJournalIds = [];
+
+        foreach ($suggestions as $item) {
+            $tx = $item['transaction'];
+            $matches = $item['matches'];
+
+            if (empty($matches)) {
+                continue;
+            }
+
+            $bestMatch = null;
+            foreach ($matches as $match) {
+                if ($match['confidence'] >= $minConfidence && !in_array($match['journal_entry']->id, $usedJournalIds, true)) {
+                    $bestMatch = $match;
+                    break;
+                }
+            }
+
+            if ($bestMatch) {
+                $journalEntry = $bestMatch['journal_entry'];
+                $usedJournalIds[] = $journalEntry->id;
+
+                $tx->update([
+                    'reconciliation_status' => 'reconciled',
+                    'matched_journal_entry_id' => $journalEntry->id,
+                    'matched_at' => now(),
+                    'matched_by' => $user?->id,
+                ]);
+
+                $reconciled[] = [
+                    'bank_transaction_id' => $tx->id,
+                    'journal_entry_id' => $journalEntry->id,
+                    'confidence' => $bestMatch['confidence'],
+                    'reason' => $bestMatch['reason'],
+                ];
+            }
+        }
+
+        return [
+            'total_evaluated' => count($suggestions),
+            'auto_reconciled_count' => count($reconciled),
+            'reconciled_transactions' => $reconciled,
+            'skipped_count' => count($suggestions) - count($reconciled),
+        ];
+    }
 }

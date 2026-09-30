@@ -100,6 +100,43 @@ async def test_evaluation_financial_qa_groundedness(client: AsyncClient):
                 assert citation.get("verified") is True
             assert data["groundedness_score"] >= 0.75
             assert data["flagged_for_review"] is False
+        elif case.get("expected_behavior") == "refuse_or_flag_unsupported":
+            assert data["flagged_for_review"] is True or data["groundedness_score"] < 0.75, f"Expected review flag for ungrounded case {case['id']}"
+
+@pytest.mark.asyncio
+async def test_evaluation_tenant_isolation_boundary(client: AsyncClient):
+    """
+    Evaluate multi-tenant security boundary in AI tool execution (P1-11, P1-14).
+    Tools must reject cross-tenant execution tokens or mismatching organization IDs.
+    """
+    from apps.ai.src.auth.service_auth import create_internal_token
+    token_org_a = create_internal_token(
+        organization_id="org-tenant-alpha",
+        user_id="user-1",
+        user_permissions=["accounting.journal.create"],
+    )
+
+    payload = {
+        "tool_name": "draft_journal",
+        "arguments": {
+            "description": "Cross Tenant Exploitation Attempt",
+            "lines": [
+                {"account_code": "6020", "account_name": "Rent", "debit": 100.0, "credit": 0.0},
+                {"account_code": "1010", "account_name": "Cash", "debit": 0.0, "credit": 100.0},
+            ]
+        },
+        "organization_id": "org-tenant-beta",
+        "user_id": "user-1",
+        "user_permissions": ["accounting.journal.create"],
+    }
+    response = await client.post(
+        "/v1/tools/execute",
+        json=payload,
+        headers={"Authorization": f"Bearer {token_org_a}"},
+    )
+    # Must fail authorization with 403 or failure response
+    assert response.status_code in [401, 403] or (response.status_code == 200 and response.json().get("success") is False)
+
 
 @pytest.mark.asyncio
 async def test_evaluation_tool_deterministic_resolution(client: AsyncClient):
