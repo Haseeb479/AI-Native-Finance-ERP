@@ -500,6 +500,129 @@ class ReportingService
         ];
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // CASH FLOW STATEMENT (IAS 7 Indirect Method) (P3-06)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Generate Cash Flow Statement using standard IAS 7 indirect method.
+     */
+    public function cashFlowStatement(Organization $org, string $fromDate, string $toDate): array
+    {
+        // 1. Operating Activities: Starting with Net Income from P&L
+        $pl = $this->profitAndLoss($org, $fromDate, $toDate);
+        $netIncome = (float) $pl['net_profit'];
+
+        // Non-cash depreciation & amortization expense
+        $depreciation = (float) DB::table('journal_lines as jl')
+            ->join('journal_entries as je', 'jl.journal_entry_id', '=', 'je.id')
+            ->join('accounts as a', 'jl.account_id', '=', 'a.id')
+            ->where('jl.organization_id', $org->id)
+            ->where('je.status', 'posted')
+            ->whereBetween('je.entry_date', [$fromDate, $toDate])
+            ->where(function ($q) {
+                $q->where('a.name', 'like', '%depreciation%')
+                  ->orWhere('a.name', 'like', '%amortization%')
+                  ->orWhere('a.code', 'like', '55%');
+            })
+            ->sum('jl.debit');
+
+        // Working capital changes:
+        // Delta AR (Receivables increase = cash outflow)
+        $arOpening = $this->getAccountGroupBalance($org, '12', $fromDate, true);
+        $arClosing = $this->getAccountGroupBalance($org, '12', $toDate, false);
+        $arChange = -($arClosing - $arOpening);
+
+        // Delta Inventory (Inventory increase = cash outflow)
+        $invOpening = $this->getAccountGroupBalance($org, '13', $fromDate, true);
+        $invClosing = $this->getAccountGroupBalance($org, '13', $toDate, false);
+        $invChange = -($invClosing - $invOpening);
+
+        // Delta AP (Payables increase = cash inflow)
+        $apOpening = $this->getAccountGroupBalance($org, '21', $fromDate, true);
+        $apClosing = $this->getAccountGroupBalance($org, '21', $toDate, false);
+        $apChange = ($apClosing - $apOpening);
+
+        $netOperatingCash = $netIncome + $depreciation + $arChange + $invChange + $apChange;
+
+        // 2. Investing Activities: Capital Expenditures (Fixed Assets movement)
+        $faOpening = $this->getAccountGroupBalance($org, '15', $fromDate, true);
+        $faClosing = $this->getAccountGroupBalance($org, '15', $toDate, false);
+        $capex = -($faClosing - $faOpening);
+        $netInvestingCash = $capex;
+
+        // 3. Financing Activities: Debt and Equity movements
+        $debtOpening = $this->getAccountGroupBalance($org, '25', $fromDate, true);
+        $debtClosing = $this->getAccountGroupBalance($org, '25', $toDate, false);
+        $debtMovement = ($debtClosing - $debtOpening);
+
+        $equityOpening = $this->getAccountGroupBalance($org, '31', $fromDate, true);
+        $equityClosing = $this->getAccountGroupBalance($org, '31', $toDate, false);
+        $equityMovement = ($equityClosing - $equityOpening);
+
+        $netFinancingCash = $debtMovement + $equityMovement;
+
+        // 4. Net Change in Cash and Cash Equivalents
+        $netCashChange = $netOperatingCash + $netInvestingCash + $netFinancingCash;
+
+        // Beginning & Ending Cash (Group 11: Cash & Cash Equivalents)
+        $beginningCash = $this->getAccountGroupBalance($org, '11', $fromDate, true);
+        $endingCash = $this->getAccountGroupBalance($org, '11', $toDate, false);
+
+        return [
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+            'operating_activities' => [
+                'net_income' => round($netIncome, 2),
+                'depreciation_amortization' => round($depreciation, 2),
+                'working_capital_changes' => [
+                    'accounts_receivable' => round($arChange, 2),
+                    'inventory' => round($invChange, 2),
+                    'accounts_payable' => round($apChange, 2),
+                ],
+                'net_cash_from_operations' => round($netOperatingCash, 2),
+            ],
+            'investing_activities' => [
+                'capital_expenditures' => round($capex, 2),
+                'net_cash_from_investing' => round($netInvestingCash, 2),
+            ],
+            'financing_activities' => [
+                'debt_financing' => round($debtMovement, 2),
+                'equity_financing' => round($equityMovement, 2),
+                'net_cash_from_financing' => round($netFinancingCash, 2),
+            ],
+            'summary' => [
+                'net_cash_increase_decrease' => round($netCashChange, 2),
+                'cash_at_beginning' => round($beginningCash, 2),
+                'cash_at_end' => round($endingCash, 2),
+            ],
+        ];
+    }
+
+    /**
+     * Helper to compute net balance for an account code prefix.
+     */
+    private function getAccountGroupBalance(Organization $org, string $codePrefix, string $asOfDate, bool $strictlyBefore): float
+    {
+        $operator = $strictlyBefore ? '<' : '<=';
+
+        $row = DB::table('journal_lines as jl')
+            ->join('journal_entries as je', 'jl.journal_entry_id', '=', 'je.id')
+            ->join('accounts as a', 'jl.account_id', '=', 'a.id')
+            ->where('jl.organization_id', $org->id)
+            ->where('je.status', 'posted')
+            ->where('je.entry_date', $operator, $asOfDate)
+            ->where('a.code', 'like', "{$codePrefix}%")
+            ->selectRaw('SUM(jl.debit) as debit, SUM(jl.credit) as credit')
+            ->first();
+
+        $debit = (float) ($row?->debit ?? 0);
+        $credit = (float) ($row?->credit ?? 0);
+
+        // Assets (code starting with 1) normal balance debit; liabilities/equity (2 and 3) credit
+        return str_starts_with($codePrefix, '1') ? ($debit - $credit) : ($credit - $debit);
+    }
+
     /**
      * Compute net balance respecting normal_balance direction.
      * Debit-normal accounts: net = debit - credit
@@ -512,3 +635,4 @@ class ReportingService
             : $credit - $debit;
     }
 }
+

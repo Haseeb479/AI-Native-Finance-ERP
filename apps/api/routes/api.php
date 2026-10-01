@@ -195,6 +195,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/reports/general-ledger', [\App\Http\Controllers\Api\V1\ReportController::class, 'generalLedger']);
         Route::get('/organizations/{orgId}/reports/ar-aging', [\App\Http\Controllers\Api\V1\ReportController::class, 'arAging']);
         Route::get('/organizations/{orgId}/reports/ap-aging', [\App\Http\Controllers\Api\V1\ReportController::class, 'apAging']);
+        Route::get('/organizations/{orgId}/reports/cash-flow', [\App\Http\Controllers\Api\V1\ReportController::class, 'cashFlow']);
 
         // AI Foundation & Gateway
         Route::post('/organizations/{orgId}/ai/classify-transaction', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'classifyTransaction']);
@@ -205,6 +206,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{orgId}/ai/copilot/qa', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'askCopilot']);
         Route::post('/organizations/{orgId}/ai/copilot/draft-journal', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'draftJournal']);
         Route::post('/organizations/{orgId}/ai/copilot/explain-report', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'explainReport']);
+
+        // AI Financial Workflows (P3-05)
+        Route::post('/organizations/{orgId}/ai/workflows/prepare-close', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'prepareClose']);
+        Route::post('/organizations/{orgId}/ai/workflows/unreconciled-transactions', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'unreconciledTransactions']);
+        Route::post('/organizations/{orgId}/ai/workflows/margin-analysis', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'marginAnalysis']);
+        Route::post('/organizations/{orgId}/ai/workflows/invoice-approval-queue', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'invoiceApprovalQueue']);
+        Route::post('/organizations/{orgId}/ai/workflows/draft-reconciliation-matches', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'draftReconciliationMatches']);
+        Route::post('/organizations/{orgId}/ai/workflows/missing-vendor-documents', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'missingVendorDocuments']);
+        Route::post('/organizations/{orgId}/ai/workflows/ar-collections-queue', [\App\Http\Controllers\Api\V1\AiGatewayController::class, 'arCollectionsQueue']);
 
         // Step 21: Audit & Compliance Trails
         Route::get('/organizations/{orgId}/audit-logs', [\App\Http\Controllers\Api\V1\AuditController::class, 'index']);
@@ -225,6 +235,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{orgId}/close-cycles/{periodId}/readiness', [\App\Http\Controllers\Api\V1\CloseController::class, 'readiness']);
         Route::get('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'indexFixedAssets']);
         Route::post('/organizations/{orgId}/fixed-assets', [\App\Http\Controllers\Api\V1\CloseController::class, 'storeFixedAsset']);
+        Route::post('/organizations/{orgId}/fixed-assets/{assetId}/dispose', [\App\Http\Controllers\Api\V1\CloseController::class, 'disposeFixedAsset']);
+        Route::post('/organizations/{orgId}/fixed-assets/{assetId}/impair', [\App\Http\Controllers\Api\V1\CloseController::class, 'impairFixedAsset']);
 
         // P1-25: Automated Subledger to GL Reconciliation
         Route::get('/organizations/{organization}/reconciliations/subledger', [\App\Http\Controllers\Api\V1\ReconciliationController::class, 'subledgerReport']);

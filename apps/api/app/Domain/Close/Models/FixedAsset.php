@@ -28,14 +28,25 @@ class FixedAsset extends Model
         'monthly_depreciation',
         'status',
         'last_depreciated_date',
+        'disposal_date',
+        'disposal_proceeds',
+        'gain_loss_amount',
+        'impairment_date',
+        'impairment_loss',
+        'impairment_reason',
     ];
 
     protected $casts = [
         'purchase_date' => 'date',
         'last_depreciated_date' => 'date',
+        'disposal_date' => 'date',
+        'impairment_date' => 'date',
         'purchase_cost' => 'decimal:4',
         'salvage_value' => 'decimal:4',
         'monthly_depreciation' => 'decimal:4',
+        'disposal_proceeds' => 'decimal:4',
+        'gain_loss_amount' => 'decimal:4',
+        'impairment_loss' => 'decimal:4',
         'useful_life_months' => 'integer',
     ];
 

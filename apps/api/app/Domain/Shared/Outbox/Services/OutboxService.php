@@ -76,4 +76,14 @@ class OutboxService
 
         return $publishedCount;
     }
+
+    /**
+     * Record failure on an outbox event.
+     */
+    public function recordFailure(OutboxEvent $event, string $error): void
+    {
+        $event->markAsFailed($error);
+    }
 }
+
+

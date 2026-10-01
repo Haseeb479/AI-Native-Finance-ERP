@@ -218,8 +218,84 @@ class CloseController extends Controller
                 'meta' => ['message' => "Fixed asset '{$asset->name}' created successfully.", 'timestamp' => now()->toIso8601String()],
                 'errors' => [],
             ], 201);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'ASSET_CREATE_FAILED', 'message' => $e->getMessage()]]], 422);
         }
     }
+
+    /**
+     * Dispose of a fixed asset.
+     */
+    public function disposeFixedAsset(Request $request, string $orgId, string $assetId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        if (! $this->canManageClose($request, $organization)) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'FORBIDDEN', 'message' => 'Permission denied']]], 403);
+        }
+
+        $asset = FixedAsset::withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
+            ->findOrFail($assetId);
+
+        $validated = $request->validate([
+            'disposal_date' => ['required', 'date'],
+            'accounting_period_id' => ['required', 'uuid'],
+            'proceeds' => ['nullable', 'numeric', 'min:0'],
+            'proceeds_account_id' => ['nullable', 'uuid', 'required_if:proceeds,gt:0'],
+            'gain_loss_account_id' => ['required', 'uuid'],
+            'accumulated_depreciation' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $result = $this->closeManager->disposeFixedAsset($organization, $asset, $validated, $request->user());
+
+            return response()->json([
+                'data' => $result,
+                'meta' => ['message' => "Fixed asset disposed successfully.", 'timestamp' => now()->toIso8601String()],
+                'errors' => [],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'ASSET_DISPOSAL_FAILED', 'message' => $e->getMessage()]]], 422);
+        }
+    }
+
+    /**
+     * Impair a fixed asset per IAS 36.
+     */
+    public function impairFixedAsset(Request $request, string $orgId, string $assetId): JsonResponse
+    {
+        $organization = $this->getAuthorizedOrganization($request, $orgId);
+        if (! $organization) return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'NOT_FOUND', 'message' => 'Organization not found']]], 404);
+
+        if (! $this->canManageClose($request, $organization)) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'FORBIDDEN', 'message' => 'Permission denied']]], 403);
+        }
+
+        $asset = FixedAsset::withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
+            ->findOrFail($assetId);
+
+        $validated = $request->validate([
+            'impairment_loss' => ['required', 'numeric', 'gt:0'],
+            'impairment_loss_account_id' => ['required', 'uuid'],
+            'accounting_period_id' => ['required', 'uuid'],
+            'impairment_date' => ['required', 'date'],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $result = $this->closeManager->impairFixedAsset($organization, $asset, $validated, $request->user());
+
+            return response()->json([
+                'data' => $result,
+                'meta' => ['message' => "Fixed asset impairment recognized successfully.", 'timestamp' => now()->toIso8601String()],
+                'errors' => [],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['data' => null, 'meta' => [], 'errors' => [['code' => 'ASSET_IMPAIRMENT_FAILED', 'message' => $e->getMessage()]]], 422);
+        }
+    }
 }
+

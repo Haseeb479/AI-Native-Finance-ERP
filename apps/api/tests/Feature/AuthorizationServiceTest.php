@@ -57,6 +57,60 @@ class AuthorizationServiceTest extends TestCase
         $this->assertFalse($service->can($staff, 'invoices.pay', $org));
     }
 
+    public function test_comprehensive_permission_matrix_across_all_roles(): void
+    {
+        $org = Organization::create([
+            'name' => 'Matrix Org',
+            'legal_name' => 'Matrix Org (Pvt) Ltd',
+            'base_currency' => 'PKR',
+            'fiscal_year_start_month' => 1,
+        ]);
+
+        $roles = ['owner', 'admin', 'accountant', 'finance_manager', 'staff', 'auditor'];
+        $users = [];
+        foreach ($roles as $role) {
+            $user = User::factory()->create();
+            $user->organizations()->attach($org->id, ['role' => $role]);
+            $users[$role] = $user;
+        }
+
+        $service = app(AuthorizationService::class);
+
+        // 1. Owner: wildcard all
+        $this->assertTrue($service->can($users['owner'], 'journals.post', $org));
+        $this->assertTrue($service->can($users['owner'], 'audit.view', $org));
+        $this->assertTrue($service->can($users['owner'], 'members.manage', $org));
+
+        // 2. Admin: management and audit
+        $this->assertTrue($service->can($users['admin'], 'journals.post', $org));
+        $this->assertTrue($service->can($users['admin'], 'audit.view', $org));
+        $this->assertTrue($service->can($users['admin'], 'members.manage', $org));
+
+        // 3. Accountant: journals, invoices, banking, but NOT members.manage
+        $this->assertTrue($service->can($users['accountant'], 'journals.post', $org));
+        $this->assertTrue($service->can($users['accountant'], 'invoices.pay', $org));
+        $this->assertFalse($service->can($users['accountant'], 'members.manage', $org));
+
+        // 4. Finance Manager: journals, invoices, banking, but NOT members.manage or journals.reverse
+        $this->assertTrue($service->can($users['finance_manager'], 'journals.post', $org));
+        $this->assertTrue($service->can($users['finance_manager'], 'invoices.pay', $org));
+        $this->assertFalse($service->can($users['finance_manager'], 'members.manage', $org));
+
+        // 5. Staff: invoices.create only; cannot post or pay
+        $this->assertTrue($service->can($users['staff'], 'invoices.create', $org));
+        $this->assertFalse($service->can($users['staff'], 'journals.post', $org));
+        $this->assertFalse($service->can($users['staff'], 'invoices.pay', $org));
+        $this->assertFalse($service->can($users['staff'], 'audit.view', $org));
+
+        // 6. Auditor: read-only; can view journals, reports, audit logs, but CANNOT mutate/post
+        $this->assertTrue($service->can($users['auditor'], 'journals.view', $org));
+        $this->assertTrue($service->can($users['auditor'], 'audit.view', $org));
+        $this->assertTrue($service->can($users['auditor'], 'reports.export', $org));
+        $this->assertFalse($service->can($users['auditor'], 'journals.post', $org));
+        $this->assertFalse($service->can($users['auditor'], 'invoices.pay', $org));
+        $this->assertFalse($service->can($users['auditor'], 'invoices.create', $org));
+    }
+
     public function test_separation_of_duties_prevents_maker_from_approving_or_posting(): void
     {
         $user = User::factory()->create();

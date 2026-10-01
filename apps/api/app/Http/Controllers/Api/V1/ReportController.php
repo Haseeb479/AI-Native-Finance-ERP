@@ -195,4 +195,38 @@ class ReportController extends Controller
             'errors' => [],
         ]);
     }
+
+    /**
+     * Cash Flow Statement (IAS 7 Indirect Method)
+     * GET /api/v1/organizations/{orgId}/reports/cash-flow?from=2025-07-01&to=2025-09-30
+     */
+    public function cashFlow(Request $request, string $orgId): JsonResponse
+    {
+        $org = $this->getAuthorizedOrganization($request, $orgId);
+        if (!$org) return $this->unauthorized();
+
+        $request->validate([
+            'from' => ['required', 'date'],
+            'to'   => ['required', 'date', 'after_or_equal:from'],
+        ]);
+
+        $report = $this->reportingService->cashFlowStatement(
+            $org,
+            $request->query('from'),
+            $request->query('to')
+        );
+
+        return response()->json([
+            'data' => $report,
+            'meta' => [
+                'report'          => 'cash_flow_statement',
+                'organization_id' => $orgId,
+                'from_date'       => $request->query('from'),
+                'to_date'         => $request->query('to'),
+                'generated_at'    => now()->toISOString(),
+            ],
+            'errors' => [],
+        ]);
+    }
 }
+

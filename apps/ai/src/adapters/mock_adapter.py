@@ -17,6 +17,21 @@ from apps.ai.src.schemas.qa import (
     ReportExplanationResponse,
     VarianceDriver,
 )
+from apps.ai.src.schemas.workflows import (
+    MonthEndCloseWorkflowResponse,
+    UnreconciledTransactionsWorkflowResponse,
+    UnreconciledItemAnalysis,
+    MarginAnalysisWorkflowResponse,
+    MarginDriver,
+    InvoiceApprovalQueueWorkflowResponse,
+    ScoredApprovalItem,
+    DraftReconciliationMatchesWorkflowResponse,
+    CandidateMatchPair,
+    MissingVendorDocumentsWorkflowResponse,
+    MissingDocRisk,
+    ArCollectionsQueueWorkflowResponse,
+    CollectionsQueueItem,
+)
 
 class MockLLMAdapter(BaseLLMAdapter):
     """
@@ -179,4 +194,129 @@ class MockLLMAdapter(BaseLLMAdapter):
                 ],
             ) # type: ignore
 
+        if response_model == MonthEndCloseWorkflowResponse:
+            return MonthEndCloseWorkflowResponse(
+                readiness_status="READY",
+                readiness_score_pct=95,
+                executive_assessment="Month-end trial balance is balanced, depreciation posted, zero open blockers.",
+                blocking_items=[],
+                action_checklist=["Lock accounting period", "Publish financial statements"],
+                evidence=[
+                    EvidenceCitation(
+                        source_type="general_ledger",
+                        metric_or_code="trial_balance_status",
+                        stated_value="balanced",
+                        verified=True,
+                    )
+                ],
+            ) # type: ignore
+
+        if response_model == UnreconciledTransactionsWorkflowResponse:
+            return UnreconciledTransactionsWorkflowResponse(
+                total_unreconciled_amount="15000.00",
+                total_count=1,
+                summary="1 transaction requiring statement verification.",
+                analyzed_items=[
+                    UnreconciledItemAnalysis(
+                        transaction_id="tx-1",
+                        date="2025-09-15",
+                        amount="15000.00",
+                        description="Vendor transfer pending match",
+                        likely_category="Vendor Payment",
+                        suggested_match_target="Bill Payment #BP-102",
+                        risk_level="low",
+                    )
+                ],
+                recommended_resolutions=["Match against bill payment #BP-102"],
+            ) # type: ignore
+
+        if response_model == MarginAnalysisWorkflowResponse:
+            return MarginAnalysisWorkflowResponse(
+                gross_margin_delta_bps=500,
+                executive_summary="Gross margin expanded by 500 bps from 35% to 40%.",
+                primary_drivers=[
+                    MarginDriver(
+                        factor_name="Consulting Mix",
+                        impact_bps=350,
+                        direction="positive",
+                        explanation="Higher proportion of high-margin advisory services",
+                    )
+                ],
+                operational_risks=[],
+                pricing_or_cost_recommendations=["Maintain pricing tier for newly acquired enterprise accounts"],
+            ) # type: ignore
+
+        if response_model == InvoiceApprovalQueueWorkflowResponse:
+            return InvoiceApprovalQueueWorkflowResponse(
+                total_pending_count=1,
+                total_pending_amount="45000.00",
+                approval_queue=[
+                    ScoredApprovalItem(
+                        bill_id="bill-101",
+                        vendor_name="Atlas Supplies",
+                        amount="45000.00",
+                        priority_level="NORMAL",
+                        three_way_match_status="MATCHED",
+                        duplicate_risk=False,
+                        approval_recommendation="APPROVE",
+                        rationale="PO and goods receipt fully matched",
+                    )
+                ],
+                policy_alerts=[],
+            ) # type: ignore
+
+        if response_model == DraftReconciliationMatchesWorkflowResponse:
+            return DraftReconciliationMatchesWorkflowResponse(
+                proposed_matches=[
+                    CandidateMatchPair(
+                        bank_transaction_id="bt-1",
+                        matched_record_id="je-1",
+                        matched_record_type="journal_entry",
+                        confidence_score=0.98,
+                        match_rule="Exact amount and same value date",
+                        amount="5000.00",
+                        explanation="High-confidence matching rule passed",
+                    )
+                ],
+                unmatched_count=0,
+                matching_rate_pct=100,
+            ) # type: ignore
+
+        if response_model == MissingVendorDocumentsWorkflowResponse:
+            return MissingVendorDocumentsWorkflowResponse(
+                missing_docs_count=1,
+                total_undocumented_amount="80000.00",
+                risk_summary="1 purchase bill over PKR 50,000 threshold lacks attached supplier tax invoice.",
+                flagged_records=[
+                    MissingDocRisk(
+                        bill_id="bill-201",
+                        bill_number="INV-201",
+                        vendor_name="Premier Logistics",
+                        amount="80000.00",
+                        date="2025-09-10",
+                        tax_withholding_risk=True,
+                        recommended_action="Request FBR compliant invoice before releasing payment",
+                    )
+                ],
+            ) # type: ignore
+
+        if response_model == ArCollectionsQueueWorkflowResponse:
+            return ArCollectionsQueueWorkflowResponse(
+                total_overdue_amount="120000.00",
+                total_customers_overdue=1,
+                high_priority_count=1,
+                action_queue=[
+                    CollectionsQueueItem(
+                        invoice_id="inv-501",
+                        customer_name="Pak Retailers Ltd",
+                        days_overdue=45,
+                        amount_due="120000.00",
+                        risk_tier="HIGH",
+                        suggested_dunning_action="Phone call + statement of account",
+                        draft_email_snippet="Dear Finance Team, Kindly note invoice #inv-501 is 45 days past due.",
+                    )
+                ],
+            ) # type: ignore
+
         raise NotImplementedError(f"Mock response not implemented for {response_model}")
+

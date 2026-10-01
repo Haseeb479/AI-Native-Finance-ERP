@@ -120,20 +120,20 @@ File: apps/api/app/Domain/Organization/Scopes/TenantScope.php
 
 Current risk: static tenant ID can leak between reused workers/jobs.
 
-- [ ] Create injected request/job-scoped TenantContext.
-- [ ] Store organization/entity/branch/user/permissions there.
-- [ ] Explicitly establish and clear context for every request/job.
-- [ ] Add worker tenant-bleed tests.
+- [x] Create injected request/job-scoped TenantContext.
+- [x] Store organization/entity/branch/user/permissions there.
+- [x] Explicitly establish and clear context for every request/job.
+- [x] Add worker tenant-bleed tests.
 
 ## P0-10 — Centralize owner/security permissions
 File: apps/api/app/Models/User.php
 
 Current behavior gives owner wildcard permissions.
 
-- [ ] Document owner wildcard policy.
-- [ ] Separate tenant admin, financial creation, approval, posting, security and API-key permissions.
-- [ ] Add separation-of-duties controls.
-- [ ] Remove scattered controller-specific role bypasses.
+- [x] Document owner wildcard policy.
+- [x] Separate tenant admin, financial creation, approval, posting, security and API-key permissions.
+- [x] Add separation-of-duties controls.
+- [x] Remove scattered controller-specific role bypasses.
 
 # P1 — AUTH / API SECURITY
 
@@ -582,46 +582,41 @@ Show source, reason, confidence, proposed action and approval requirement.
 Surface cash, revenue, AR, AP, reconciliation, exceptions, close readiness and AI recommendations.
 
 ## P3-05 — AI workflows
-- [ ] Prepare month-end close.
-- [ ] Find unreconciled transactions.
-- [ ] Explain margin changes.
-- [ ] Prepare invoice approval queue.
-- [ ] Draft reconciliation matches.
-- [ ] Find missing vendor documents.
-- [ ] Prepare AR collections queue.
+- [x] Prepare month-end close.
+- [x] Find unreconciled transactions.
+- [x] Explain margin changes.
+- [x] Prepare invoice approval queue.
+- [x] Draft reconciliation matches.
+- [x] Find missing vendor documents.
+- [x] Prepare AR collections queue.
 
 # P3 — ACCOUNTING DEPTH
 
 ## P3-06 — Cash-flow reporting
-Verify direct/indirect methodology and source traceability.
+- [x] Verify direct/indirect methodology and source traceability.
 
 ## P3-07 — Fixed assets
-Asset register, capitalization, depreciation, useful life, residual value, disposal, impairment, journal generation and audit lineage.
+- [x] Asset register, capitalization, depreciation, useful life, residual value, disposal, impairment, journal generation and audit lineage.
 
 ## P3-08 — Revenue recognition
-Contracts, performance obligations, allocation, amendments, catch-up adjustments, schedules, journals and audit lineage.
+- [x] Contracts, performance obligations, allocation, amendments, catch-up adjustments, schedules, journals and audit lineage.
 
 ## P3-09 — Multi-entity consolidation
-FX translation, intercompany matching, elimination, consolidation journals and entity-specific permissions.
+- [x] FX translation, intercompany matching, elimination, consolidation journals and entity-specific permissions.
 
 # P3 — TESTING
 
 ## P3-01 — Tenant isolation matrix
-For every organization-owned resource:
-Org A -> Org A = allowed.
-Org A -> Org B = denied.
-Org B -> Org A = denied.
-
-Cover accounts, journals, invoices, bills, customers, vendors, banks, documents, reports, AI logs, audit logs, integrations, inventory and revenue.
+- [x] Accounts, journals, invoices, bills, customers, vendors, banks, documents, reports, AI logs, audit logs, integrations, inventory and revenue.
 
 ## P3-02 — Permission matrix
-Automate all sensitive capabilities for owner/admin/accountant/finance-manager/staff/auditor.
+- [x] Automate all sensitive capabilities for owner/admin/accountant/finance-manager/staff/auditor.
 
 ## P3-03 — Concurrency suite
-Double post, double payment, duplicate invoice, duplicate import, concurrent reconciliation, close/post race, reversal race and inventory race.
+- [x] Double post, double payment, duplicate invoice, duplicate import, concurrent reconciliation, close/post race, reversal race and inventory race.
 
 ## P3-04 — Failure-injection suite
-DB, Redis, AI, OCR, FBR, webhook, queue and provider failures. Verify financial state remains correct.
+- [x] DB, Redis, AI, OCR, FBR, webhook, queue and provider failures. Verify financial state remains correct.
 
 ## P3-05 — Browser E2E
 Use Playwright or equivalent for register/login, organization, RBAC, accounting, invoices, payments, banking, documents, AI, reports and close.
