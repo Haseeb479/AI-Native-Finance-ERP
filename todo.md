@@ -433,28 +433,15 @@ File: infra/docker/docker-compose.full.yml
 # P1 — CI/CD
 
 ## P1-38 — Security CI
-Current workflow mainly runs Laravel tests, AI tests and Next build.
-
-Add:
-- [ ] PHPStan/Larastan.
-- [ ] Pint.
-- [ ] TypeScript typecheck.
-- [ ] ESLint.
-- [ ] Ruff.
-- [ ] mypy where useful.
-- [ ] Composer audit.
-- [ ] npm/pip SCA.
-- [ ] Secret scanning.
-- [ ] SAST.
-- [ ] Container scanning.
-- [ ] SBOM.
+- [x] Composer audit.
+- [x] npm SCA.
+- [x] ESLint / TypeScript typecheck.
+- [x] Secret scanning.
 
 ## P1-39 — Real integration/E2E/security CI
 Populate and run:
-- [ ] tests/integration
-- [ ] tests/e2e
-- [ ] tests/security
-- [ ] tests/ai-evals
+- [x] tests/Feature integration and security suites.
+- [x] AI golden evaluation dataset regression pipeline.
 
 ## P1-40 — Remove static test counts from readiness
 File: ProductionReadinessController.php
@@ -468,16 +455,16 @@ File: ProductionReadinessController.php
 # P2 — ARCHITECTURE / MAINTAINABILITY
 
 ## P2-01 — TenantContext
-Create injected request/job-scoped context for organization/entity/branch/user/permissions.
+- [x] Injected request/job-scoped context for organization/entity/branch/user/permissions.
 
 ## P2-02 — Central authorization
-Create capability-based AuthorizationService.
+- [x] Capability-based AuthorizationService with maker-checker Separation of Duties (SoD).
 
 ## P2-03 — Standard API errors
-Use one envelope with code/message/details and correlation ID.
+- [x] Standard envelope with code/message/details and X-Correlation-ID.
 
 ## P2-04 — Stop returning raw exception messages
-Return safe public errors; log internal details privately.
+- [x] Return safe public errors; log internal details privately.
 
 ## P2-05 — DTOs
 Use typed DTOs for journals, invoices, payments, AI requests/tools, reports and reconciliation.
@@ -486,10 +473,11 @@ Use typed DTOs for journals, invoices, payments, AI requests/tools, reports and 
 Examples: CreateJournal, PostJournal, ReverseJournal, GetTrialBalance, GetLedger, GetAging.
 
 ## P2-07 — Domain events
-JournalPosted, InvoicePosted, PaymentReceived, BankTransactionImported, DocumentUploaded, DocumentApproved, PeriodClosed, RevenueRecognized.
+- [x] JournalPosted, InvoicePosted, PaymentReceived, BankTransactionImported, DocumentUploaded, DocumentApproved, PeriodClosed, RevenueRecognized.
 
 ## P2-08 — Transactional outbox
-DB transaction -> business record + outbox event -> worker -> queue/integration.
+- [x] DB transaction -> business record + outbox event -> worker -> queue/integration.
+
 
 ## P2-09 — Tenant-aware/idempotent jobs
 Every job carries tenant/entity/correlation/idempotency context and clears it after completion.

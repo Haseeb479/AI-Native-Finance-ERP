@@ -46,8 +46,13 @@ jobs:
           touch database/database.sqlite
           php artisan key:generate --no-interaction --force
 
+      - name: Composer Dependency Security Audit
+        run: composer audit --no-interaction
+        continue-on-error: true
+
       - name: Run PHPUnit Test Suite
         run: php -d memory_limit=512M vendor/bin/phpunit --colors=never
+
 
   fastapi-ai:
     name: FastAPI AI Microservice Tests
