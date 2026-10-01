@@ -547,13 +547,13 @@ Verify official requirements, sandbox/production behavior, credentials, fiscaliz
 # P2 — SAAS BILLING
 
 ## P2-28 — Subscription domain
-Plans, subscriptions, organization plan, seats, usage, AI credits, limits, billing events and payment state.
+- [x] Plans, subscriptions, organization plan, seats, usage, AI credits, limits, billing events and payment state.
 
 ## P2-29 — Usage metering
-Users, transactions, documents, OCR pages, AI tokens/cost, storage and integrations.
+- [x] Users, transactions, documents, OCR pages, AI tokens/cost, storage and integrations.
 
 ## P2-30 — Server-side entitlements
-Plan -> capability -> limit. Never trust frontend plan checks.
+- [x] Plan -> capability -> limit. Never trust frontend plan checks.
 
 # P2 — OPERATIONS
 
@@ -569,7 +569,8 @@ Tenant violations, login attacks, API-key anomalies, AI abuse, queue backlog, fi
 # P3 — RILLET-LIKE PRODUCT EXPERIENCE
 
 ## P3-01 — First-class FinancialException queue
-Types: unmatched bank transaction, duplicate invoice/bill, low OCR confidence, missing document, tax mismatch, unusual expense, integration failure, revenue exception and closed-period conflict.
+- [x] Types: unmatched bank transaction, duplicate invoice/bill, low OCR confidence, missing document, tax mismatch, unusual expense, integration failure, revenue exception and closed-period conflict.
+
 
 ## P3-02 — Continuous-accounting UX
 Business activity -> ingestion -> classification -> reconciliation -> accounting -> exception -> human review -> books updated.

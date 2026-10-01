@@ -99,6 +99,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/organizations/{id}/members', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'store']);
         Route::delete('/organizations/{id}/members/{userId}', [\App\Http\Controllers\Api\V1\OrganizationMemberController::class, 'destroy']);
 
+        // Financial Exceptions Queue (P3-01)
+        Route::get('/organizations/{orgId}/exceptions', [\App\Http\Controllers\Api\V1\FinancialExceptionController::class, 'index']);
+        Route::post('/organizations/{orgId}/exceptions', [\App\Http\Controllers\Api\V1\FinancialExceptionController::class, 'store']);
+        Route::post('/organizations/{orgId}/exceptions/{id}/resolve', [\App\Http\Controllers\Api\V1\FinancialExceptionController::class, 'resolve']);
+
+        // SaaS Billing & Server-Side Entitlements (P2-28, P2-29, P2-30)
+        Route::get('/organizations/{orgId}/billing', [\App\Http\Controllers\Api\V1\BillingController::class, 'show']);
+
+
         // Chart of Accounts (COA) Management
         Route::get('/account-types', [\App\Http\Controllers\Api\V1\AccountController::class, 'types']);
         Route::get('/organizations/{orgId}/accounts', [\App\Http\Controllers\Api\V1\AccountController::class, 'index']);
