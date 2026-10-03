@@ -145,15 +145,53 @@ def test_workflow_ar_collections_queue():
 
 def test_workflow_rejects_unauthenticated():
     """P0: All workflow endpoints must reject unauthenticated requests with 401."""
-    payload = {"organization_id": "org-test-123", "period_id": "p-1", "period_name": "P1", "trial_balance_balanced": True, "draft_journals_count": 0, "unreconciled_bank_count": 0, "depreciation_run": True, "accruals_posted": True}
-    response = client.post("/v1/copilot/workflows/prepare-close", json=payload)
-    assert response.status_code == 401
-    assert "Missing Authorization header" in response.json()["detail"]
+    workflows = [
+        ("/v1/copilot/workflows/prepare-close", {"organization_id": "org-test-123", "period_id": "p-1", "period_name": "P1", "trial_balance_balanced": True, "draft_journals_count": 0, "unreconciled_bank_count": 0, "depreciation_run": True, "accruals_posted": True}),
+        ("/v1/copilot/workflows/unreconciled-transactions", {"organization_id": "org-test-123", "bank_account_id": "acc-1", "unreconciled_items": []}),
+        ("/v1/copilot/workflows/margin-analysis", {"organization_id": "org-test-123", "current_period": "Q3", "prior_period": "Q2", "current_revenue": 100, "current_cogs": 50, "current_gross_margin_pct": 50, "prior_revenue": 80, "prior_cogs": 40, "prior_gross_margin_pct": 50, "operating_expenses_change_pct": 0}),
+        ("/v1/copilot/workflows/invoice-approval-queue", {"organization_id": "org-test-123", "pending_bills": []}),
+        ("/v1/copilot/workflows/draft-reconciliation-matches", {"organization_id": "org-test-123", "bank_account_id": "acc-1", "bank_transactions": [], "candidate_ledger_entries": []}),
+        ("/v1/copilot/workflows/missing-vendor-documents", {"organization_id": "org-test-123", "audit_bills": []}),
+        ("/v1/copilot/workflows/ar-collections-queue", {"organization_id": "org-test-123", "overdue_invoices": []}),
+    ]
+    for endpoint, payload in workflows:
+        response = client.post(endpoint, json=payload)
+        assert response.status_code == 401
+        assert "Missing Authorization header" in response.json()["detail"]
 
 def test_workflow_rejects_scope_mismatch_cross_tenant():
     """P0: Organization A token cannot trigger workflows targeting Organization B."""
-    token = create_internal_token(organization_id="org-tenant-A", user_id="user-1", user_permissions=["*"])
-    payload = {"organization_id": "org-tenant-B", "period_id": "p-1", "period_name": "P1", "trial_balance_balanced": True, "draft_journals_count": 0, "unreconciled_bank_count": 0, "depreciation_run": True, "accruals_posted": True}
-    response = client.post("/v1/copilot/workflows/prepare-close", json=payload, headers={"Authorization": f"Bearer {token}"})
+    workflows = [
+        ("/v1/copilot/workflows/prepare-close", {"organization_id": "org-tenant-B", "period_id": "p-1", "period_name": "P1", "trial_balance_balanced": True, "draft_journals_count": 0, "unreconciled_bank_count": 0, "depreciation_run": True, "accruals_posted": True}),
+        ("/v1/copilot/workflows/margin-analysis", {"organization_id": "org-tenant-B", "current_period": "Q3", "prior_period": "Q2", "current_revenue": 100, "current_cogs": 50, "current_gross_margin_pct": 50, "prior_revenue": 80, "prior_cogs": 40, "prior_gross_margin_pct": 50, "operating_expenses_change_pct": 0}),
+        ("/v1/copilot/workflows/invoice-approval-queue", {"organization_id": "org-tenant-B", "pending_bills": []}),
+    ]
+    for endpoint, payload in workflows:
+        token = create_internal_token(organization_id="org-tenant-A", user_id="user-1", user_permissions=["*"])
+        response = client.post(endpoint, json=payload, headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 403
+        assert "Scope mismatch" in response.json()["detail"]
+
+def test_workflow_rejects_insufficient_permissions():
+    """P0: Service token without required permission cannot execute workflow."""
+    unauthorized_token = create_internal_token(
+        organization_id="org-test-123",
+        user_id="unauthorized-user",
+        user_permissions=["unrelated.view"],
+    )
+    headers = {"Authorization": f"Bearer {unauthorized_token}"}
+    payload = {
+        "organization_id": "org-test-123",
+        "current_period": "Q3",
+        "prior_period": "Q2",
+        "current_revenue": 100,
+        "current_cogs": 50,
+        "current_gross_margin_pct": 50,
+        "prior_revenue": 80,
+        "prior_cogs": 40,
+        "prior_gross_margin_pct": 50,
+        "operating_expenses_change_pct": 0,
+    }
+    response = client.post("/v1/copilot/workflows/margin-analysis", json=payload, headers=headers)
     assert response.status_code == 403
-    assert "Scope mismatch" in response.json()["detail"]
+    assert "Forbidden" in response.json()["detail"]

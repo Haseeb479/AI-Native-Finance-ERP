@@ -145,6 +145,21 @@ async def require_verified_claims(
         iat=payload["iat"],
     )
 
+def check_permission(claims: VerifiedClaims, required_permission: str) -> None:
+    """Validate that verified claims include the required permission, a wildcard, or base accounting view."""
+    perms = claims.user_permissions or []
+    if "*" in perms:
+        return
+    if required_permission in perms:
+        return
+    cat = required_permission.split(".")[0]
+    if f"{cat}.*" in perms or f"{cat}.view" in perms or "accounting.view" in perms:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail=f"Forbidden: Missing required permission '{required_permission}' for this AI workflow."
+    )
+
 def hash_tool_arguments(args: Dict[str, Any]) -> str:
     """Computes deterministic SHA-256 hash of tool arguments to prevent post-approval parameter tampering."""
     canonical_json = json.dumps(args, sort_keys=True, separators=(',', ':'))

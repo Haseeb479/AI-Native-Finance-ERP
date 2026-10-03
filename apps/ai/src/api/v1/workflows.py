@@ -16,7 +16,7 @@ from apps.ai.src.schemas.workflows import (
     ArCollectionsQueueWorkflowResponse,
 )
 from apps.ai.src.adapters.factory import get_llm_adapter
-from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
+from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims, check_permission
 
 router = APIRouter(prefix="/copilot/workflows", dependencies=[Depends(require_verified_claims)])
 
@@ -64,6 +64,7 @@ async def prepare_month_end_close(
     request: MonthEndCloseWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "accounting.close")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
@@ -89,6 +90,7 @@ async def find_unreconciled_transactions(
     request: UnreconciledTransactionsWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "banking.reconcile")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
@@ -110,6 +112,7 @@ async def explain_margin_changes(
     request: MarginAnalysisWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "reports.view")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
@@ -131,6 +134,7 @@ async def prepare_invoice_approval_queue(
     request: InvoiceApprovalQueueWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "purchasing.approve")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
@@ -151,6 +155,7 @@ async def draft_reconciliation_matches(
     request: DraftReconciliationMatchesWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "banking.reconcile")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
@@ -172,6 +177,7 @@ async def find_missing_vendor_documents(
     request: MissingVendorDocumentsWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "purchasing.view")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
@@ -192,6 +198,7 @@ async def prepare_ar_collections_queue(
     request: ArCollectionsQueueWorkflowRequest,
     claims: VerifiedClaims = Depends(require_verified_claims),
 ):
+    check_permission(claims, "sales.view")
     if request.organization_id and request.organization_id != claims.organization_id:
         raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
     request.organization_id = claims.organization_id
