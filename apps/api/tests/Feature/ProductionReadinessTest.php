@@ -67,6 +67,11 @@ class ProductionReadinessTest extends TestCase
         $this->assertTrue($testSuite['details']['is_diagnostic']);
         $this->assertFalse($testSuite['details']['execution_verified']);
         $this->assertGreaterThan(0, $testSuite['details']['test_files_count']);
+
+        // Must fail the readiness gate (HTTP 503, ready=false)
+        $response->assertStatus(503);
+        $this->assertFalse($response->json('data.ready'));
+        $this->assertSame('not_ready', $response->json('data.status'));
     }
 
     public function test_verified_test_execution_report_produces_pass(): void
@@ -90,6 +95,37 @@ class ProductionReadinessTest extends TestCase
         $this->assertTrue($testSuite['pass']);
         $this->assertSame('ok', $testSuite['status']);
         $this->assertTrue($testSuite['details']['execution_verified']);
+
+        // All critical dependencies + verified test suite produce production_ready 200
+        $response->assertStatus(200);
+        $this->assertTrue($response->json('data.ready'));
+        $this->assertSame('production_ready', $response->json('data.status'));
+    }
+
+    public function test_failed_tests_in_execution_report_causes_readiness_failure(): void
+    {
+        Http::fake([
+            '*/health' => Http::response(['status' => 'healthy', 'service' => 'AI Service'], 200),
+        ]);
+
+        $reportPath = storage_path('app/test-results.json');
+        file_put_contents($reportPath, json_encode([
+            'passed' => 60,
+            'failed' => 2,
+            'total' => 62,
+            'timestamp' => now()->toIso8601String(),
+        ]));
+
+        $response = $this->getJson('/api/v1/health/production-readiness');
+
+        $response->assertStatus(503);
+        $this->assertFalse($response->json('data.ready'));
+        $this->assertSame('not_ready', $response->json('data.status'));
+
+        $testSuite = $response->json('data.checks.test_suite');
+        $this->assertFalse($testSuite['pass']);
+        $this->assertSame('failed', $testSuite['status']);
+        $this->assertFalse($testSuite['details']['execution_verified']);
     }
 
     public function test_failed_ai_service_produces_not_ready_status_and_503(): void

@@ -57,7 +57,7 @@ class ProductionReadinessController extends Controller
         // ── 9. Test Suite Execution & Diagnostics (No False Pass) ─────────────
         $checks['test_suite'] = $this->checkTestSuite($isAuthorized);
 
-        // Compute authoritative readiness
+        // Compute authoritative readiness: all critical dependencies AND verified test execution must pass
         $criticalDependencies = [
             'database',
             'critical_tables',
@@ -67,6 +67,7 @@ class ProductionReadinessController extends Controller
             'configuration',
             'accounting_modules',
             'ai_service',
+            'test_suite',
         ];
 
         $allPass = true;
@@ -74,11 +75,6 @@ class ProductionReadinessController extends Controller
             if (! ($checks[$depKey]['pass'] ?? false)) {
                 $allPass = false;
             }
-        }
-
-        // If an actual test execution report is present and failed, it also fails readiness
-        if (($checks['test_suite']['status'] ?? '') === 'failed') {
-            $allPass = false;
         }
 
         $statusCode = $allPass ? 200 : 503;
@@ -348,16 +344,16 @@ class ProductionReadinessController extends Controller
     private function checkAccountingModules(bool $isAuthorized): array
     {
         $servicesToCheck = [
-            'PostingEngine'       => \App\Domain\Accounting\Posting\Services\PostingEngine::class,
-            'PeriodManager'       => \App\Domain\Accounting\Period\Services\PeriodManager::class,
-            'InvoiceService'      => \App\Domain\Sales\Services\InvoiceService::class,
-            'BillService'         => \App\Domain\Purchasing\Services\BillService::class,
-            'BankingService'      => \App\Domain\Banking\Services\BankingService::class,
-            'InventoryService'    => \App\Domain\Inventory\Services\InventoryService::class,
-            'CogsEngine'          => \App\Domain\Inventory\Services\CogsEngine::class,
-            'ProcurementService'  => \App\Domain\Procurement\Services\ProcurementService::class,
-            'SecurityService'     => \App\Domain\Security\Services\SecurityService::class,
-            'IntegrationManager'  => \App\Domain\Integrations\Services\IntegrationManager::class,
+            'PostingEngine'         => \App\Domain\Accounting\Posting\Services\PostingEngine::class,
+            'PeriodManager'         => \App\Domain\Accounting\Period\Services\PeriodManager::class,
+            'InvoiceService'        => \App\Domain\Sales\Services\InvoiceService::class,
+            'BillService'           => \App\Domain\Purchasing\Services\BillService::class,
+            'BankingReconciliation' => \App\Domain\Banking\Services\ReconciliationService::class,
+            'InventoryService'      => \App\Domain\Inventory\Services\InventoryService::class,
+            'CogsEngine'            => \App\Domain\Inventory\Services\CogsEngine::class,
+            'ProcurementService'    => \App\Domain\Procurement\Services\ProcurementService::class,
+            'SecurityService'       => \App\Domain\Security\Services\SecurityService::class,
+            'IntegrationManager'    => \App\Domain\Integrations\Services\IntegrationManager::class,
         ];
 
         $failed = [];
@@ -497,20 +493,27 @@ class ProductionReadinessController extends Controller
 
         $executionVerified = false;
         $status = 'unverified';
+        $pass   = false;
 
         if ($hasReport && is_array($reportData)) {
-            $failed = $reportData['failed'] ?? 0;
+            $failed = $reportData['failed'] ?? null;
             $passed = $reportData['passed'] ?? 0;
+            $total  = $reportData['total'] ?? 0;
+
             if ($failed === 0 && $passed > 0) {
                 $executionVerified = true;
                 $status = 'ok';
+                $pass   = true;
             } else {
+                $executionVerified = false;
                 $status = 'failed';
+                $pass   = false;
             }
         } else {
-            // Test discovery alone cannot produce a false pass
+            // Test discovery alone cannot produce a false pass. Must have verified passing test execution.
             $executionVerified = false;
             $status = 'unverified';
+            $pass   = false;
         }
 
         $details = [
@@ -520,7 +523,7 @@ class ProductionReadinessController extends Controller
             'execution_verified'      => $executionVerified,
             'note'                    => $executionVerified
                 ? 'Test suite execution verified with passing results.'
-                : 'Diagnostic only: file discovery does not establish test execution readiness.',
+                : 'Unverified: Test files exist on disk, but test suite execution has not been verified. File discovery alone does not prove production readiness.',
         ];
 
         if ($isAuthorized && $hasReport) {
@@ -528,9 +531,9 @@ class ProductionReadinessController extends Controller
         }
 
         return [
-            'pass'        => $executionVerified,
+            'pass'        => $pass,
             'status'      => $status,
-            'description' => 'Automated test suite execution (diagnostic)',
+            'description' => 'Automated test suite execution verification',
             'details'     => $details,
         ];
     }
