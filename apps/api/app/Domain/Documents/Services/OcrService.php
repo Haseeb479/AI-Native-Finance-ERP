@@ -2,6 +2,7 @@
 
 namespace App\Domain\Documents\Services;
 
+use App\Domain\AI\Services\AiGatewayService;
 use App\Domain\Documents\Models\Document;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -51,9 +52,9 @@ class OcrService
         try {
             // Determine the right extraction endpoint based on document type
             $endpoint = match ($doc->document_type) {
-                'invoice' => '/api/v1/extract/invoice',
-                'receipt' => '/api/v1/extract/receipt',
-                default   => '/api/v1/extract/invoice', // fallback to invoice parser
+                'invoice' => '/v1/extract/invoice',
+                'receipt' => '/v1/extract/invoice',
+                default   => '/v1/extract/invoice', // fallback to invoice parser
             };
 
             // Fetch raw text from storage to pass to the AI service
@@ -68,8 +69,27 @@ class OcrService
                 return $doc;
             }
 
+            // Generate signed internal service token (P0-01)
+            $gatewayService = app(AiGatewayService::class);
+            $org = $doc->organization;
+            $targetUser = $user ?? $org?->users()->first() ?? User::first();
+            $internalToken = ($org && $targetUser)
+                ? $gatewayService->generateInternalServiceToken($org, $targetUser)
+                : null;
+
+            $correlationId = request()?->header('X-Correlation-ID')
+                ?: \Illuminate\Support\Facades\Context::get('correlation_id')
+                ?: (string) \Illuminate\Support\Str::uuid();
+
+            $headers = [
+                'X-Correlation-ID' => $correlationId,
+            ];
+            if ($internalToken) {
+                $headers['Authorization'] = "Bearer {$internalToken}";
+            }
+
             // Call the Python AI extraction service
-            $response = Http::timeout(30)->post("{$this->aiServiceUrl}{$endpoint}", [
+            $response = Http::withHeaders($headers)->timeout(30)->post("{$this->aiServiceUrl}{$endpoint}", [
                 'raw_document_text' => $rawText,
                 'organization_id' => $doc->organization_id,
             ]);

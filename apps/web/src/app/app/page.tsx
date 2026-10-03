@@ -50,7 +50,7 @@ import {
   Zap,
   SlidersHorizontal,
 } from "lucide-react";
-import { askAxiomAI, getStoredGroqKey, setStoredGroqKey } from "@/lib/axiom";
+import { askAxiomAI } from "@/lib/axiom";
 import { SidebarNavigation } from "@/components/layout/SidebarNavigation";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { LaunchpadView } from "@/components/views/LaunchpadView";
@@ -68,6 +68,7 @@ import { AdvancedReportingConsolidationView } from "@/components/views/AdvancedR
 import { ImmutableAuditSecurityView } from "@/components/views/ImmutableAuditSecurityView";
 import { IntegrationsSettingsView } from "@/components/views/IntegrationsSettingsView";
 import { AttentionItem } from "@/components/ui/AttentionStream";
+import { FinancialErrorState } from "@/components/ui/FinancialErrorState";
 import { cn, formatPKR } from "@/lib/utils";
 import {
   erpApi,
@@ -203,12 +204,10 @@ export default function DashboardPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // Axiom AI & Groq Configuration State
+  // Axiom AI Architecture & Configuration State
   const [isAxiomConfigOpen, setIsAxiomConfigOpen] = useState(false);
-  const [groqKeyInput, setGroqKeyInput] = useState("");
-  const [groqKeySaved, setGroqKeySaved] = useState(false);
-  const [groqTestLoading, setGroqTestLoading] = useState(false);
-  const [groqTestStatus, setGroqTestStatus] = useState<string | null>(null);
+  const [aiStatusLoading, setAiStatusLoading] = useState(false);
+  const [aiStatusResult, setAiStatusResult] = useState<string | null>(null);
 
   // AI Copilot state
   const [promptText, setPromptText] = useState("What's driving change in net burn?");
@@ -235,8 +234,6 @@ export default function DashboardPage() {
     if (t) setToken(t);
     if (u) setCurrentUser(u);
     if (o) setCurrentOrg(o);
-    const gk = getStoredGroqKey();
-    if (gk) setGroqKeyInput(gk);
   }, []);
 
   // ─────────────────────────────────────────────────────────────
@@ -296,11 +293,11 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   // 3. REAL INVOICES QUERY (AR)
   // ─────────────────────────────────────────────────────────────
-  const { data: realInvoices = [], isLoading: isLoadingInvoices, refetch: refetchInvoices } = useQuery({
+  const { data: realInvoices = [], isLoading: isLoadingInvoices, error: errorInvoices, refetch: refetchInvoices } = useQuery({
     queryKey: ["invoices", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getInvoices(activeOrgId).catch(() => []);
+      return erpApi.getInvoices(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
@@ -308,11 +305,11 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   // 4. REAL BILLS QUERY (AP)
   // ─────────────────────────────────────────────────────────────
-  const { data: realBills = [], isLoading: isLoadingBills, refetch: refetchBills } = useQuery({
+  const { data: realBills = [], isLoading: isLoadingBills, error: errorBills, refetch: refetchBills } = useQuery({
     queryKey: ["bills", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getBills(activeOrgId).catch(() => []);
+      return erpApi.getBills(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
@@ -324,7 +321,7 @@ export default function DashboardPage() {
     queryKey: ["three-way-matches", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getThreeWayMatches(activeOrgId).catch(() => []);
+      return erpApi.getThreeWayMatches(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
@@ -332,20 +329,20 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   // 6. CHART OF ACCOUNTS & JOURNALS QUERY
   // ─────────────────────────────────────────────────────────────
-  const { data: realAccounts = [], isLoading: isLoadingAccounts, refetch: refetchAccounts } = useQuery({
+  const { data: realAccounts = [], isLoading: isLoadingAccounts, error: errorAccounts, refetch: refetchAccounts } = useQuery({
     queryKey: ["accounts", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getAccounts(activeOrgId).catch(() => []);
+      return erpApi.getAccounts(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
 
-  const { data: realJournals = [], isLoading: isLoadingJournals, refetch: refetchJournals } = useQuery({
+  const { data: realJournals = [], isLoading: isLoadingJournals, error: errorJournals, refetch: refetchJournals } = useQuery({
     queryKey: ["journals", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getJournals(activeOrgId).catch(() => []);
+      return erpApi.getJournals(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
@@ -353,20 +350,20 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   // 7. FINANCIAL REPORTING QUERY (P&L, Balance Sheet)
   // ─────────────────────────────────────────────────────────────
-  const { data: realPnl } = useQuery({
+  const { data: realPnl, isLoading: isLoadingPnl, error: errorPnl } = useQuery({
     queryKey: ["pnl", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return null;
-      return erpApi.getProfitAndLoss(activeOrgId, "2025-07-01", "2025-09-30").catch(() => null);
+      return erpApi.getProfitAndLoss(activeOrgId, "2025-07-01", "2025-09-30");
     },
     enabled: !!activeOrgId && !!token && activeReportTab === "income-statement",
   });
 
-  const { data: realBalanceSheet } = useQuery({
+  const { data: realBalanceSheet, isLoading: isLoadingBalanceSheet, error: errorBalanceSheet } = useQuery({
     queryKey: ["balance-sheet", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return null;
-      return erpApi.getBalanceSheet(activeOrgId, "2025-09-30").catch(() => null);
+      return erpApi.getBalanceSheet(activeOrgId, "2025-09-30");
     },
     enabled: !!activeOrgId && !!token && activeReportTab === "balance-sheet",
   });
@@ -378,7 +375,7 @@ export default function DashboardPage() {
     queryKey: ["audit-logs", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getAuditLogs(activeOrgId).catch(() => []);
+      return erpApi.getAuditLogs(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
@@ -390,7 +387,7 @@ export default function DashboardPage() {
     queryKey: ["periods", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getPeriods(activeOrgId).catch(() => []);
+      return erpApi.getPeriods(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
@@ -528,22 +525,22 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   // 8c. BANKING & RECONCILIATION QUERIES & MUTATIONS
   // ─────────────────────────────────────────────────────────────
-  const { data: realBankAccounts = [], isLoading: isLoadingBankAccounts, refetch: refetchBankAccounts } = useQuery({
+  const { data: realBankAccounts = [], isLoading: isLoadingBankAccounts, error: errorBankAccounts, refetch: refetchBankAccounts } = useQuery({
     queryKey: ["bank-accounts", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getBankAccounts(activeOrgId).catch(() => []);
+      return erpApi.getBankAccounts(activeOrgId);
     },
     enabled: !!activeOrgId && !!token,
   });
 
   const effectiveBankAccountId = selectedBankAccountId || realBankAccounts[0]?.id || null;
 
-  const { data: realBankTransactions = [], isLoading: isLoadingBankTx, refetch: refetchBankTx } = useQuery({
+  const { data: realBankTransactions = [], isLoading: isLoadingBankTx, error: errorBankTx, refetch: refetchBankTx } = useQuery({
     queryKey: ["bank-transactions", activeOrgId, effectiveBankAccountId],
     queryFn: async () => {
       if (!activeOrgId || !effectiveBankAccountId) return [];
-      return erpApi.getBankTransactions(activeOrgId, effectiveBankAccountId).catch(() => []);
+      return erpApi.getBankTransactions(activeOrgId, effectiveBankAccountId);
     },
     enabled: !!activeOrgId && !!token && !!effectiveBankAccountId,
   });
@@ -552,7 +549,7 @@ export default function DashboardPage() {
     queryKey: ["bank-suggestions", activeOrgId, effectiveBankAccountId],
     queryFn: async () => {
       if (!activeOrgId || !effectiveBankAccountId) return [];
-      return erpApi.getReconciliationSuggestions(activeOrgId, effectiveBankAccountId).catch(() => []);
+      return erpApi.getReconciliationSuggestions(activeOrgId, effectiveBankAccountId);
     },
     enabled: !!activeOrgId && !!token && !!effectiveBankAccountId,
   });
@@ -607,20 +604,20 @@ export default function DashboardPage() {
     recognition_method: "straight_line",
   });
 
-  const { data: realRevenueContracts = [], isLoading: isLoadingContracts } = useQuery({
+  const { data: realRevenueContracts = [], isLoading: isLoadingContracts, error: errorContracts, refetch: refetchContracts } = useQuery({
     queryKey: ["revenue-contracts", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getRevenueContracts(activeOrgId).catch(() => []);
+      return erpApi.getRevenueContracts(activeOrgId);
     },
     enabled: !!activeOrgId && !!token && activeNav === "revenue",
   });
 
-  const { data: selectedContractDetail } = useQuery({
+  const { data: selectedContractDetail, error: errorContractDetail } = useQuery({
     queryKey: ["revenue-contract-detail", activeOrgId, selectedContractId],
     queryFn: async () => {
       if (!activeOrgId || !selectedContractId) return null;
-      return erpApi.getRevenueContract(activeOrgId, selectedContractId).catch(() => null);
+      return erpApi.getRevenueContract(activeOrgId, selectedContractId);
     },
     enabled: !!activeOrgId && !!token && !!selectedContractId,
   });
@@ -679,38 +676,38 @@ export default function DashboardPage() {
   const [isFxRevalModalOpen, setIsFxRevalModalOpen] = useState(false);
   const [spotRateUsd, setSpotRateUsd] = useState("282.50");
 
-  const { data: realEntities = [], refetch: refetchEntities } = useQuery({
+  const { data: realEntities = [], isLoading: isLoadingEntities, error: errorEntities, refetch: refetchEntities } = useQuery({
     queryKey: ["entities", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getEntities(activeOrgId).catch(() => []);
+      return erpApi.getEntities(activeOrgId);
     },
     enabled: !!activeOrgId && !!token && activeReportTab === "consolidation",
   });
 
-  const { data: realExchangeRates = [], refetch: refetchRates } = useQuery({
+  const { data: realExchangeRates = [], isLoading: isLoadingRates, error: errorRates, refetch: refetchRates } = useQuery({
     queryKey: ["exchange-rates", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getExchangeRates(activeOrgId).catch(() => []);
+      return erpApi.getExchangeRates(activeOrgId);
     },
     enabled: !!activeOrgId && !!token && activeReportTab === "consolidation",
   });
 
-  const { data: realIntercompanyTxs = [], refetch: refetchIntercompany } = useQuery({
+  const { data: realIntercompanyTxs = [], isLoading: isLoadingIntercompany, error: errorIntercompany, refetch: refetchIntercompany } = useQuery({
     queryKey: ["intercompany-transactions", activeOrgId],
     queryFn: async () => {
       if (!activeOrgId) return [];
-      return erpApi.getIntercompanyTransactions(activeOrgId).catch(() => []);
+      return erpApi.getIntercompanyTransactions(activeOrgId);
     },
     enabled: !!activeOrgId && !!token && activeReportTab === "consolidation",
   });
 
-  const { data: realConsolidatedReport, refetch: refetchConsolidation, isLoading: isLoadingConsolidation } = useQuery({
+  const { data: realConsolidatedReport, error: errorConsolidation, refetch: refetchConsolidation, isLoading: isLoadingConsolidation } = useQuery({
     queryKey: ["consolidated-report", activeOrgId, activePeriod?.id],
     queryFn: async () => {
       if (!activeOrgId) return null;
-      return erpApi.getConsolidatedReport(activeOrgId, "trial-balance", activePeriod?.id).catch(() => null);
+      return erpApi.getConsolidatedReport(activeOrgId, "trial-balance", activePeriod?.id);
     },
     enabled: !!activeOrgId && !!token && activeReportTab === "consolidation",
   });
@@ -858,14 +855,13 @@ export default function DashboardPage() {
     };
 
     try {
-      const axiomRes = await askAxiomAI(q, financialContext);
+      const axiomRes = await askAxiomAI(q, financialContext, activeOrgId);
       if (axiomRes && axiomRes.answer) {
         setCopilotResponse({
           answer: axiomRes.answer,
           keyMetrics: axiomRes.metrics || {
-            "Engine": "Axiom AI",
-            "Provider": "Groq LPU",
-            "Model": "llama-3.3-70b-versatile",
+            "Engine": "FastAPI Copilot",
+            "Architecture": "Next.js -> Laravel -> FastAPI",
           },
           suggestedActions: axiomRes.suggested_actions || [
             "Inspect pending transactions",
@@ -1059,9 +1055,9 @@ export default function DashboardPage() {
         current_balance: parseFloat(b.current_balance || 0).toLocaleString(),
         unreconciled_count: b.unreconciled_count ?? 0,
       }))
-    : demoBankAccounts;
+    : token ? [] : demoBankAccounts;
 
-  const activeBankAccount = displayBankAccounts.find((a: any) => a.id === effectiveBankAccountId) || displayBankAccounts[0];
+  const activeBankAccount = displayBankAccounts.find((a: any) => a.id === effectiveBankAccountId) || displayBankAccounts[0] || null;
 
   const demoBankTransactions = [
     {
@@ -1129,7 +1125,7 @@ export default function DashboardPage() {
             : null,
         };
       })
-    : demoBankTransactions;
+    : token ? [] : demoBankTransactions;
 
   // Display accounts
   const displayAccounts = realAccounts.length > 0
@@ -1141,7 +1137,7 @@ export default function DashboardPage() {
         isControl: !!acc.is_control_account,
         controlType: acc.control_type,
       }))
-    : [
+    : token ? [] : [
         { code: "1010", name: "Operating Cash & Bank Account", type: "Asset", normal: "Debit", isControl: false },
         { code: "1030", name: "Trade Debtors / Accounts Receivable", type: "Asset", normal: "Debit", isControl: true, controlType: "ar_control" },
         { code: "1070", name: "Merchandise Inventory", type: "Asset", normal: "Debit", isControl: false },
@@ -1167,7 +1163,7 @@ export default function DashboardPage() {
           sha256: je.sha256_hash || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         };
       })
-    : [
+    : token ? [] : [
         { id: "je-1", number: "JE-2025-0001", date: "2025-08-15", desc: "Automated COGS for Invoice #INV-2025-0012", dr: "PKR 20,000", cr: "PKR 20,000", status: "Posted", sha256: "d41d8cd98f00b204e9800998ecf8427e" },
         { id: "je-2", number: "JE-2025-0002", date: "2025-08-16", desc: "Straight-Line Fixed Asset Depreciation", dr: "PKR 10,000", cr: "PKR 10,000", status: "Posted", sha256: "b10a8db164e0754105b7a99be72e3fe5" },
         { id: "je-3", number: "JE-2025-0003", date: "2025-08-18", desc: "Unrealized FX Revaluation ($10,000 USD Spot)", dr: "PKR 125,000", cr: "PKR 125,000", status: "Posted", sha256: "8f434346648f6b96df89dda901c5176b" },
@@ -1180,14 +1176,14 @@ export default function DashboardPage() {
     { id: "ent-2", name: "Indus Logistics Services (Sub)", code: "LOGISTICS", currency: "PKR", is_primary: false, status: "active" },
     { id: "ent-3", name: "Indus Gulf Tech FZE (Dubai)", code: "GULF", currency: "AED", is_primary: false, status: "active" },
   ];
-  const displayEntities = realEntities.length > 0 ? realEntities : demoEntities;
+  const displayEntities = realEntities.length > 0 ? realEntities : token ? [] : demoEntities;
 
   const demoExchangeRates = [
     { id: "fx-1", from_currency: "AED", to_currency: "PKR", rate: "76.500000", effective_date: "2025-07-01", source: "State Bank of Pakistan" },
     { id: "fx-2", from_currency: "USD", to_currency: "PKR", rate: "282.500000", effective_date: "2025-07-01", source: "State Bank of Pakistan" },
     { id: "fx-3", from_currency: "SAR", to_currency: "PKR", rate: "74.800000", effective_date: "2025-07-01", source: "State Bank of Pakistan" },
   ];
-  const displayExchangeRates = realExchangeRates.length > 0 ? realExchangeRates : demoExchangeRates;
+  const displayExchangeRates = realExchangeRates.length > 0 ? realExchangeRates : token ? [] : demoExchangeRates;
 
   const demoIntercompany = [
     {
@@ -1213,7 +1209,7 @@ export default function DashboardPage() {
       status: "eliminated",
     },
   ];
-  const displayIntercompany = realIntercompanyTxs.length > 0 ? realIntercompanyTxs : demoIntercompany;
+  const displayIntercompany = realIntercompanyTxs.length > 0 ? realIntercompanyTxs : token ? [] : demoIntercompany;
 
   return (
     <div className="flex h-screen bg-[#FDFDFD] text-[#1E293B] font-sans antialiased overflow-hidden select-none">
@@ -1341,7 +1337,9 @@ export default function DashboardPage() {
           <InvoicesView
             invoices={displayInvoices}
             isLoading={isLoadingInvoices}
+            error={errorInvoices ? ((errorInvoices as any)?.message || "Failed to load invoices from API.") : null}
             onRefresh={() => refetchInvoices()}
+            onRetry={() => refetchInvoices()}
             onPostInvoice={(rawId) => postInvoiceMutation.mutate(rawId)}
             onOpenCreateModal={() => alert("Creating a new sales invoice requires Customer, Date, and Revenue Account details.")}
             orgName={currentOrg?.name}
@@ -1355,7 +1353,9 @@ export default function DashboardPage() {
           <BillsView
             bills={displayBills}
             isLoading={isLoadingBills}
+            error={errorBills ? ((errorBills as any)?.message || "Failed to load bills from API.") : null}
             onRefresh={() => refetchBills()}
+            onRetry={() => refetchBills()}
             onApproveBill={(billId) => alert(`Bill ${billId} approved and scheduled for payment.`)}
           />
         )}
@@ -1430,6 +1430,18 @@ export default function DashboardPage() {
             activeAccount={activeBankAccount}
             onSelectAccount={(id) => setSelectedBankAccountId(id)}
             bankTransactions={displayBankTransactions}
+            isLoading={isLoadingBankAccounts || isLoadingBankTx}
+            error={
+              errorBankAccounts
+                ? ((errorBankAccounts as any)?.message || "Failed to load bank accounts.")
+                : errorBankTx
+                ? ((errorBankTx as any)?.message || "Failed to load bank transactions.")
+                : null
+            }
+            onRetry={() => {
+              refetchBankAccounts();
+              refetchBankTx();
+            }}
             onImportStatement={() => setIsStatementModalOpen(true)}
             onReconcile={(txId, journalId) => reconcileTxMutation.mutate({ txId, journalId })}
             onUnreconcile={(txId) => unreconcileTxMutation.mutate(txId)}
@@ -1525,187 +1537,231 @@ export default function DashboardPage() {
             </div>
 
             {/* KPI Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
-                  Total Contract Value (TCV)
-                </span>
-                <p className="text-xl font-bold text-[#0F172A] mt-1">
-                  {formatPKR(
-                    realRevenueContracts.length > 0
-                      ? realRevenueContracts.reduce((s: number, c: any) => s + Number(c.total_contract_value || 0), 0)
-                      : 1650000
-                  )}
-                </p>
-                <span className="text-[10px] text-emerald-600 font-medium">Under active management</span>
-              </div>
+            {errorContracts ? (
+              <FinancialErrorState
+                title="Revenue Contracts Unavailable"
+                message={(errorContracts as any)?.message || "Failed to load revenue contracts from the ERP API."}
+                onRetry={() => refetchContracts()}
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                    <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                      Total Contract Value (TCV)
+                    </span>
+                    <p className="text-xl font-bold text-[#0F172A] mt-1">
+                      {formatPKR(
+                        realRevenueContracts.length > 0
+                          ? realRevenueContracts.reduce((s: number, c: any) => s + Number(c.total_contract_value || 0), 0)
+                          : token ? 0 : 1650000
+                      )}
+                    </p>
+                    <span className="text-[10px] text-emerald-600 font-medium">Under active management</span>
+                  </div>
 
-              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
-                  Recognized Revenue (Earned)
-                </span>
-                <p className="text-xl font-bold text-emerald-600 mt-1">
-                  {formatPKR(
-                    realRevenueContracts.length > 0
-                      ? realRevenueContracts.reduce((s: number, c: any) => s + Number(c.recognized_revenue || 0), 0)
-                      : 750000
-                  )}
-                </p>
-                <span className="text-[10px] text-[#64748B]">Posted to GL Account 4020</span>
-              </div>
+                  <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                    <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                      Recognized Revenue (Earned)
+                    </span>
+                    <p className="text-xl font-bold text-emerald-600 mt-1">
+                      {formatPKR(
+                        realRevenueContracts.length > 0
+                          ? realRevenueContracts.reduce((s: number, c: any) => s + Number(c.recognized_revenue || 0), 0)
+                          : token ? 0 : 750000
+                      )}
+                    </p>
+                    <span className="text-[10px] text-[#64748B]">Posted to GL Account 4020</span>
+                  </div>
 
-              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
-                  Deferred Revenue (Unearned)
-                </span>
-                <p className="text-xl font-bold text-amber-600 mt-1">
-                  {formatPKR(
-                    realRevenueContracts.length > 0
-                      ? realRevenueContracts.reduce(
-                          (s: number, c: any) =>
-                            s + (Number(c.total_contract_value || 0) - Number(c.recognized_revenue || 0)),
-                          0
-                        )
-                      : 900000
-                  )}
-                </p>
-                <span className="text-[10px] text-[#64748B]">Liability on Balance Sheet (2070)</span>
-              </div>
+                  <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                    <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                      Deferred Revenue (Unearned)
+                    </span>
+                    <p className="text-xl font-bold text-amber-600 mt-1">
+                      {formatPKR(
+                        realRevenueContracts.length > 0
+                          ? realRevenueContracts.reduce(
+                              (s: number, c: any) =>
+                                s + (Number(c.total_contract_value || 0) - Number(c.recognized_revenue || 0)),
+                              0
+                            )
+                          : token ? 0 : 900000
+                      )}
+                    </p>
+                    <span className="text-[10px] text-[#64748B]">Liability on Balance Sheet (2070)</span>
+                  </div>
 
-              <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
-                  Active Contracts
-                </span>
-                <p className="text-xl font-bold text-[#0F172A] mt-1">
-                  {realRevenueContracts.length > 0 ? realRevenueContracts.length : 2}
-                </p>
-                <span className="text-[10px] text-[#64748B]">Straight-Line Monthly</span>
-              </div>
-            </div>
-
-            {/* Contracts List Table */}
-            <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#F1F5F9] flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Customer Revenue Contracts</h3>
-                  <p className="text-xs text-[#64748B]">
-                    Amortization performance obligations governed by ASC 606 5-step model.
-                  </p>
+                  <div className="p-4 bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+                    <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                      Active Contracts
+                    </span>
+                    <p className="text-xl font-bold text-[#0F172A] mt-1">
+                      {realRevenueContracts.length > 0 ? realRevenueContracts.length : token ? 0 : 2}
+                    </p>
+                    <span className="text-[10px] text-[#64748B]">Straight-Line Monthly</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-medium">
-                    <tr>
-                      <th className="px-6 py-3">Contract #</th>
-                      <th className="px-6 py-3">Customer & Title</th>
-                      <th className="px-6 py-3">Period</th>
-                      <th className="px-6 py-3">Total Value</th>
-                      <th className="px-6 py-3">Recognized</th>
-                      <th className="px-6 py-3">Deferred (Remaining)</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F1F5F9]">
-                    {(realRevenueContracts.length > 0
-                      ? realRevenueContracts
-                      : [
-                          {
-                            id: "demo-rev-1",
-                            contract_number: "REV-2025-001",
-                            title: "Annual Enterprise Cloud Subscription",
-                            customer: { name: "Habib Bank Limited" },
-                            start_date: "2025-07-01",
-                            end_date: "2026-06-30",
-                            total_contract_value: 1200000,
-                            recognized_revenue: 300000,
-                            status: "active",
-                          },
-                          {
-                            id: "demo-rev-2",
-                            contract_number: "REV-2025-002",
-                            title: "Quarterly Integration Retainer",
-                            customer: { name: "Packages Limited" },
-                            start_date: "2025-07-01",
-                            end_date: "2025-09-30",
-                            total_contract_value: 450000,
-                            recognized_revenue: 450000,
-                            status: "completed",
-                          },
-                        ]
-                    ).map((contract: any) => {
-                      const totalVal = Number(contract.total_contract_value || 0);
-                      const recognizedVal = Number(contract.recognized_revenue || 0);
-                      const deferredVal = totalVal - recognizedVal;
-                      const isSelected = selectedContractId === contract.id;
+                {/* Contracts List Table */}
+                <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+                  <div className="px-6 py-4 border-b border-[#F1F5F9] flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#0F172A]">Customer Revenue Contracts</h3>
+                      <p className="text-xs text-[#64748B]">
+                        Amortization performance obligations governed by ASC 606 5-step model.
+                      </p>
+                    </div>
+                  </div>
 
-                      return (
-                        <tr
-                          key={contract.id}
-                          className={cn(
-                            "hover:bg-[#F8FAFC] transition-colors",
-                            isSelected && "bg-indigo-50/40"
-                          )}
-                        >
-                          <td className="px-6 py-3.5 font-mono font-medium text-[#0F172A]">
-                            {contract.contract_number}
-                          </td>
-                          <td className="px-6 py-3.5">
-                            <span className="font-semibold text-[#0F172A] block">
-                              {contract.customer?.name || "Corporate Customer"}
-                            </span>
-                            <span className="text-[11px] text-[#64748B]">{contract.title}</span>
-                          </td>
-                          <td className="px-6 py-3.5 text-[#475569]">
-                            {contract.start_date} → {contract.end_date}
-                          </td>
-                          <td className="px-6 py-3.5 font-semibold text-[#0F172A]">
-                            {formatPKR(totalVal)}
-                          </td>
-                          <td className="px-6 py-3.5 text-emerald-600 font-medium">
-                            {formatPKR(recognizedVal)}
-                          </td>
-                          <td className="px-6 py-3.5 text-amber-600 font-medium">
-                            {formatPKR(deferredVal)}
-                          </td>
-                          <td className="px-6 py-3.5">
-                            <span
-                              className={cn(
-                                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold",
-                                contract.status === "completed"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-blue-50 text-blue-700"
-                              )}
-                            >
-                              {contract.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3.5 text-right">
-                            <button
-                              onClick={() =>
-                                setSelectedContractId(
-                                  selectedContractId === contract.id ? null : contract.id
-                                )
-                              }
-                              className={cn(
-                                "text-xs font-semibold px-2.5 py-1 rounded transition-colors cursor-pointer",
-                                isSelected
-                                  ? "bg-indigo-600 text-white"
-                                  : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                              )}
-                            >
-                              {isSelected ? "Hide Schedules" : "View Schedules"}
-                            </button>
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-medium">
+                        <tr>
+                          <th className="px-6 py-3">Contract #</th>
+                          <th className="px-6 py-3">Customer & Title</th>
+                          <th className="px-6 py-3">Period</th>
+                          <th className="px-6 py-3">Total Value</th>
+                          <th className="px-6 py-3">Recognized</th>
+                          <th className="px-6 py-3">Deferred (Remaining)</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3 text-right">Actions</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody className="divide-y divide-[#F1F5F9]">
+                        {(realRevenueContracts.length > 0
+                          ? realRevenueContracts
+                          : token ? [] : [
+                              {
+                                id: "demo-rev-1",
+                                contract_number: "REV-2025-001",
+                                title: "Annual Enterprise Cloud Subscription",
+                                customer: { name: "Habib Bank Limited" },
+                                start_date: "2025-07-01",
+                                end_date: "2026-06-30",
+                                total_contract_value: 1200000,
+                                recognized_revenue: 300000,
+                                status: "active",
+                              },
+                              {
+                                id: "demo-rev-2",
+                                contract_number: "REV-2025-002",
+                                title: "Quarterly Integration Retainer",
+                                customer: { name: "Packages Limited" },
+                                start_date: "2025-07-01",
+                                end_date: "2025-09-30",
+                                total_contract_value: 450000,
+                                recognized_revenue: 450000,
+                                status: "completed",
+                              },
+                            ]
+                        ).length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="px-6 py-8 text-center text-[#64748B]">
+                              No revenue contracts found. Click &quot;New Contract&quot; to create one.
+                            </td>
+                          </tr>
+                        ) : (
+                          (realRevenueContracts.length > 0
+                            ? realRevenueContracts
+                            : token ? [] : [
+                                {
+                                  id: "demo-rev-1",
+                                  contract_number: "REV-2025-001",
+                                  title: "Annual Enterprise Cloud Subscription",
+                                  customer: { name: "Habib Bank Limited" },
+                                  start_date: "2025-07-01",
+                                  end_date: "2026-06-30",
+                                  total_contract_value: 1200000,
+                                  recognized_revenue: 300000,
+                                  status: "active",
+                                },
+                                {
+                                  id: "demo-rev-2",
+                                  contract_number: "REV-2025-002",
+                                  title: "Quarterly Integration Retainer",
+                                  customer: { name: "Packages Limited" },
+                                  start_date: "2025-07-01",
+                                  end_date: "2025-09-30",
+                                  total_contract_value: 450000,
+                                  recognized_revenue: 450000,
+                                  status: "completed",
+                                },
+                              ]
+                          ).map((contract: any) => {
+                            const totalVal = Number(contract.total_contract_value || 0);
+                            const recognizedVal = Number(contract.recognized_revenue || 0);
+                            const deferredVal = totalVal - recognizedVal;
+                            const isSelected = selectedContractId === contract.id;
+
+                            return (
+                              <tr
+                                key={contract.id}
+                                className={cn(
+                                  "hover:bg-[#F8FAFC] transition-colors",
+                                  isSelected && "bg-indigo-50/40"
+                                )}
+                              >
+                                <td className="px-6 py-3.5 font-mono font-medium text-[#0F172A]">
+                                  {contract.contract_number}
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <span className="font-semibold text-[#0F172A] block">
+                                    {contract.customer?.name || "Corporate Customer"}
+                                  </span>
+                                  <span className="text-[11px] text-[#64748B]">{contract.title}</span>
+                                </td>
+                                <td className="px-6 py-3.5 text-[#475569]">
+                                  {contract.start_date} → {contract.end_date}
+                                </td>
+                                <td className="px-6 py-3.5 font-semibold text-[#0F172A]">
+                                  {formatPKR(totalVal)}
+                                </td>
+                                <td className="px-6 py-3.5 text-emerald-600 font-medium">
+                                  {formatPKR(recognizedVal)}
+                                </td>
+                                <td className="px-6 py-3.5 text-amber-600 font-medium">
+                                  {formatPKR(deferredVal)}
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold",
+                                      contract.status === "completed"
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "bg-blue-50 text-blue-700"
+                                    )}
+                                  >
+                                    {contract.status.toUpperCase()}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3.5 text-right">
+                                  <button
+                                    onClick={() =>
+                                      setSelectedContractId(
+                                        selectedContractId === contract.id ? null : contract.id
+                                      )
+                                    }
+                                    className={cn(
+                                      "text-xs font-semibold px-2.5 py-1 rounded transition-colors cursor-pointer",
+                                      isSelected
+                                        ? "bg-indigo-600 text-white"
+                                        : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                    )}
+                                  >
+                                    {isSelected ? "Hide Schedules" : "View Schedules"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Selected Contract Amortization Schedule Drawer / Detail */}
             {selectedContractId && (
@@ -1743,14 +1799,32 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F1F5F9]">
-                      {(selectedContractDetail?.schedules || [
+                      {(selectedContractDetail?.schedules?.length > 0
+                        ? selectedContractDetail.schedules
+                        : token ? [] : [
                         { id: "s-1", schedule_date: "2025-07-31", amount: 100000, cumulative_recognized: 100000, status: "posted", journal_entry_id: "je-001" },
                         { id: "s-2", schedule_date: "2025-08-31", amount: 100000, cumulative_recognized: 200000, status: "posted", journal_entry_id: "je-002" },
                         { id: "s-3", schedule_date: "2025-09-30", amount: 100000, cumulative_recognized: 300000, status: "posted", journal_entry_id: "je-003" },
                         { id: "s-4", schedule_date: "2025-10-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
                         { id: "s-5", schedule_date: "2025-11-30", amount: 100000, cumulative_recognized: 0, status: "pending" },
                         { id: "s-6", schedule_date: "2025-12-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
-                      ]).map((schedule: any) => (
+                      ]).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-6 text-center text-[#64748B]">
+                            No amortization schedules recorded for this contract.
+                          </td>
+                        </tr>
+                      ) : (
+                        (selectedContractDetail?.schedules?.length > 0
+                          ? selectedContractDetail.schedules
+                          : token ? [] : [
+                          { id: "s-1", schedule_date: "2025-07-31", amount: 100000, cumulative_recognized: 100000, status: "posted", journal_entry_id: "je-001" },
+                          { id: "s-2", schedule_date: "2025-08-31", amount: 100000, cumulative_recognized: 200000, status: "posted", journal_entry_id: "je-002" },
+                          { id: "s-3", schedule_date: "2025-09-30", amount: 100000, cumulative_recognized: 300000, status: "posted", journal_entry_id: "je-003" },
+                          { id: "s-4", schedule_date: "2025-10-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
+                          { id: "s-5", schedule_date: "2025-11-30", amount: 100000, cumulative_recognized: 0, status: "pending" },
+                          { id: "s-6", schedule_date: "2025-12-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
+                        ]).map((schedule: any) => (
                         <tr key={schedule.id} className="hover:bg-[#F8FAFC]">
                           <td className="px-4 py-2.5 font-medium text-[#0F172A]">{schedule.schedule_date}</td>
                           <td className="px-4 py-2.5 font-semibold text-[#0F172A]">{formatPKR(Number(schedule.amount))}</td>
@@ -1789,7 +1863,7 @@ export default function DashboardPage() {
                             )}
                           </td>
                         </tr>
-                      ))}
+                      )))}
                     </tbody>
                   </table>
                 </div>
@@ -1835,7 +1909,12 @@ export default function DashboardPage() {
           <GeneralLedgerView
             journals={displayJournals}
             isLoading={isLoadingJournals}
+            error={errorJournals ? ((errorJournals as any)?.message || "Failed to load journal entries.") : null}
             onRefresh={() => {
+              queryClient.invalidateQueries({ queryKey: ["journals"] });
+              refetchJournals?.();
+            }}
+            onRetry={() => {
               queryClient.invalidateQueries({ queryKey: ["journals"] });
               refetchJournals?.();
             }}
@@ -1847,7 +1926,12 @@ export default function DashboardPage() {
           <ChartOfAccountsView
             accounts={displayAccounts}
             isLoading={isLoadingAccounts}
+            error={errorAccounts ? ((errorAccounts as any)?.message || "Failed to load chart of accounts.") : null}
             onRefresh={() => {
+              queryClient.invalidateQueries({ queryKey: ["accounts"] });
+              refetchAccounts?.();
+            }}
+            onRetry={() => {
               queryClient.invalidateQueries({ queryKey: ["accounts"] });
               refetchAccounts?.();
             }}
@@ -1865,7 +1949,25 @@ export default function DashboardPage() {
             entities={displayEntities}
             exchangeRates={displayExchangeRates}
             intercompanyTransactions={displayIntercompany}
+            error={
+              errorEntities
+                ? ((errorEntities as any)?.message || "Failed to load multi-entity registry.")
+                : errorRates
+                ? ((errorRates as any)?.message || "Failed to load exchange rates.")
+                : errorIntercompany
+                ? ((errorIntercompany as any)?.message || "Failed to load intercompany transactions.")
+                : errorConsolidation
+                ? ((errorConsolidation as any)?.message || "Failed to load consolidation report.")
+                : null
+            }
             onRefresh={() => {
+              refetchEntities();
+              refetchRates();
+              refetchIntercompany();
+              refetchConsolidation();
+              queryClient.invalidateQueries({ queryKey: ["journals"] });
+            }}
+            onRetry={() => {
               refetchEntities();
               refetchRates();
               refetchIntercompany();
@@ -3070,7 +3172,7 @@ export default function DashboardPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          MODAL 5: AXIOM AI (GROQ LLM) CONFIGURATION MODAL
+          MODAL 5: AUTHORITATIVE AI GATEWAY & ARCHITECTURE STATUS
       ─────────────────────────────────────────────────────────────── */}
       {isAxiomConfigOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
@@ -3081,15 +3183,14 @@ export default function DashboardPage() {
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#0F172A]">Axiom AI Engine Settings</h3>
-                  <p className="text-[10px] text-[#64748B]">Powered by Groq Ultra-Fast LPU Inference</p>
+                  <h3 className="font-bold text-sm text-[#0F172A]">AI Engine Architecture & Status</h3>
+                  <p className="text-[10px] text-[#64748B]">Server-Authoritative Internal Service Pipeline</p>
                 </div>
               </div>
               <button
                 onClick={() => {
                   setIsAxiomConfigOpen(false);
-                  setGroqTestStatus(null);
-                  setGroqKeySaved(false);
+                  setAiStatusResult(null);
                 }}
                 className="text-[#94A3B8] hover:text-[#0F172A] p-1 cursor-pointer"
               >
@@ -3101,93 +3202,71 @@ export default function DashboardPage() {
               <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl space-y-1">
                 <div className="flex items-center space-x-1.5 text-purple-900 font-semibold text-xs">
                   <Cpu className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Target LLM: Llama 3.3 70B Versatile</span>
+                  <span>Architecture: Next.js → Laravel → FastAPI → LLM</span>
                 </div>
                 <p className="text-[11px] text-purple-700 leading-relaxed">
-                  Axiom AI uses Groq to execute sub-second financial reasoning, ASC 606 RevRec schedules, and FBR tax calculations without latency.
+                  Financial AI reasoning is strictly executed through the authoritative backend. Provider credentials and financial facts remain 100% server-side with zero browser token exposure.
                 </p>
               </div>
 
-              <div>
-                <label className="block font-semibold text-[#0F172A] mb-1.5">
-                  Groq API Key
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    placeholder="gsk_..."
-                    value={groqKeyInput}
-                    onChange={(e) => {
-                      setGroqKeyInput(e.target.value);
-                      setGroqKeySaved(false);
-                      setGroqTestStatus(null);
-                    }}
-                    className="w-full px-3 py-2.5 pr-10 border border-[#E2E8F0] rounded-xl text-xs font-mono focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                  <Key className="w-4 h-4 text-[#94A3B8] absolute right-3 top-3 pointer-events-none" />
+              <div className="space-y-2 border border-slate-100 rounded-xl p-3 bg-slate-50/50">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#64748B]">Service Authentication:</span>
+                  <span className="font-semibold text-emerald-700">HMAC-SHA256 Signed JWT</span>
                 </div>
-                <p className="text-[10px] text-[#94A3B8] mt-1">
-                  You can also set <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[9px]">GROQ_API_KEY</code> in <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[9px]">apps/web/.env.local</code>.
-                </p>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#64748B]">Tenant Boundary:</span>
+                  <span className="font-semibold text-emerald-700">Enforced by FastAPI Claims</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#64748B]">Replay Protection:</span>
+                  <span className="font-semibold text-emerald-700">JTI Nonce Cache Active</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[#64748B]">Active Organization:</span>
+                  <span className="font-semibold text-[#0F172A]">{currentOrg?.name || "Apex Trading Pvt Ltd"}</span>
+                </div>
               </div>
 
-              {groqKeySaved && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-medium flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Groq API Key saved successfully to active session!</span>
-                </div>
-              )}
-
-              {groqTestStatus && (
+              {aiStatusResult && (
                 <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-700 space-y-1">
-                  <span className="font-semibold block">Test Result:</span>
-                  <p className="font-mono text-[10px] leading-relaxed">{groqTestStatus}</p>
+                  <span className="font-semibold block text-slate-900">Pipeline Verification Result:</span>
+                  <p className="font-mono text-[10px] leading-relaxed text-slate-800">{aiStatusResult}</p>
                 </div>
               )}
 
               <div className="pt-2 flex space-x-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setStoredGroqKey(groqKeyInput);
-                    setGroqKeySaved(true);
-                  }}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer text-xs flex items-center justify-center space-x-1.5"
-                >
-                  <Key className="w-3.5 h-3.5" />
-                  <span>Save Key</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={groqTestLoading || !groqKeyInput.trim()}
+                  disabled={aiStatusLoading}
                   onClick={async () => {
-                    setGroqTestLoading(true);
-                    setGroqTestStatus(null);
-                    setStoredGroqKey(groqKeyInput);
+                    setAiStatusLoading(true);
+                    setAiStatusResult(null);
                     try {
-                      const res = await askAxiomAI("Test connection: confirm system readiness in 1 line.", {
-                        organization: "Apex Trading Pvt Ltd",
-                      });
+                      const res = await askAxiomAI(
+                        "Verify authoritative AI pipeline connectivity in 1 line.",
+                        {},
+                        activeOrgId
+                      );
                       if (res.answer) {
-                        setGroqTestStatus(`✓ Connected! Response (${res.latency_ms || 250}ms): ${res.answer.substring(0, 120)}...`);
+                        setAiStatusResult(`✓ Connected! Pipeline verified (${res.latency_ms || 120}ms): ${res.answer.substring(0, 140)}...`);
                       } else {
-                        setGroqTestStatus(`Status: ${res.message || res.error || "Awaiting key"}`);
+                        setAiStatusResult(`Status: ${res.message || res.error || "Awaiting response"}`);
                       }
                     } catch (e: any) {
-                      setGroqTestStatus(`Error: ${e.message}`);
+                      setAiStatusResult(`Error: ${e.message}`);
                     } finally {
-                      setGroqTestLoading(false);
+                      setAiStatusLoading(false);
                     }
                   }}
-                  className="px-4 py-2.5 border border-[#E2E8F0] hover:bg-slate-50 text-[#0F172A] font-semibold rounded-xl text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer text-xs flex items-center justify-center space-x-1.5 disabled:opacity-50"
                 >
-                  {groqTestLoading ? (
-                    <span className="w-3.5 h-3.5 rounded-full border-2 border-purple-600 border-t-transparent animate-spin inline-block" />
+                  {aiStatusLoading ? (
+                    <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />
                   ) : (
-                    <Zap className="w-3.5 h-3.5 text-purple-600" />
+                    <Zap className="w-3.5 h-3.5 text-white" />
                   )}
-                  <span>{groqTestLoading ? "Testing..." : "Test Key"}</span>
+                  <span>{aiStatusLoading ? "Verifying Pipeline..." : "Test Authoritative AI Pipeline"}</span>
                 </button>
               </div>
             </div>

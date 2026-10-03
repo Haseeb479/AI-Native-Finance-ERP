@@ -120,7 +120,8 @@ class AiGatewayService
         $startTime = microtime(true);
         $promptInfo = $this->promptRegistry->getTemplate('classify_transaction', $organization);
 
-        $endpoint = "{$this->aiServiceUrl}/api/v1/classify/transaction";
+        $internalToken = $this->generateInternalServiceToken($organization, $user);
+        $endpoint = "{$this->aiServiceUrl}/v1/classify/transaction";
         $payload = [
             'description' => $description,
             'amount' => $amount,
@@ -135,7 +136,7 @@ class AiGatewayService
         $estOutputTokens = 40;
 
         try {
-            $response = Http::withHeaders($this->getCorrelationHeaders())->timeout(15)->post($endpoint, $payload);
+            $response = Http::withHeaders($this->getCorrelationHeaders($internalToken))->timeout(15)->post($endpoint, $payload);
 
             if (! $response->successful()) {
                 $status = 'failed';

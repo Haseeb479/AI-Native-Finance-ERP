@@ -53,7 +53,7 @@ class ObservabilityAndCorrelationTest extends TestCase
         Context::add('correlation_id', $customTraceId);
 
         Http::fake([
-            '*/api/v1/classify/transaction' => Http::response([
+            '*classify/transaction*' => Http::response([
                 'category' => 'office_supplies',
                 'confidence' => 0.95,
                 'usage_metadata' => ['prompt_tokens' => 50, 'completion_tokens' => 20],

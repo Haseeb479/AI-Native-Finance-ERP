@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="PostgreSQL-Integration">
+            <!-- 1. Database & Invariants Safeguards -->
+            <file>tests/Feature/DatabaseAccountingConstraintsTest.php</file>
+            <file>tests/Feature/DatabaseFoundationAndSafeguardsTest.php</file>
+            
+            <!-- 2. Accounting & Journal Posting Engine -->
+            <file>tests/Feature/JournalTest.php</file>
+            <file>tests/Feature/PostingEngineConcurrencyAndInvariantsTest.php</file>
+            <file>tests/Feature/ConcurrentJournalNumberTest.php</file>
+            <file>tests/Feature/ChartOfAccountsTest.php</file>
+            <file>tests/Feature/PeriodTest.php</file>
+            
+            <!-- 3. Tenant Isolation & Context -->
+            <file>tests/Feature/TenantContextAndIsolationTest.php</file>
+            <file>tests/Feature/TenantIsolationMatrixTest.php</file>
+            <file>tests/Feature/OrganizationTest.php</file>
+            
+            <!-- 4. RBAC & Authorization -->
+            <file>tests/Feature/RbacTest.php</file>
+            <file>tests/Feature/AuthorizationServiceTest.php</file>
+            
+            <!-- 5. Authentication & Session Lifecycle -->
+            <file>tests/Feature/AuthTest.php</file>
+            <file>tests/Feature/AuthSessionLifecycleTest.php</file>
+            <file>tests/Feature/AuthThrottlingTest.php</file>
+            <file>tests/Feature/MfaTest.php</file>
+            
+            <!-- 6. Subledger, Reconciliation & Banking -->
+            <file>tests/Feature/SubledgerReconciliationTest.php</file>
+            <file>tests/Feature/BankingTest.php</file>
+            <file>tests/Feature/SalesInvoiceTest.php</file>
+            <file>tests/Feature/PurchaseBillTest.php</file>
+            <file>tests/Feature/CloseManagementTest.php</file>
+            
+            <!-- 7. Concurrency & Idempotency -->
+            <file>tests/Feature/IdempotencyAndConcurrencyTest.php</file>
+            
+            <!-- 8. Localization & Comprehensive Invariants -->
+            <file>tests/Feature/PakistanLocalizationTest.php</file>
+            <file>tests/Feature/ComprehensiveE2EAndInvariantTest.php</file>
+            
+            <!-- 9. Production Readiness & Health -->
+            <file>tests/Feature/ProductionReadinessTest.php</file>
+            <file>tests/Feature/HealthCheckTest.php</file>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="finova_test"/>
+        <env name="DB_USERNAME" value="finova_user"/>
+        <env name="DB_PASSWORD" value="secret_password"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+</phpunit>

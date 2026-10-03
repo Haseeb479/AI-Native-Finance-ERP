@@ -33,7 +33,9 @@ export interface AccountRecord {
 interface ChartOfAccountsViewProps {
   accounts: AccountRecord[];
   isLoading?: boolean;
+  error?: string | null;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onOpenCreateAccount?: () => void;
   className?: string;
 }
@@ -41,7 +43,9 @@ interface ChartOfAccountsViewProps {
 export function ChartOfAccountsView({
   accounts,
   isLoading = false,
+  error = null,
   onRefresh,
+  onRetry,
   onOpenCreateAccount,
   className,
 }: ChartOfAccountsViewProps) {
@@ -205,6 +209,8 @@ export function ChartOfAccountsView({
         columns={columns}
         data={filteredAccounts}
         isLoading={isLoading}
+        error={error}
+        onRetry={onRetry || onRefresh}
         onRowClick={(acc) => setSelectedAccount(acc)}
         rowKey={(acc) => acc.code}
         emptyMessage="No accounts match filter"

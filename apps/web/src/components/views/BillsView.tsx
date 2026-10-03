@@ -41,7 +41,9 @@ export interface BillRecord {
 interface BillsViewProps {
   bills: BillRecord[];
   isLoading?: boolean;
+  error?: string | null;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onApproveBill?: (billId: string) => void;
   className?: string;
 }
@@ -49,7 +51,9 @@ interface BillsViewProps {
 export function BillsView({
   bills,
   isLoading = false,
+  error = null,
   onRefresh,
+  onRetry,
   onApproveBill,
   className,
 }: BillsViewProps) {
@@ -226,6 +230,8 @@ export function BillsView({
         columns={columns}
         data={filteredBills}
         isLoading={isLoading}
+        error={error}
+        onRetry={onRetry || onRefresh}
         onRowClick={(b) => setSelectedBill(b)}
         rowKey={(b) => b.id}
         emptyMessage="No vendor bills found"
@@ -342,28 +348,23 @@ export function BillsView({
               </span>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-[#0F172A]">{selectedBill.vendor}</span>
-                <span className="text-[11px] font-mono text-[#64748B]">Active Taxpayer (ATL) ✓</span>
+                <span className="text-[11px] font-mono text-[#64748B]">
+                  {selectedBill.vendorNtn ? `NTN: ${selectedBill.vendorNtn}` : "ATL Status: Verified"}
+                </span>
               </div>
-              <p className="text-[11px] text-[#64748B]">
-                Registered industrial supplier in Karachi engineering cluster.
-              </p>
             </div>
 
             {/* Section 153 Withholding Tax (WHT) Schedule */}
             <div className="p-4 bg-indigo-50/60 border border-indigo-200/80 rounded-xl space-y-2">
               <div className="flex items-center justify-between text-indigo-950 font-bold">
-                <span>Pakistan Section 153 WHT Deduction</span>
+                <span>Withholding Tax (WHT) Schedule</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
-                  Services: 4.5%
+                  Section 153
                 </span>
               </div>
               <div className="flex justify-between text-[11px] text-indigo-900">
                 <span>Net Payable to Vendor:</span>
                 <span className="font-mono font-bold">PKR {selectedBill.amount}</span>
-              </div>
-              <div className="flex justify-between text-[10px] text-[#64748B] pt-1 border-t border-indigo-100">
-                <span>Withheld Tax to FBR Treasury:</span>
-                <span className="font-mono">PKR 0.00 (Standard Commercial Goods)</span>
               </div>
             </div>
 

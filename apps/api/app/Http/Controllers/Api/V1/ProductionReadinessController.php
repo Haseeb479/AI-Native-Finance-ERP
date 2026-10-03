@@ -4,100 +4,109 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * Step 30 — Production Readiness Controller
+ * Production Readiness Controller (P0 Hardened)
  *
- * Provides a structured health + readiness checklist endpoint for deployment
- * verification, ops dashboards, and CI/CD gate checks.
+ * Provides a structured health and readiness endpoint for deployment
+ * verification, ops monitoring, and CI/CD gate checks.
+ *
+ * Security: Does not leak internal topography, credentials, or sensitive env vars.
+ * Reliability: Requires true dependency health — does not fake passes.
  *
  * GET /api/v1/health/production-readiness
  */
 class ProductionReadinessController extends Controller
 {
-    public function check(): JsonResponse
+    public function check(Request $request): JsonResponse
     {
-        $checks   = [];
-        $allPass  = true;
+        $isAuthorized = $this->isAuthorizedDiagnostic($request);
+        $checks = [];
 
         // ── 1. Database Connectivity ──────────────────────────────────────────
-        $checks['database'] = $this->checkDatabase();
-        if (! $checks['database']['pass']) {
-            $allPass = false;
-        }
+        $checks['database'] = $this->checkDatabase($isAuthorized);
 
         // ── 2. Critical Tables Exist ─────────────────────────────────────────
-        $checks['critical_tables'] = $this->checkCriticalTables();
-        if (! $checks['critical_tables']['pass']) {
-            $allPass = false;
-        }
+        $checks['critical_tables'] = $this->checkCriticalTables($isAuthorized);
 
         // ── 3. Pending Migrations ─────────────────────────────────────────────
-        $checks['migrations'] = $this->checkMigrations();
-        if (! $checks['migrations']['pass']) {
-            $allPass = false;
-        }
+        $checks['migrations'] = $this->checkMigrations($isAuthorized);
 
         // ── 4. Cache System ───────────────────────────────────────────────────
-        $checks['cache'] = $this->checkCache();
-        if (! $checks['cache']['pass']) {
-            $allPass = false;
-        }
+        $checks['cache'] = $this->checkCache($isAuthorized);
 
         // ── 5. Environment Checks ─────────────────────────────────────────────
-        $checks['environment'] = $this->checkEnvironment();
-        if (! $checks['environment']['pass']) {
-            $allPass = false;
-        }
+        $checks['environment'] = $this->checkEnvironment($isAuthorized);
 
         // ── 6. Required Config Values ─────────────────────────────────────────
-        $checks['configuration'] = $this->checkConfiguration();
-        if (! $checks['configuration']['pass']) {
-            $allPass = false;
-        }
+        $checks['configuration'] = $this->checkConfiguration($isAuthorized);
 
         // ── 7. Accounting Modules Online ──────────────────────────────────────
-        $checks['accounting_modules'] = $this->checkAccountingModules();
-        if (! $checks['accounting_modules']['pass']) {
-            $allPass = false;
+        $checks['accounting_modules'] = $this->checkAccountingModules($isAuthorized);
+
+        // ── 8. AI Service & Internal Security (Honest Readiness) ──────────────
+        $checks['ai_service'] = $this->checkAiService($isAuthorized);
+
+        // ── 9. Test Suite Execution & Diagnostics (No False Pass) ─────────────
+        $checks['test_suite'] = $this->checkTestSuite($isAuthorized);
+
+        // Compute authoritative readiness
+        $criticalDependencies = [
+            'database',
+            'critical_tables',
+            'migrations',
+            'cache',
+            'environment',
+            'configuration',
+            'accounting_modules',
+            'ai_service',
+        ];
+
+        $allPass = true;
+        foreach ($criticalDependencies as $depKey) {
+            if (! ($checks[$depKey]['pass'] ?? false)) {
+                $allPass = false;
+            }
         }
 
-        // ── 8. AI Service & Secret Configuration ──────────────────────────────
-        $checks['ai_service'] = $this->checkAiService();
-        if (! $checks['ai_service']['pass']) {
-            $allPass = false;
-        }
-
-        // ── 9. Test Suite Discovery & State (Dynamic) ─────────────────────────
-        $checks['test_suite'] = $this->checkTestSuite();
-        if (! $checks['test_suite']['pass']) {
+        // If an actual test execution report is present and failed, it also fails readiness
+        if (($checks['test_suite']['status'] ?? '') === 'failed') {
             $allPass = false;
         }
 
         $statusCode = $allPass ? 200 : 503;
         $status     = $allPass ? 'production_ready' : 'not_ready';
 
+        $data = [
+            'status'          => $status,
+            'ready'           => $allPass,
+            'total_checks'    => count($checks),
+            'passing_checks'  => collect($checks)->where('pass', true)->count(),
+            'failing_checks'  => collect($checks)->where('pass', false)->count(),
+            'checks'          => $checks,
+            'version'         => 'v1.0.0',
+        ];
+
+        // Detailed system information restricted to authorized operators
+        if ($isAuthorized) {
+            $data['system_info'] = [
+                'app_name'        => config('app.name'),
+                'app_env'         => config('app.env'),
+                'app_version'     => 'v1.0.0',
+                'php_version'     => PHP_VERSION,
+                'laravel_version' => app()->version(),
+            ];
+        }
+
         return response()->json([
-            'data' => [
-                'status'          => $status,
-                'ready'           => $allPass,
-                'total_checks'    => count($checks),
-                'passing_checks'  => collect($checks)->where('pass', true)->count(),
-                'failing_checks'  => collect($checks)->where('pass', false)->count(),
-                'checks'          => $checks,
-                'system_info'     => [
-                    'app_name'    => config('app.name'),
-                    'app_env'     => config('app.env'),
-                    'app_version' => 'v1.0.0',
-                    'php_version' => PHP_VERSION,
-                    'laravel_version' => app()->version(),
-                ],
-            ],
+            'data' => $data,
             'meta' => [
                 'timestamp'   => now()->toIso8601String(),
                 'environment' => config('app.env'),
@@ -106,33 +115,44 @@ class ProductionReadinessController extends Controller
         ], $statusCode);
     }
 
-    private function checkDatabase(): array
+    private function checkDatabase(bool $isAuthorized): array
     {
         try {
             DB::connection()->getPdo();
-            $driver  = DB::connection()->getDriverName();
-            $version = DB::selectOne("SELECT version() as v")?->v ?? 'unknown';
+
+            $details = [
+                'connection' => 'established',
+            ];
+
+            if ($isAuthorized) {
+                $details['driver'] = DB::connection()->getDriverName();
+            }
 
             return [
                 'pass'        => true,
                 'status'      => 'ok',
                 'description' => 'Database connectivity',
-                'details'     => [
-                    'driver'  => $driver,
-                    'version' => $version,
-                ],
+                'details'     => $details,
             ];
         } catch (Throwable $e) {
+            $details = [
+                'message' => 'Database connectivity unavailable',
+            ];
+
+            if ($isAuthorized) {
+                $details['error'] = $e->getMessage();
+            }
+
             return [
                 'pass'        => false,
                 'status'      => 'error',
                 'description' => 'Database connectivity',
-                'details'     => ['error' => $e->getMessage()],
+                'details'     => $details,
             ];
         }
     }
 
-    private function checkCriticalTables(): array
+    private function checkCriticalTables(bool $isAuthorized): array
     {
         $requiredTables = [
             'users',
@@ -166,24 +186,30 @@ class ProductionReadinessController extends Controller
             }
         }
 
+        $pass = empty($missing);
+        $details = [
+            'required_count' => count($requiredTables),
+            'verified'       => $pass,
+        ];
+
+        if (! $pass || $isAuthorized) {
+            $details['missing'] = $missing;
+        }
+
         return [
-            'pass'        => empty($missing),
-            'status'      => empty($missing) ? 'ok' : 'error',
+            'pass'        => $pass,
+            'status'      => $pass ? 'ok' : 'error',
             'description' => 'Critical database tables',
-            'details'     => [
-                'required_count' => count($requiredTables),
-                'missing'        => $missing,
-            ],
+            'details'     => $details,
         ];
     }
 
-    private function checkMigrations(): array
+    private function checkMigrations(bool $isAuthorized): array
     {
         try {
             Artisan::call('migrate:status', ['--no-interaction' => true]);
             $output = Artisan::output();
 
-            // Check if any "Pending" lines exist
             $hasPending = str_contains($output, 'Pending');
 
             return [
@@ -193,25 +219,30 @@ class ProductionReadinessController extends Controller
                 'details'     => [
                     'pending_migrations' => $hasPending,
                     'note'               => $hasPending
-                        ? 'Run: php artisan migrate to apply pending migrations'
+                        ? 'Pending migrations detected'
                         : 'All migrations applied',
                 ],
             ];
         } catch (Throwable $e) {
+            $details = ['message' => 'Unable to query migration status'];
+            if ($isAuthorized) {
+                $details['error'] = $e->getMessage();
+            }
+
             return [
                 'pass'        => false,
                 'status'      => 'error',
                 'description' => 'Database migrations',
-                'details'     => ['error' => $e->getMessage()],
+                'details'     => $details,
             ];
         }
     }
 
-    private function checkCache(): array
+    private function checkCache(bool $isAuthorized): array
     {
         try {
-            $key   = 'production_readiness_check_' . now()->timestamp;
-            $value = 'erp_cache_ok_' . rand(1000, 9999);
+            $key   = 'production_readiness_check_' . now()->timestamp . '_' . bin2hex(random_bytes(4));
+            $value = 'cache_verified_' . rand(1000, 9999);
 
             Cache::put($key, $value, 10);
             $retrieved = Cache::get($key);
@@ -219,61 +250,74 @@ class ProductionReadinessController extends Controller
 
             $cacheOk = ($retrieved === $value);
 
+            $details = [
+                'verified' => $cacheOk,
+            ];
+
+            if ($isAuthorized) {
+                $details['driver'] = config('cache.default');
+            }
+
             return [
                 'pass'        => $cacheOk,
                 'status'      => $cacheOk ? 'ok' : 'error',
                 'description' => 'Cache system',
-                'details'     => [
-                    'driver' => config('cache.default'),
-                    'test'   => $cacheOk ? 'write/read/delete succeeded' : 'cache read mismatch',
-                ],
+                'details'     => $details,
             ];
         } catch (Throwable $e) {
+            $details = ['message' => 'Cache operation failed'];
+            if ($isAuthorized) {
+                $details['error'] = $e->getMessage();
+            }
+
             return [
                 'pass'        => false,
                 'status'      => 'error',
                 'description' => 'Cache system',
-                'details'     => ['error' => $e->getMessage()],
+                'details'     => $details,
             ];
         }
     }
 
-    private function checkEnvironment(): array
+    private function checkEnvironment(bool $isAuthorized): array
     {
-        $env     = config('app.env');
-        $debug   = config('app.debug');
-        $issues  = [];
+        $env    = config('app.env');
+        $debug  = config('app.debug');
+        $issues = [];
 
         if ($env === 'production' && $debug) {
             $issues[] = 'APP_DEBUG must be false in production';
         }
 
         if (empty(config('app.key'))) {
-            $issues[] = 'APP_KEY is not set — run: php artisan key:generate';
+            $issues[] = 'APP_KEY is not configured';
         }
 
-        if ($env === 'local') {
-            $issues[] = 'APP_ENV is "local" — set to "production" before going live';
+        $pass = empty($issues);
+
+        $details = [
+            'status' => $pass ? 'verified' : 'invalid_configuration',
+        ];
+
+        if ($isAuthorized) {
+            $details['app_env']   = $env;
+            $details['app_debug'] = $debug;
+            $details['issues']    = $issues;
         }
 
         return [
-            'pass'        => empty($issues),
-            'status'      => empty($issues) ? 'ok' : 'warning',
+            'pass'        => $pass,
+            'status'      => $pass ? 'ok' : 'error',
             'description' => 'Application environment',
-            'details'     => [
-                'app_env'   => $env,
-                'app_debug' => $debug,
-                'issues'    => $issues,
-            ],
+            'details'     => $details,
         ];
     }
 
-    private function checkConfiguration(): array
+    private function checkConfiguration(bool $isAuthorized): array
     {
         $requiredKeys = [
-            'app.key'           => config('app.key'),
-            'database.default'  => config('database.default'),
-            'mail.default'      => config('mail.default'),
+            'app.key'             => config('app.key'),
+            'database.default'    => config('database.default'),
             'auth.guards.sanctum' => config('auth.guards.sanctum') !== null,
         ];
 
@@ -284,21 +328,25 @@ class ProductionReadinessController extends Controller
             }
         }
 
+        $pass = empty($missing);
+        $details = [
+            'verified' => $pass,
+        ];
+
+        if (! $pass && $isAuthorized) {
+            $details['missing_keys'] = $missing;
+        }
+
         return [
-            'pass'        => empty($missing),
-            'status'      => empty($missing) ? 'ok' : 'warning',
+            'pass'        => $pass,
+            'status'      => $pass ? 'ok' : 'warning',
             'description' => 'Required configuration values',
-            'details'     => [
-                'missing_keys' => $missing,
-            ],
+            'details'     => $details,
         ];
     }
 
-    private function checkAccountingModules(): array
+    private function checkAccountingModules(bool $isAuthorized): array
     {
-        $modules = [];
-
-        // Check each critical domain service can be resolved
         $servicesToCheck = [
             'PostingEngine'       => \App\Domain\Accounting\Posting\Services\PostingEngine::class,
             'PeriodManager'       => \App\Domain\Accounting\Period\Services\PeriodManager::class,
@@ -316,69 +364,123 @@ class ProductionReadinessController extends Controller
         foreach ($servicesToCheck as $name => $class) {
             try {
                 app($class);
-                $modules[$name] = 'online';
-            } catch (Throwable $e) {
-                $modules[$name] = 'error: ' . $e->getMessage();
-                $failed[]       = $name;
+            } catch (Throwable) {
+                $failed[] = $name;
             }
         }
 
+        $pass = empty($failed);
+        $details = [
+            'total'   => count($servicesToCheck),
+            'online'  => count($servicesToCheck) - count($failed),
+            'healthy' => $pass,
+        ];
+
+        if (! $pass && $isAuthorized) {
+            $details['failed_modules'] = $failed;
+        }
+
         return [
-            'pass'        => empty($failed),
-            'status'      => empty($failed) ? 'ok' : 'error',
+            'pass'        => $pass,
+            'status'      => $pass ? 'ok' : 'error',
             'description' => 'Accounting & domain modules',
-            'details'     => [
-                'total'   => count($servicesToCheck),
-                'online'  => count($servicesToCheck) - count($failed),
-                'failed'  => $failed,
-                'modules' => $modules,
-            ],
+            'details'     => $details,
         ];
     }
 
-    private function checkAiService(): array
+    private function checkAiService(bool $isAuthorized): array
     {
-        $url = config('services.ai.url', 'http://localhost:8001');
+        $url    = config('services.ai.url', 'http://localhost:8001');
         $secret = config('services.ai.internal_secret');
-        $env = config('app.env');
+        $env    = config('app.env');
+
+        if (empty($url)) {
+            return [
+                'pass'        => false,
+                'status'      => 'not_checked',
+                'description' => 'AI Service & Security Configuration',
+                'details'     => [
+                    'online'  => false,
+                    'status'  => 'not_checked',
+                    'message' => 'AI service URL is not configured',
+                ],
+            ];
+        }
 
         $issues = [];
         if ($env === 'production' && ($secret === 'ai-native-finance-erp-internal-service-secret-key' || empty($secret))) {
             $issues[] = 'Production environment cannot use default or empty AI_INTERNAL_SECRET';
         }
 
-        $online = false;
+        $status    = 'unavailable';
+        $online    = false;
         $latencyMs = null;
+
         try {
             $start = microtime(true);
-            $response = \Illuminate\Support\Facades\Http::timeout(1)->get("{$url}/health");
+            $response = Http::timeout(2)->get("{$url}/health");
             $latencyMs = round((microtime(true) - $start) * 1000, 2);
-            $online = $response->successful();
-        } catch (Throwable $e) {
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $svcStatus = $data['status'] ?? 'unknown';
+
+                if ($svcStatus === 'healthy' || $svcStatus === 'ok') {
+                    if ($latencyMs > 3000 || ! empty($issues)) {
+                        $status = 'degraded';
+                    } else {
+                        $status = 'healthy';
+                    }
+                    $online = true;
+                } else {
+                    $status = 'degraded';
+                    $online = true;
+                }
+            } elseif ($response->status() === 401 || $response->status() === 403) {
+                $status = 'auth_failed';
+                $online = false;
+            } else {
+                $status = 'unhealthy';
+                $online = false;
+            }
+        } catch (\Illuminate\Http\Client\ConnectionException) {
+            $status = 'unavailable';
+            $online = false;
+        } catch (Throwable) {
+            $status = 'unavailable';
             $online = false;
         }
 
-        $pass = empty($issues);
+        $pass = ($status === 'healthy' && empty($issues));
+
+        $details = [
+            'online' => $online,
+            'status' => $status,
+        ];
+
+        if ($latencyMs !== null) {
+            $details['latency_ms'] = $latencyMs;
+        }
+
+        if ($isAuthorized) {
+            $details['service_url']        = $url;
+            $details['secret_configured']  = ! empty($secret) && $secret !== 'ai-native-finance-erp-internal-service-secret-key';
+            $details['issues']             = $issues;
+        }
 
         return [
-            'pass' => $pass,
-            'status' => $pass ? ($online ? 'ok' : 'degraded') : 'error',
+            'pass'        => $pass,
+            'status'      => $status,
             'description' => 'AI Service & Security Configuration',
-            'details' => [
-                'service_url' => $url,
-                'online' => $online,
-                'latency_ms' => $latencyMs,
-                'secret_configured' => ! empty($secret) && $secret !== 'ai-native-finance-erp-internal-service-secret-key',
-                'issues' => $issues,
-            ],
+            'details'     => $details,
         ];
     }
 
-    private function checkTestSuite(): array
+    private function checkTestSuite(bool $isAuthorized): array
     {
-        $unitFiles = glob(base_path('tests/Unit/*Test.php')) ?: [];
+        $unitFiles    = glob(base_path('tests/Unit/*Test.php')) ?: [];
         $featureFiles = glob(base_path('tests/Feature/*Test.php')) ?: [];
-        $testFiles = array_merge($unitFiles, $featureFiles);
+        $testFiles    = array_merge($unitFiles, $featureFiles);
 
         $totalTestMethods = 0;
         foreach ($testFiles as $file) {
@@ -388,22 +490,88 @@ class ProductionReadinessController extends Controller
             }
         }
 
+        // Check for verified test execution report
         $reportPath = storage_path('app/test-results.json');
-        $hasReport = file_exists($reportPath);
+        $hasReport  = file_exists($reportPath);
         $reportData = $hasReport ? json_decode(@file_get_contents($reportPath), true) : null;
 
-        return [
-            'pass' => true,
-            'status' => 'ok',
-            'description' => 'Automated test suite coverage',
-            'details' => [
-                'test_files_count' => count($testFiles),
-                'discovered_test_methods' => $totalTestMethods,
-                'unit_suites' => count($unitFiles),
-                'feature_suites' => count($featureFiles),
-                'last_ci_report' => $reportData,
-                'note' => "Discovered {$totalTestMethods} test methods across " . count($testFiles) . " test suites dynamically.",
-            ],
+        $executionVerified = false;
+        $status = 'unverified';
+
+        if ($hasReport && is_array($reportData)) {
+            $failed = $reportData['failed'] ?? 0;
+            $passed = $reportData['passed'] ?? 0;
+            if ($failed === 0 && $passed > 0) {
+                $executionVerified = true;
+                $status = 'ok';
+            } else {
+                $status = 'failed';
+            }
+        } else {
+            // Test discovery alone cannot produce a false pass
+            $executionVerified = false;
+            $status = 'unverified';
+        }
+
+        $details = [
+            'test_files_count'        => count($testFiles),
+            'discovered_test_methods' => $totalTestMethods,
+            'is_diagnostic'           => true,
+            'execution_verified'      => $executionVerified,
+            'note'                    => $executionVerified
+                ? 'Test suite execution verified with passing results.'
+                : 'Diagnostic only: file discovery does not establish test execution readiness.',
         ];
+
+        if ($isAuthorized && $hasReport) {
+            $details['last_execution'] = $reportData;
+        }
+
+        return [
+            'pass'        => $executionVerified,
+            'status'      => $status,
+            'description' => 'Automated test suite execution (diagnostic)',
+            'details'     => $details,
+        ];
+    }
+
+    private function isAuthorizedDiagnostic(Request $request): bool
+    {
+        // 1. Authenticated user with admin/owner role in any organization
+        if ($user = $request->user()) {
+            try {
+                if ($user->organizations()->whereIn('organization_user.role', ['owner', 'admin'])->exists()) {
+                    return true;
+                }
+            } catch (Throwable) {
+                // fall through if relation not loaded
+            }
+        }
+
+        // 2. Authoritative internal service token check
+        $authHeader = $request->header('Authorization', '');
+        if (str_starts_with($authHeader, 'Bearer ')) {
+            $token = substr($authHeader, 7);
+            try {
+                $secret = config('services.ai.internal_secret');
+                if (! empty($secret)) {
+                    $parts = explode('.', $token);
+                    if (count($parts) === 3) {
+                        [$headB64, $bodyB64, $cryptoB64] = $parts;
+                        $expectedSig = hash_hmac('sha256', "{$headB64}.{$bodyB64}", $secret);
+                        if (hash_equals($expectedSig, $cryptoB64)) {
+                            $payload = json_decode(base64_decode(strtr($bodyB64, '-_', '+/')), true);
+                            if (isset($payload['exp']) && $payload['exp'] >= time()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable) {
+                // fall through
+            }
+        }
+
+        return false;
     }
 }

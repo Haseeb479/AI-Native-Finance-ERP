@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test src/tests/financial_safety.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.2",

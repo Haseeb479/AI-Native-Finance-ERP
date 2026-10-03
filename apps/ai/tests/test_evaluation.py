@@ -43,17 +43,23 @@ async def test_evaluation_journal_draft_accounting_invariants(client: AsyncClien
     Evaluate journal drafting correctness against golden test cases.
     Benchmark requirement: 100% of generated drafts must satisfy double-entry balance.
     """
+    from apps.ai.src.auth.service_auth import create_internal_token
     dataset = load_golden_dataset()
     cases = dataset["journal_drafting_cases"]
 
     for case in cases:
+        token = create_internal_token(
+            organization_id="org-eval-001",
+            user_id="user-eval",
+            user_permissions=["accounting.view", "accounting.post"],
+        )
         payload = {
             "instruction": case["instruction"],
             "amount": case["amount"],
             "currency": "PKR",
             "organization_id": "org-eval-001",
         }
-        response = await client.post("/v1/copilot/draft-journal", json=payload)
+        response = await client.post("/v1/copilot/draft-journal", json=payload, headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200, f"Journal draft failed for {case['id']}"
 
         data = response.json()
@@ -77,14 +83,21 @@ async def test_evaluation_financial_qa_groundedness(client: AsyncClient):
     dataset = load_golden_dataset()
     cases = dataset["groundedness_cases"]
 
+    from apps.ai.src.auth.service_auth import create_internal_token
+
     for case in cases:
+        token = create_internal_token(
+            organization_id="org-eval-001",
+            user_id="user-eval",
+            user_permissions=["accounting.view"],
+        )
         payload = {
             "query": case["query"],
             "organization_id": "org-eval-001",
             "currency": "PKR",
             "financial_context": case["financial_context"],
         }
-        response = await client.post("/v1/copilot/qa", json=payload)
+        response = await client.post("/v1/copilot/qa", json=payload, headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
 
         data = response.json()

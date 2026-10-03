@@ -99,13 +99,18 @@ export interface IntercompanyTxItem {
   status: "draft" | "posted" | "eliminated" | string;
 }
 
+import { FinancialErrorState } from "../ui/FinancialErrorState";
+
 interface AdvancedReportingConsolidationViewProps {
   currentOrgName?: string;
   periodName?: string;
   entities?: LegalEntityItem[];
   exchangeRates?: ExchangeRateItem[];
   intercompanyTransactions?: IntercompanyTxItem[];
+  isLoading?: boolean;
+  error?: string | null;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onRunEliminations?: () => void;
   onRunFxRevaluation?: () => void;
   onOpenNewIntercompany?: () => void;
@@ -120,7 +125,10 @@ export function AdvancedReportingConsolidationView({
   entities,
   exchangeRates,
   intercompanyTransactions,
+  isLoading = false,
+  error = null,
   onRefresh,
+  onRetry,
   onRunEliminations,
   onRunFxRevaluation,
   onOpenNewIntercompany,
@@ -133,6 +141,18 @@ export function AdvancedReportingConsolidationView({
   >("pnl");
 
   const [dateRange, setDateRange] = useState("august-2025");
+
+  if (error) {
+    return (
+      <div className={cn("max-w-[1320px] w-full mx-auto px-6 sm:px-10 py-7 space-y-6", className)}>
+        <FinancialErrorState
+          title="Failed to load financial reports & consolidation"
+          message={error}
+          onRetry={onRetry}
+        />
+      </div>
+    );
+  }
   const [selectedAccount, setSelectedAccount] = useState<ReportAccountLine | null>(null);
 
   // Trial Balance state
@@ -730,7 +750,7 @@ export function AdvancedReportingConsolidationView({
   ];
 
   const displayEntitiesList: LegalEntityItem[] =
-    entities && entities.length > 0
+    entities !== undefined
       ? entities.map((e) => ({
           ...e,
           country:
@@ -745,7 +765,7 @@ export function AdvancedReportingConsolidationView({
       : defaultEntities;
 
   const displayRatesList: ExchangeRateItem[] =
-    exchangeRates && exchangeRates.length > 0
+    exchangeRates !== undefined
       ? exchangeRates.map((r) => ({
           pair: r.pair || `${r.from_currency}/${r.to_currency}`,
           spotRate:
@@ -759,7 +779,7 @@ export function AdvancedReportingConsolidationView({
       : activeFxRates;
 
   const displayIntercompanyList: IntercompanyTxItem[] =
-    intercompanyTransactions && intercompanyTransactions.length > 0
+    intercompanyTransactions !== undefined
       ? intercompanyTransactions
       : defaultIntercompanyTxs;
 

@@ -18,11 +18,16 @@ import {
 } from "lucide-react";
 import { cn, formatPKR } from "@/lib/utils";
 
+import { FinancialErrorState } from "../ui/FinancialErrorState";
+
 interface CashReconciliationViewProps {
   bankAccounts: any[];
   activeAccount: any;
   onSelectAccount: (id: string) => void;
   bankTransactions: any[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   onImportStatement: () => void;
   onReconcile: (txId: string, journalId: string) => void;
   onUnreconcile: (txId: string) => void;
@@ -34,6 +39,9 @@ export function CashReconciliationView({
   activeAccount,
   onSelectAccount,
   bankTransactions,
+  isLoading = false,
+  error = null,
+  onRetry,
   onImportStatement,
   onReconcile,
   onUnreconcile,
@@ -42,6 +50,18 @@ export function CashReconciliationView({
   const [activeTab, setActiveTab] = useState<"unmatched" | "matched">("unmatched");
   const [selectedBankTxId, setSelectedBankTxId] = useState<string | null>(null);
   const [selectedGlEntryId, setSelectedGlEntryId] = useState<string | null>(null);
+
+  if (error) {
+    return (
+      <div className={cn("max-w-[1320px] w-full mx-auto px-6 sm:px-10 py-7 space-y-6", className)}>
+        <FinancialErrorState
+          title="Failed to load cash reconciliation data"
+          message={error}
+          onRetry={onRetry}
+        />
+      </div>
+    );
+  }
 
   // Filter transactions
   const unmatchedTxns = bankTransactions.filter(
@@ -77,11 +97,15 @@ export function CashReconciliationView({
               onChange={(e) => onSelectAccount(e.target.value)}
               className="text-xs font-semibold bg-white border border-[#E2E8F0] rounded-xl px-3 py-1.5 text-[#0F172A] outline-none cursor-pointer hover:border-indigo-300"
             >
-              {bankAccounts.map((acc: any) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.bank_name} ({acc.account_number})
-                </option>
-              ))}
+              {bankAccounts.length === 0 ? (
+                <option value="">No Bank Accounts Configured</option>
+              ) : (
+                bankAccounts.map((acc: any) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.bank_name} ({acc.account_number})
+                  </option>
+                ))
+              )}
             </select>
           </div>
           <p className="text-xs text-[#64748B] mt-1">

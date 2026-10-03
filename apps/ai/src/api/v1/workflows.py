@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Depends
 from apps.ai.src.schemas.workflows import (
     MonthEndCloseWorkflowRequest,
     MonthEndCloseWorkflowResponse,
@@ -16,6 +16,7 @@ from apps.ai.src.schemas.workflows import (
     ArCollectionsQueueWorkflowResponse,
 )
 from apps.ai.src.adapters.factory import get_llm_adapter
+from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
 
 router = APIRouter(prefix="/copilot/workflows")
 
@@ -59,7 +60,14 @@ Analyze overdue accounts receivable, categorize customers into risk tiers (HIGH,
 """
 
 @router.post("/prepare-close", response_model=MonthEndCloseWorkflowResponse)
-async def prepare_month_end_close(request: MonthEndCloseWorkflowRequest):
+async def prepare_month_end_close(
+    request: MonthEndCloseWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Period: {request.period_name} (ID: {request.period_id})\n"
         f"Trial Balance Balanced: {request.trial_balance_balanced}\n"
@@ -77,7 +85,14 @@ async def prepare_month_end_close(request: MonthEndCloseWorkflowRequest):
     )
 
 @router.post("/unreconciled-transactions", response_model=UnreconciledTransactionsWorkflowResponse)
-async def find_unreconciled_transactions(request: UnreconciledTransactionsWorkflowRequest):
+async def find_unreconciled_transactions(
+    request: UnreconciledTransactionsWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Organization: {request.organization_id}\n"
         f"Bank Account: {request.bank_account_id or 'All Accounts'}\n"
@@ -91,7 +106,14 @@ async def find_unreconciled_transactions(request: UnreconciledTransactionsWorkfl
     )
 
 @router.post("/margin-analysis", response_model=MarginAnalysisWorkflowResponse)
-async def explain_margin_changes(request: MarginAnalysisWorkflowRequest):
+async def explain_margin_changes(
+    request: MarginAnalysisWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Current Period ({request.current_period}): Revenue={request.current_revenue}, COGS={request.current_cogs}, Margin={request.current_gross_margin_pct}%\n"
         f"Prior Period ({request.prior_period}): Revenue={request.prior_revenue}, COGS={request.prior_cogs}, Margin={request.prior_gross_margin_pct}%\n"
@@ -105,7 +127,14 @@ async def explain_margin_changes(request: MarginAnalysisWorkflowRequest):
     )
 
 @router.post("/invoice-approval-queue", response_model=InvoiceApprovalQueueWorkflowResponse)
-async def prepare_invoice_approval_queue(request: InvoiceApprovalQueueWorkflowRequest):
+async def prepare_invoice_approval_queue(
+    request: InvoiceApprovalQueueWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Organization: {request.organization_id}\n"
         f"Pending Bills for Review ({len(request.pending_bills)}): {request.pending_bills}\n"
@@ -118,7 +147,14 @@ async def prepare_invoice_approval_queue(request: InvoiceApprovalQueueWorkflowRe
     )
 
 @router.post("/draft-reconciliation-matches", response_model=DraftReconciliationMatchesWorkflowResponse)
-async def draft_reconciliation_matches(request: DraftReconciliationMatchesWorkflowRequest):
+async def draft_reconciliation_matches(
+    request: DraftReconciliationMatchesWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Bank Account: {request.bank_account_id}\n"
         f"Bank Transactions: {request.bank_transactions}\n"
@@ -132,7 +168,14 @@ async def draft_reconciliation_matches(request: DraftReconciliationMatchesWorkfl
     )
 
 @router.post("/missing-vendor-documents", response_model=MissingVendorDocumentsWorkflowResponse)
-async def find_missing_vendor_documents(request: MissingVendorDocumentsWorkflowRequest):
+async def find_missing_vendor_documents(
+    request: MissingVendorDocumentsWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Organization: {request.organization_id}\n"
         f"Bills under audit ({len(request.audit_bills)}): {request.audit_bills}\n"
@@ -145,7 +188,14 @@ async def find_missing_vendor_documents(request: MissingVendorDocumentsWorkflowR
     )
 
 @router.post("/ar-collections-queue", response_model=ArCollectionsQueueWorkflowResponse)
-async def prepare_ar_collections_queue(request: ArCollectionsQueueWorkflowRequest):
+async def prepare_ar_collections_queue(
+    request: ArCollectionsQueueWorkflowRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Organization: {request.organization_id}\n"
         f"Overdue Invoices ({len(request.overdue_invoices)}): {request.overdue_invoices}\n"

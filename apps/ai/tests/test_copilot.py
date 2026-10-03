@@ -1,5 +1,18 @@
 import pytest
 from httpx import AsyncClient
+from apps.ai.src.auth.service_auth import create_internal_token, replay_cache
+
+@pytest.fixture(autouse=True)
+def clear_replay():
+    replay_cache.clear()
+
+def auth_headers(org_id: str = "org-pk-001", user_id: str = "user-123") -> dict:
+    token = create_internal_token(
+        organization_id=org_id,
+        user_id=user_id,
+        user_permissions=["accounting.view", "accounting.post"],
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 @pytest.mark.asyncio
 async def test_financial_qa_copilot(client: AsyncClient):
@@ -13,7 +26,7 @@ async def test_financial_qa_copilot(client: AsyncClient):
             "pending_approvals": 3,
         },
     }
-    response = await client.post("/v1/copilot/qa", json=payload)
+    response = await client.post("/v1/copilot/qa", json=payload, headers=auth_headers("org-pk-001"))
     assert response.status_code == 200
     data = response.json()
     assert "pending invoices" in data["answer"]
@@ -32,7 +45,7 @@ async def test_financial_qa_injection_flagged(client: AsyncClient):
         "organization_id": "org-pk-001",
         "currency": "PKR",
     }
-    response = await client.post("/v1/copilot/qa", json=payload)
+    response = await client.post("/v1/copilot/qa", json=payload, headers=auth_headers("org-pk-001"))
     assert response.status_code == 200
     data = response.json()
     assert data["flagged_for_review"] is True
@@ -45,7 +58,7 @@ async def test_ai_draft_journal_balanced(client: AsyncClient):
         "currency": "PKR",
         "organization_id": "org-pk-001",
     }
-    response = await client.post("/v1/copilot/draft-journal", json=payload)
+    response = await client.post("/v1/copilot/draft-journal", json=payload, headers=auth_headers("org-pk-001"))
     assert response.status_code == 200
     data = response.json()
     assert data["is_balanced"] is True
@@ -66,9 +79,74 @@ async def test_explain_report_variance(client: AsyncClient):
         },
         "organization_id": "org-pk-001",
     }
-    response = await client.post("/v1/copilot/explain-report", json=payload)
+    response = await client.post("/v1/copilot/explain-report", json=payload, headers=auth_headers("org-pk-001"))
     assert response.status_code == 200
     data = response.json()
     assert "Net Profit" in data["executive_summary"]
     assert len(data["key_drivers"]) > 0
     assert len(data["recommendations"]) > 0
+
+@pytest.mark.asyncio
+async def test_copilot_endpoints_reject_unauthenticated(client: AsyncClient):
+    """P0: Unauthenticated requests to copilot endpoints must return 401."""
+    payload = {"query": "Test", "organization_id": "org-pk-001"}
+    r1 = await client.post("/v1/copilot/qa", json=payload)
+    assert r1.status_code == 401
+    assert "Missing Authorization header" in r1.json()["detail"]
+
+    r2 = await client.post("/v1/copilot/draft-journal", json={"instruction": "test", "organization_id": "org-pk-001"})
+    assert r2.status_code == 401
+
+    r3 = await client.post("/v1/copilot/explain-report", json={"report_type": "pnl", "period_label": "P1", "report_data": {}, "organization_id": "org-pk-001"})
+    assert r3.status_code == 401
+
+@pytest.mark.asyncio
+async def test_copilot_endpoints_reject_invalid_token(client: AsyncClient):
+    """P0: Token with forged signature must return 401."""
+    bad_token = create_internal_token(
+        organization_id="org-pk-001",
+        user_id="user-123",
+        user_permissions=["*"],
+        secret="attacker-forged-secret-32-bytes-long",
+    )
+    response = await client.post(
+        "/v1/copilot/qa",
+        json={"query": "Test", "organization_id": "org-pk-001"},
+        headers={"Authorization": f"Bearer {bad_token}"},
+    )
+    assert response.status_code == 401
+    assert "Invalid service token" in response.json()["detail"]
+
+@pytest.mark.asyncio
+async def test_copilot_endpoints_reject_expired_token(client: AsyncClient):
+    """P0: Expired token must return 401."""
+    expired_token = create_internal_token(
+        organization_id="org-pk-001",
+        user_id="user-123",
+        user_permissions=["*"],
+        expires_in_seconds=-5,
+    )
+    response = await client.post(
+        "/v1/copilot/qa",
+        json={"query": "Test", "organization_id": "org-pk-001"},
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+    assert response.status_code == 401
+    assert "expired" in response.json()["detail"]
+
+@pytest.mark.asyncio
+async def test_copilot_endpoints_reject_scope_mismatch_tenant_isolation(client: AsyncClient):
+    """P0: Organization A token cannot query Organization B data (403 Scope mismatch)."""
+    org_a_token = create_internal_token(
+        organization_id="org-tenant-A",
+        user_id="user-123",
+        user_permissions=["*"],
+    )
+    # Attempt cross-tenant query for org-tenant-B
+    response = await client.post(
+        "/v1/copilot/qa",
+        json={"query": "Confidential numbers", "organization_id": "org-tenant-B"},
+        headers={"Authorization": f"Bearer {org_a_token}"},
+    )
+    assert response.status_code == 403
+    assert "Scope mismatch" in response.json()["detail"]

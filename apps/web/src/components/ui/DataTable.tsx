@@ -1,6 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { FileText } from "lucide-react";
+import { FinancialErrorState } from "./FinancialErrorState";
 
 export interface Column<T> {
   key: string;
@@ -14,6 +15,8 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
   isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   emptyMessage?: string;
   emptySubtext?: string;
   onRowClick?: (item: T) => void;
@@ -25,6 +28,8 @@ export function DataTable<T extends Record<string, any>>({
   columns,
   data,
   isLoading = false,
+  error = null,
+  onRetry,
   emptyMessage = "No records found",
   emptySubtext = "Create a new record or adjust filters to view data.",
   onRowClick,
@@ -58,7 +63,17 @@ export function DataTable<T extends Record<string, any>>({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F1F5F9] text-xs text-[#0F172A]">
-            {isLoading ? (
+            {error ? (
+              <tr>
+                <td colSpan={columns.length} className="px-6 py-10">
+                  <FinancialErrorState
+                    title="Failed to load records"
+                    message={error}
+                    onRetry={onRetry}
+                  />
+                </td>
+              </tr>
+            ) : isLoading ? (
               // Table skeletons for clean loading state
               Array.from({ length: 5 }).map((_, idx) => (
                 <tr key={idx} className="animate-pulse">

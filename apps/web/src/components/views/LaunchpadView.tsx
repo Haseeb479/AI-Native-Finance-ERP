@@ -103,8 +103,7 @@ export function LaunchpadView({
           className="self-start sm:self-auto inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#0F172A] border border-[#E2E8F0] transition-colors cursor-pointer"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-semibold">Axiom AI</span>
-          <span className="text-[#64748B]">• Groq LPU Connected</span>
+          <span className="text-[#64748B]">• Authoritative AI Connected</span>
         </button>
       </div>
 
@@ -292,7 +291,7 @@ export function LaunchpadView({
                     ✦
                   </div>
                   <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-                    Axiom AI Financial Reasoning (Groq LPU)
+                    Authoritative AI Financial Reasoning
                   </span>
                 </div>
                 <button

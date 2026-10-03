@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from apps.ai.src.schemas.qa import (
     FinancialQARequest,
     FinancialQAResponse,
@@ -9,6 +9,7 @@ from apps.ai.src.schemas.qa import (
 )
 from apps.ai.src.schemas.guardrails import sanitize_untrusted_document_text
 from apps.ai.src.adapters.factory import get_llm_adapter
+from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
 
 router = APIRouter(prefix="/copilot")
 
@@ -33,7 +34,14 @@ Analyze financial statements (P&L, Balance Sheet, Trial Balance) and generate cl
 """
 
 @router.post("/qa", response_model=FinancialQAResponse)
-async def ask_financial_qa(request: FinancialQARequest):
+async def ask_financial_qa(
+    request: FinancialQARequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     # Neutralize prompt injection attempts
     cleaned_query, flagged = sanitize_untrusted_document_text(request.query)
 
@@ -91,7 +99,14 @@ async def ask_financial_qa(request: FinancialQARequest):
     return response
 
 @router.post("/draft-journal", response_model=JournalDraftResponse)
-async def draft_journal(request: JournalDraftRequest):
+async def draft_journal(
+    request: JournalDraftRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     cleaned_instruction, _ = sanitize_untrusted_document_text(request.instruction)
     prompt = (
         f"Draft Journal Instruction: {cleaned_instruction}\n"
@@ -116,7 +131,14 @@ async def draft_journal(request: JournalDraftRequest):
     return draft
 
 @router.post("/explain-report", response_model=ReportExplanationResponse)
-async def explain_report(request: ReportExplanationRequest):
+async def explain_report(
+    request: ReportExplanationRequest,
+    claims: VerifiedClaims = Depends(require_verified_claims),
+):
+    if request.organization_id and request.organization_id != claims.organization_id:
+        raise HTTPException(status_code=403, detail="Scope mismatch: cannot switch organization.")
+    request.organization_id = claims.organization_id
+
     prompt = (
         f"Report Type: {request.report_type}\n"
         f"Period: {request.period_label}\n"

@@ -42,7 +42,9 @@ export interface InvoiceRecord {
 interface InvoicesViewProps {
   invoices: InvoiceRecord[];
   isLoading?: boolean;
+  error?: string | null;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onPostInvoice?: (rawId: string) => void;
   onOpenCreateModal?: () => void;
   orgName?: string;
@@ -52,7 +54,9 @@ interface InvoicesViewProps {
 export function InvoicesView({
   invoices,
   isLoading = false,
+  error = null,
   onRefresh,
+  onRetry,
   onPostInvoice,
   onOpenCreateModal,
   orgName = "Apex Trading",
@@ -98,7 +102,7 @@ export function InvoicesView({
         <div className="max-w-[200px]">
           <span className="font-semibold text-xs text-[#0F172A] block truncate">{inv.customer}</span>
           <span className="text-[10px] text-[#94A3B8] font-mono">
-            {inv.customerNtn || "NTN: 4892019-2"}
+            {inv.customerNtn || "—"}
           </span>
         </div>
       ),
@@ -118,7 +122,7 @@ export function InvoicesView({
     },
     {
       key: "tax",
-      header: "GST (18%)",
+      header: "Sales Tax / GST",
       align: "right",
       render: (inv) => (
         <span className="text-xs font-mono text-[#64748B]">PKR {inv.tax}</span>
@@ -245,6 +249,8 @@ export function InvoicesView({
         columns={columns}
         data={filteredInvoices}
         isLoading={isLoading}
+        error={error}
+        onRetry={onRetry || onRefresh}
         onRowClick={(inv) => setSelectedInvoice(inv)}
         rowKey={(inv) => inv.id}
         emptyMessage="No sales invoices found"
@@ -365,7 +371,7 @@ export function InvoicesView({
                 <span className="font-mono">PKR {selectedInvoice.subtotal}</span>
               </div>
               <div className="flex justify-between text-xs text-[#64748B]">
-                <span>Sales Tax (18% FBR GST):</span>
+                <span>Sales Tax / GST:</span>
                 <span className="font-mono">PKR {selectedInvoice.tax}</span>
               </div>
               <div className="flex justify-between text-sm font-bold text-[#0F172A] pt-2 border-t border-[#F1F5F9]">

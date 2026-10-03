@@ -11,8 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  laravel-api:
-    name: Laravel Accounting Engine Tests
+  # ── 1. Fast Unit Tests & Security Audit Gate (SQLite) ──────────────────────
+  laravel-unit-and-security:
+    name: Laravel Unit Tests & Security Audit Gate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -46,14 +47,84 @@ jobs:
           touch database/database.sqlite
           php artisan key:generate --no-interaction --force
 
-      - name: Composer Dependency Security Audit
+      # P0 Security Audit Gate: Hard blocking failure on actionable advisories
+      - name: Composer Dependency Security Audit Gate
         run: composer audit --no-interaction
-        continue-on-error: true
 
-      - name: Run PHPUnit Test Suite
-        run: php -d memory_limit=512M vendor/bin/phpunit --colors=never
+      - name: Run Fast Unit Test Suite (SQLite)
+        run: php -d memory_limit=512M vendor/bin/phpunit --testsuite=Unit --colors=never
 
+  # ── 2. Production PostgreSQL Integration & Accounting Invariants ──────────
+  laravel-postgres-integration:
+    name: Laravel PostgreSQL Integration & Invariants
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: finova_test
+          POSTGRES_USER: finova_user
+          POSTGRES_PASSWORD: secret_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4 with PostgreSQL Extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, bcmath, zip, curl
+          coverage: none
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v4
+        with:
+          path: apps/api/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare Environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction --force
+
+      - name: Run Database Migrations on PostgreSQL
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: finova_test
+          DB_USERNAME: finova_user
+          DB_PASSWORD: secret_password
+        run: php artisan migrate:fresh --database=pgsql --force
+
+      - name: Run PostgreSQL Integration Tests (Accounting, Invariants, Tenant Isolation, RBAC, Auth)
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: finova_test
+          DB_USERNAME: finova_user
+          DB_PASSWORD: secret_password
+          AI_INTERNAL_SECRET: ai-native-finance-erp-internal-service-secret-key
+        run: php -d memory_limit=512M vendor/bin/phpunit --configuration=phpunit.pgsql.xml --colors=never
+
+  # ── 3. FastAPI AI Microservice Test Suite ───────────────────────────────────
   fastapi-ai:
     name: FastAPI AI Microservice Tests
     runs-on: ubuntu-latest
@@ -77,11 +148,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Pytest Suite (Guardrails, Copilot Q&A, Tools)
+      - name: Run Pytest Suite (Service Auth Enforcement, Guardrails, Copilot Q&A, Tools)
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: python -m pytest -v
 
+  # ── 4. Next.js Web Production Build ─────────────────────────────────────────
   nextjs-web:
     name: Next.js Web Production Build
     runs-on: ubuntu-latest

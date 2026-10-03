@@ -1,21 +1,20 @@
 /**
  * Axiom AI Client Service for Finova ERP
- * Connects to the Groq-powered Next.js API route (/api/axiom).
+ * Connects to the authoritative backend via Next.js server route (/api/axiom).
+ * Architecture: Next.js -> Laravel API -> FastAPI AI Microservice -> LLM Provider.
  */
 
-const GROQ_STORAGE_KEY = "finova_groq_api_key";
-
 export function getStoredGroqKey(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem(GROQ_STORAGE_KEY) || "";
+  return "";
 }
 
-export function setStoredGroqKey(key: string): void {
-  if (typeof window === "undefined") return;
-  if (!key || key.trim() === "") {
-    localStorage.removeItem(GROQ_STORAGE_KEY);
-  } else {
-    localStorage.setItem(GROQ_STORAGE_KEY, key.trim());
+export function setStoredGroqKey(_key: string): void {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem("finova_groq_api_key");
+    } catch {
+      // Ignore
+    }
   }
 }
 
@@ -32,17 +31,12 @@ export interface AxiomResponse {
 
 export async function askAxiomAI(
   query: string,
-  financialContext: Record<string, any> = {}
+  financialContext: Record<string, any> = {},
+  organizationId?: string
 ): Promise<AxiomResponse> {
-  const localKey = getStoredGroqKey();
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-
-  if (localKey) {
-    headers["x-groq-api-key"] = localKey;
-  }
 
   try {
     const res = await fetch("/api/axiom", {
@@ -51,27 +45,18 @@ export async function askAxiomAI(
       body: JSON.stringify({
         query,
         financial_context: financialContext,
+        organization_id: organizationId,
       }),
     });
 
     const data = await res.json().catch(() => null);
 
     if (!data) {
-      throw new Error("Invalid response received from Axiom AI.");
+      throw new Error("Invalid response received from AI service.");
     }
 
-    if (!res.ok && data.error !== "GROQ_API_KEY_REQUIRED") {
-      throw new Error(data.message || data.error || "Axiom AI failed to respond.");
-    }
-
-    if (data.configured === false && data.sample_response) {
-      return {
-        configured: false,
-        answer: data.sample_response.answer,
-        metrics: data.sample_response.metrics,
-        suggested_actions: data.sample_response.suggested_actions,
-        message: data.message,
-      };
+    if (!res.ok) {
+      throw new Error(data.message || data.error || "AI service failed to respond.");
     }
 
     return {
@@ -86,14 +71,14 @@ export async function askAxiomAI(
     return {
       configured: false,
       error: "REQUEST_FAILED",
-      answer: `Axiom AI Connection Error: ${err.message || "Failed to reach Axiom AI service."}`,
+      answer: `AI Gateway Connection Error: ${err.message || "Failed to reach AI service."}`,
       metrics: {
         "Status": "Connection Failed",
-        "Engine": "Groq LPU",
+        "Engine": "FastAPI AI Microservice",
       },
       suggested_actions: [
-        "Verify your internet connection",
-        "Check Groq API key in Axiom AI settings",
+        "Verify network connectivity to backend",
+        "Ensure enterprise session is authenticated",
       ],
     };
   }
@@ -111,8 +96,8 @@ export async function checkAxiomStatus(): Promise<{
   } catch {
     return {
       configured: false,
-      provider: "Groq",
-      model: "llama-3.3-70b-versatile",
+      provider: "FastAPI AI Service",
+      model: "authoritative-backend",
       status: "unreachable",
     };
   }

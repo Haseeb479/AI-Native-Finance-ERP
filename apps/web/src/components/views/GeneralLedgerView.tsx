@@ -43,7 +43,9 @@ export interface JournalRecord {
 interface GeneralLedgerViewProps {
   journals: JournalRecord[];
   isLoading?: boolean;
+  error?: string | null;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onOpenCreateJournal?: () => void;
   className?: string;
 }
@@ -51,7 +53,9 @@ interface GeneralLedgerViewProps {
 export function GeneralLedgerView({
   journals,
   isLoading = false,
+  error = null,
   onRefresh,
+  onRetry,
   onOpenCreateJournal,
   className,
 }: GeneralLedgerViewProps) {
@@ -198,6 +202,8 @@ export function GeneralLedgerView({
         columns={columns}
         data={filteredJournals}
         isLoading={isLoading}
+        error={error}
+        onRetry={onRetry || onRefresh}
         onRowClick={(j) => setSelectedJournal(j)}
         rowKey={(j) => j.number}
         emptyMessage="No journal entries found"
