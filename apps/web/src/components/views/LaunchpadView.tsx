@@ -97,7 +97,7 @@ export function LaunchpadView({
           </p>
         </div>
 
-        {/* Live Groq LPU Pill */}
+        {/* Authoritative AI Gateway Pill */}
         <button
           onClick={onOpenAxiomConfig}
           className="self-start sm:self-auto inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#0F172A] border border-[#E2E8F0] transition-colors cursor-pointer"

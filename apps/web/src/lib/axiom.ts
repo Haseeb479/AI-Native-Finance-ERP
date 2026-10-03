@@ -4,19 +4,6 @@
  * Architecture: Next.js -> Laravel API -> FastAPI AI Microservice -> LLM Provider.
  */
 
-export function getStoredGroqKey(): string {
-  return "";
-}
-
-export function setStoredGroqKey(_key: string): void {
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.removeItem("finova_groq_api_key");
-    } catch {
-      // Ignore
-    }
-  }
-}
 
 export interface AxiomResponse {
   configured: boolean;

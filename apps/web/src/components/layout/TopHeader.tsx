@@ -64,14 +64,14 @@ export function TopHeader({
 
       {/* Right Action Controls */}
       <div className="flex items-center space-x-3 shrink-0">
-        {/* Axiom AI Groq Settings & Status */}
+        {/* Axiom AI Status & Architecture */}
         <button
           onClick={onOpenAxiomConfig}
-          title="Configure Axiom AI Groq LPU Key & Model"
+          title="Axiom AI Engine Architecture & Status"
           className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors cursor-pointer"
         >
           <Zap className="w-3.5 h-3.5 text-purple-600" />
-          <span className="hidden md:inline">Axiom AI (Groq LPU)</span>
+          <span className="hidden md:inline">Axiom AI</span>
         </button>
 
         {/* Spotlight Search (Ctrl+K) */}

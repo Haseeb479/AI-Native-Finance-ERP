@@ -144,7 +144,7 @@ export function CommandCenterView({
       description: "Continuously validates Purchase Orders vs. Goods Receipts (GRN) vs. Vendor Bills. Flags quantity and price variances exceeding ±2.0% tolerance.",
       icon: Scale,
       status: "active",
-      model: "Groq LPU (Llama 3.3 70B)",
+      model: "Axiom AI (Llama 3.3 70B)",
       lastExecution: "3 mins ago",
       processedCount: 142,
       accuracyRate: "99.4%",
@@ -157,7 +157,7 @@ export function CommandCenterView({
       description: "Cross-checks vendor NTNs against the Federal Board of Revenue Active Taxpayer List (ATL). Calculates Section 153 WHT deductions and prepares Annex-C returns.",
       icon: ShieldCheck,
       status: "active",
-      model: "Groq LPU (Llama 3.3 70B)",
+      model: "Axiom AI (Llama 3.3 70B)",
       lastExecution: "12 mins ago",
       processedCount: 88,
       accuracyRate: "100%",
@@ -183,7 +183,7 @@ export function CommandCenterView({
       description: "Monitors close countdown, inspects subledger-to-GL account flux (>10% month-over-month), and drafts fixed asset depreciation and prepaid expense amortization.",
       icon: Clock,
       status: "active",
-      model: "Groq LPU (Llama 3.3 70B)",
+      model: "Axiom AI (Llama 3.3 70B)",
       lastExecution: "25 mins ago",
       processedCount: 64,
       accuracyRate: "98.8%",
@@ -196,7 +196,7 @@ export function CommandCenterView({
       description: "Parses Meezan Bank & HBL CSV statement feeds, computes SHA-256 deduplication fingerprints, and executes regex matching rules with auto-reconcile confidence scoring.",
       icon: Landmark,
       status: "active",
-      model: "Groq LPU (Llama 3.3 70B)",
+      model: "Axiom AI (Llama 3.3 70B)",
       lastExecution: "1 hour ago",
       processedCount: 230,
       accuracyRate: "99.1%",
@@ -373,7 +373,7 @@ export function CommandCenterView({
         ...prev,
         {
           role: "assistant",
-          content: "Axiom AI encountered a temporary issue connecting to Groq LPU. Please verify your Groq API key in the top settings modal.",
+          content: "Axiom AI encountered an issue communicating with the backend financial service. Please verify your session and try again.",
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -420,7 +420,7 @@ export function CommandCenterView({
                 Axiom AI Workspace
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                Groq LPU Llama 3.3 70B
+                FastAPI AI • Llama 3.3 70B
               </span>
             </div>
             <p className="text-xs text-[#64748B] mt-1">
@@ -510,7 +510,7 @@ export function CommandCenterView({
               <div className="flex items-center space-x-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-xs font-bold text-[#0F172A]">
-                  Axiom Autonomous Controller • Llama 3.3 70B (Groq LPU)
+                  Axiom Autonomous Controller • Llama 3.3 70B (FastAPI Engine)
                 </span>
               </div>
               <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-mono">
@@ -578,7 +578,7 @@ export function CommandCenterView({
               {assistantLoading && (
                 <div className="flex items-center space-x-2 p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] max-w-[240px]">
                   <span className="w-3.5 h-3.5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
-                  <span className="text-xs text-[#64748B]">Axiom reasoning with Groq LPU…</span>
+                  <span className="text-xs text-[#64748B]">Axiom reasoning via internal service…</span>
                 </div>
               )}
             </div>

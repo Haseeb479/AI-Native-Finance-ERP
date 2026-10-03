@@ -831,7 +831,7 @@ export default function DashboardPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // AXIOM AI (GROQ LLM) REASONING HANDLER
+  // AXIOM AI FINANCIAL REASONING HANDLER
   // ─────────────────────────────────────────────────────────────
   const handleAskCopilot = async (customPrompt?: string) => {
     const q = customPrompt || promptText;
@@ -839,7 +839,7 @@ export default function DashboardPage() {
 
     setCopilotLoading(true);
 
-    // Call Axiom AI (Groq LLM Engine) with live financial context
+    // Call Axiom AI with live financial context
     const financialContext = {
       organization: currentOrg?.name || "Apex Trading Pvt Ltd",
       base_currency: currentOrg?.base_currency || "PKR",
@@ -887,7 +887,7 @@ export default function DashboardPage() {
           setCopilotResponse({
             answer: res.answer,
             keyMetrics: res.metrics || {
-              "Reasoning Model": "Axiom AI (Groq)",
+              "Reasoning Model": "Axiom AI (FastAPI)",
               "Audit Log": "Logged",
               "Execution": "Real-time",
             },
@@ -2027,7 +2027,7 @@ export default function DashboardPage() {
               <div className="flex items-center space-x-3 p-3 bg-purple-50 text-purple-900 rounded-xl text-xs">
                 <span className="text-lg">🤖</span>
                 <span>
-                  Connected to Axiom AI Engine powered by Groq LPU (Llama 3.3 70B): Real-time General Ledger context, balanced double-entry logic, and FBR tax rules.
+                  Connected to Axiom AI Engine (Llama 3.3 70B via FastAPI): Real-time General Ledger context, balanced double-entry logic, and FBR tax rules.
                 </span>
               </div>
 

@@ -87,8 +87,8 @@ export default function FinovaLandingPage() {
       if (res && res.answer) {
         setSimulatorLiveResponse({
           answer: res.answer,
-          badge: res.configured ? "Live Groq Llama 3.3 70B" : "Axiom AI Engine Ready",
-          model: "Groq LPU",
+          badge: res.configured ? "Axiom AI (Llama 3.3 70B)" : "Axiom AI Engine Ready",
+          model: "Axiom AI Engine",
         });
       }
     } catch {
@@ -790,7 +790,7 @@ export default function FinovaLandingPage() {
               <div className="bg-black/40 rounded-xl p-3 sm:p-4 border border-white/5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-indigo-400 font-mono uppercase tracking-wider">Ask Axiom AI (Type or Pick Question):</span>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/40">Powered by Groq</span>
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/40">Powered by Axiom AI</span>
                 </div>
                 <div className="flex space-x-2">
                   <input
