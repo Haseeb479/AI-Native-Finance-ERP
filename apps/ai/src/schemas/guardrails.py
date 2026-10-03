@@ -10,11 +10,22 @@ INJECTION_PATTERNS = [
     r"update\s+account_balances",
     r"delete\s+from",
     r"grant\s+all\s+privileges",
+    r"grant\s+(me\s+)?(admin|owner|superuser)\s+role",
     r"admin\s+mode",
     r"you\s+are\s+now\s+in\s+developer\s+mode",
     r"jailbreak",
     r"disregard\s+safety\s+guidelines",
     r"act\s+as\s+system\s+administrator",
+    r"change\s+(the\s+)?(amount|price|total|tax)\s+to",
+    r"set\s+(amount|total|balance)\s+to\s+0",
+    r"bypass\s+approval",
+    r"skip\s+(maker-checker|approval|verification)",
+    r"switch\s+(organization|tenant)",
+    r"reveal\s+(another|other)\s+tenant",
+    r"post\s+unbalanced\s+journal",
+    r"modify\s+posted\s+(journal|transaction)",
+    r"union\s+select",
+    r"insert\s+into",
 ]
 
 def delimit_untrusted_content(content: str, source_type: str = "document") -> str:

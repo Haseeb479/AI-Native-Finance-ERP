@@ -136,10 +136,13 @@ class MfaController extends Controller
             ], 422);
         }
 
+        $stepUpToken = $this->mfaService->recordStepUp($user);
+
         return response()->json([
             'data' => [
                 'verified' => true,
                 'method' => $method,
+                'step_up_token' => $stepUpToken,
                 'message' => 'Two-factor authentication verified successfully.',
             ],
             'meta' => ['timestamp' => now()->toIso8601String()],

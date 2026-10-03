@@ -157,4 +157,51 @@ class MfaService
 
         return $output;
     }
+
+    /**
+     * Check whether the user has satisfied step-up authentication.
+     * P1-10: Require recent MFA verification or step-up token for high-risk operations.
+     */
+    public function hasRecentStepUp(User $user, ?string $code = null, ?string $stepUpToken = null): bool
+    {
+        if (! $user->hasEnabledTwoFactor()) {
+            return true; // MFA not enabled for user, no step-up required
+        }
+
+        // 1. Direct TOTP code provided with high-risk request
+        if ($code && $this->verifyCode($user->two_factor_secret, $code)) {
+            return true;
+        }
+
+        // 2. Verified step-up token from recent explicit verification
+        if ($stepUpToken) {
+            $tokenData = \Illuminate\Support\Facades\Cache::get("mfa_step_up_{$stepUpToken}");
+            if ($tokenData && ($tokenData['user_id'] ?? null) === $user->id) {
+                return true;
+            }
+        }
+
+        // 3. User recent MFA session verification within 15 minutes
+        $recentMfa = \Illuminate\Support\Facades\Cache::get("user_recent_mfa_{$user->id}");
+        if ($recentMfa && (now()->timestamp - $recentMfa) < 900) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Issue and cache a step-up token for 15 minutes.
+     */
+    public function recordStepUp(User $user): string
+    {
+        $stepUpToken = Str::random(64);
+        \Illuminate\Support\Facades\Cache::put("mfa_step_up_{$stepUpToken}", [
+            'user_id' => $user->id,
+            'verified_at' => now()->timestamp,
+        ], now()->addMinutes(15));
+        \Illuminate\Support\Facades\Cache::put("user_recent_mfa_{$user->id}", now()->timestamp, now()->addMinutes(15));
+
+        return $stepUpToken;
+    }
 }

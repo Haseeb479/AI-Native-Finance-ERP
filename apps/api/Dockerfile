@@ -41,7 +41,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-EXPOSE 8000
+EXPOSE 9000
 
-# Start PHP server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Start Production PHP-FPM FastCGI daemon (replaces development php artisan serve)
+CMD ["php-fpm"]

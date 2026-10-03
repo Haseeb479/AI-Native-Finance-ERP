@@ -7,9 +7,9 @@ use Illuminate\Console\Command;
 
 class VerifyBackupCommand extends Command
 {
-    protected $signature = 'backup:verify {--rpo=24 : Maximum allowable backup age in hours} {--create-snapshot : Create a verifiable backup snapshot prior to verification}';
+    protected $signature = 'backup:verify {--rpo=24 : Maximum allowable backup age in hours} {--create-snapshot : Create a verifiable backup snapshot prior to verification} {--restore-drill : Perform a complete restore rehearsal and verify financial invariants}';
 
-    protected $description = 'Verify database backup existence, SHA-256 cryptographic integrity, and RPO/RTO compliance (P1-36)';
+    protected $description = 'Verify database backup existence, SHA-256 cryptographic integrity, RPO/RTO compliance, and execute restore drills (P0-06 / P1-36)';
 
     public function handle(BackupVerificationService $service): int
     {
@@ -48,6 +48,25 @@ class VerifyBackupCommand extends Command
                 ['Estimated RTO', "{$result['rto']['estimated_minutes']} minutes (Target: <= {$result['rto']['target_minutes']}m)"],
             ]
         );
+
+        if ($this->option('restore-drill')) {
+            $this->info("Executing disaster-recovery restore drill rehearsal...");
+            $drillResult = $service->executeRestoreDrill();
+            if (! $drillResult['pass']) {
+                $this->error("Restore drill FAILED: " . ($drillResult['error'] ?? 'Unknown error'));
+                return 1;
+            }
+            $this->info("Restore drill rehearsal PASSED! Duration: {$drillResult['duration_ms']}ms");
+            $this->table(
+                ['Drill Check', 'Status'],
+                [
+                    ['Tables Verified', $drillResult['tables_verified']],
+                    ['Accounting Invariants', $drillResult['accounting_invariants_verified'] ? 'PASSED' : 'FAILED'],
+                    ['Tenant Isolation', $drillResult['tenant_isolation_verified'] ? 'PASSED' : 'FAILED'],
+                    ['RTO Certified (<= 60m)', $drillResult['rto_certified'] ? 'YES' : 'NO'],
+                ]
+            );
+        }
 
         return 0;
     }

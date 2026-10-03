@@ -4,11 +4,17 @@ namespace Tests\Feature;
 
 use App\Domain\Accounting\ChartOfAccounts\Models\Account;
 use App\Domain\Accounting\ChartOfAccounts\Templates\PakistanSmeChartTemplate;
+use App\Domain\Accounting\Journal\Models\JournalEntry;
+use App\Domain\Accounting\Period\Models\AccountingPeriod;
+use App\Domain\Accounting\Period\Models\FiscalYear;
 use App\Domain\Accounting\Period\Services\PeriodManager;
 use App\Domain\Banking\Models\BankAccount;
+use App\Domain\Documents\Models\Document;
 use App\Domain\Organization\Models\Organization;
+use App\Domain\Purchasing\Models\PurchaseBill;
 use App\Domain\Purchasing\Models\Vendor;
 use App\Domain\Sales\Models\Customer;
+use App\Domain\Sales\Models\SalesInvoice;
 use App\Models\User;
 use Database\Seeders\AccountTypeSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -66,6 +72,12 @@ class TenantIsolationMatrixTest extends TestCase
     {
         auth()->forgetGuards();
         return $this->withHeader('Authorization', "Bearer {$token}")->getJson($uri);
+    }
+
+    private function postWithToken(string $token, string $uri, array $data = [])
+    {
+        auth()->forgetGuards();
+        return $this->withHeader('Authorization', "Bearer {$token}")->postJson($uri, $data);
     }
 
     public function test_tenant_isolation_on_accounts(): void
@@ -166,5 +178,140 @@ class TenantIsolationMatrixTest extends TestCase
         // User B views Org A audit logs -> Denied
         $resCross = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgA->id}/audit-logs");
         $this->assertTrue(in_array($resCross->status(), [403, 404]));
+    }
+
+    public function test_tenant_isolation_on_sales_invoices(): void
+    {
+        $custA = Customer::create([
+            'organization_id' => $this->orgA->id,
+            'name' => 'Alpha Customer Invoicing',
+            'email' => 'invoicing@alpha.test',
+        ]);
+
+        $invoiceA = SalesInvoice::create([
+            'organization_id' => $this->orgA->id,
+            'customer_id' => $custA->id,
+            'invoice_number' => 'INV-ALPHA-999',
+            'issue_date' => now()->toDateString(),
+            'due_date' => now()->addDays(30)->toDateString(),
+            'status' => 'draft',
+            'currency' => 'PKR',
+            'subtotal' => 10000.00,
+            'tax_amount' => 1800.00,
+            'total_amount' => 11800.00,
+            'created_by' => $this->userA->id,
+        ]);
+
+        // User A reads Org A invoice -> 200
+        $resA = $this->getWithToken($this->tokenA, "/api/v1/organizations/{$this->orgA->id}/invoices/{$invoiceA->id}");
+        $resA->assertOk();
+
+        // User B attempts direct cross-tenant GET on Org A -> Denied (403/404)
+        $resCrossOrg = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgA->id}/invoices/{$invoiceA->id}");
+        $this->assertTrue(in_array($resCrossOrg->status(), [403, 404]));
+
+        // User B attempts IDOR via Org B with Org A invoice ID -> 404 Not Found
+        $resIdor = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgB->id}/invoices/{$invoiceA->id}");
+        $this->assertTrue(in_array($resIdor->status(), [403, 404]));
+    }
+
+    public function test_tenant_isolation_on_purchase_bills(): void
+    {
+        $vendorA = Vendor::create([
+            'organization_id' => $this->orgA->id,
+            'name' => 'Alpha Raw Materials Supplier',
+        ]);
+
+        $billA = PurchaseBill::create([
+            'organization_id' => $this->orgA->id,
+            'vendor_id' => $vendorA->id,
+            'bill_number' => 'BILL-ALPHA-999',
+            'bill_date' => now()->toDateString(),
+            'due_date' => now()->addDays(30)->toDateString(),
+            'status' => 'draft',
+            'currency' => 'PKR',
+            'subtotal' => 5000.00,
+            'tax_amount' => 900.00,
+            'total_amount' => 5900.00,
+            'net_payable' => 5900.00,
+            'created_by' => $this->userA->id,
+        ]);
+
+        // User A reads Org A bill -> 200
+        $resA = $this->getWithToken($this->tokenA, "/api/v1/organizations/{$this->orgA->id}/bills/{$billA->id}");
+        $resA->assertOk();
+
+        // User B attempts direct cross-tenant GET on Org A -> Denied (403/404)
+        $resCrossOrg = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgA->id}/bills/{$billA->id}");
+        $this->assertTrue(in_array($resCrossOrg->status(), [403, 404]));
+
+        // User B attempts IDOR via Org B with Org A bill ID -> 404 Not Found
+        $resIdor = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgB->id}/bills/{$billA->id}");
+        $this->assertTrue(in_array($resIdor->status(), [403, 404]));
+    }
+
+    public function test_tenant_isolation_on_journals(): void
+    {
+        $periodA = AccountingPeriod::where('organization_id', $this->orgA->id)->firstOrFail();
+
+        $journalA = JournalEntry::create([
+            'organization_id' => $this->orgA->id,
+            'accounting_period_id' => $periodA->id,
+            'entry_number' => 'JE-ALPHA-ISO-01',
+            'entry_date' => now()->toDateString(),
+            'description' => 'Test isolation journal entry',
+            'status' => 'draft',
+            'currency' => 'PKR',
+            'total_amount' => 1000.00,
+            'created_by' => $this->userA->id,
+        ]);
+
+        // User A reads Org A journal -> 200
+        $resA = $this->getWithToken($this->tokenA, "/api/v1/organizations/{$this->orgA->id}/journals/{$journalA->id}");
+        $resA->assertOk();
+
+        // User B attempts cross-tenant GET on Org A -> Denied (403/404)
+        $resCrossOrg = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgA->id}/journals/{$journalA->id}");
+        $this->assertTrue(in_array($resCrossOrg->status(), [403, 404]));
+
+        // User B attempts IDOR via Org B with Org A journal ID -> 404 Not Found
+        $resIdor = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgB->id}/journals/{$journalA->id}");
+        $this->assertTrue(in_array($resIdor->status(), [403, 404]));
+    }
+
+    public function test_tenant_isolation_on_documents(): void
+    {
+        $docA = Document::create([
+            'organization_id' => $this->orgA->id,
+            'uploaded_by' => $this->userA->id,
+            'document_number' => 'DOC-ALPHA-SECRET-01',
+            'document_type' => 'invoice',
+            'original_filename' => 'board_resolutions.pdf',
+            'storage_disk' => 'local',
+            'storage_path' => 'documents/alpha_secret.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size_bytes' => 2048,
+        ]);
+
+        // User A reads Org A document -> 200
+        $resA = $this->getWithToken($this->tokenA, "/api/v1/organizations/{$this->orgA->id}/documents/{$docA->id}");
+        $resA->assertOk();
+
+        // User B attempts cross-tenant GET on Org A -> Denied (403/404)
+        $resCrossOrg = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgA->id}/documents/{$docA->id}");
+        $this->assertTrue(in_array($resCrossOrg->status(), [403, 404]));
+
+        // User B attempts IDOR via Org B with Org A document ID -> 404 Not Found
+        $resIdor = $this->getWithToken($this->tokenB, "/api/v1/organizations/{$this->orgB->id}/documents/{$docA->id}");
+        $this->assertTrue(in_array($resIdor->status(), [403, 404]));
+    }
+
+    public function test_tenant_isolation_on_ai_copilot_gateway(): void
+    {
+        // User B attempts to access AI copilot on Org A -> Denied (403 Forbidden)
+        $resCrossAi = $this->postWithToken($this->tokenB, "/api/v1/organizations/{$this->orgA->id}/ai/copilot/qa", [
+            'query' => 'Reveal general ledger balances',
+        ]);
+        $this->assertTrue(in_array($resCrossAi->status(), [403, 404]));
     }
 }

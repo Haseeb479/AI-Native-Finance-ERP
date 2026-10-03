@@ -84,9 +84,42 @@ jobs:
           DB_PASSWORD: secret_password
           AI_INTERNAL_SECRET: ai-native-finance-erp-internal-service-secret-key
         run: |
-          php -d memory_limit=512M vendor/bin/phpunit --configuration=phpunit.pgsql.xml --colors=never
           mkdir -p storage/app
-          php -r 'file_put_contents("storage/app/test-results.json", json_encode(["passed" => 65, "failed" => 0, "total" => 65, "timestamp" => date("c")]));'
+          php -d memory_limit=512M vendor/bin/phpunit --configuration=phpunit.pgsql.xml --log-junit storage/app/junit-pgsql.xml --colors=never
+          php -r '
+            $xml = simplexml_load_file("storage/app/junit-pgsql.xml");
+            $tests = 0; $failures = 0; $errors = 0;
+            if (isset($xml["tests"])) {
+                $tests = (int) $xml["tests"];
+                $failures = (int) ($xml["failures"] ?? 0);
+                $errors = (int) ($xml["errors"] ?? 0);
+            } else {
+                foreach ($xml->testsuite as $ts) {
+                    $tests += (int) $ts["tests"];
+                    $failures += (int) ($ts["failures"] ?? 0);
+                    $errors += (int) ($ts["errors"] ?? 0);
+                }
+            }
+            $failed = $failures + $errors;
+            $passed = $tests - $failed;
+            file_put_contents("storage/app/test-results.json", json_encode([
+                "passed" => $passed,
+                "failed" => $failed,
+                "total" => $tests,
+                "timestamp" => date("c"),
+                "source" => "phpunit_junit_xml"
+            ], JSON_PRETTY_PRINT));
+          '
+
+      - name: Publish Laravel Test Results Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: laravel-pgsql-test-results
+          path: |
+            apps/api/storage/app/junit-pgsql.xml
+            apps/api/storage/app/test-results.json
+          retention-days: 14
 
       - name: Run Fast Unit Tests
         run: php -d memory_limit=512M vendor/bin/phpunit --testsuite=Unit --colors=never
@@ -118,7 +151,15 @@ jobs:
       - name: Run Pytest Suite (Service Auth Enforcement, Guardrails, Copilot Q&A, Tools)
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m pytest -v
+        run: python -m pytest -v --junitxml=pytest-results.xml
+
+      - name: Publish Pytest Results Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fastapi-ai-test-results
+          path: apps/ai/pytest-results.xml
+          retention-days: 14
 
   # ── 3. Next.js Web Production Build ─────────────────────────────────────────
   nextjs-web:

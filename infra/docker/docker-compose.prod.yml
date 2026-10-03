@@ -1,6 +1,33 @@
 name: finance-erp-prod
 
 services:
+  # ── 1. Edge Ingress: Nginx Reverse Proxy & TLS Termination ──────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: finance_prod_nginx
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - api
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+  # ── 2. Storage & Cache Infrastructure (Internal Network Only) ───────────────
   postgres:
     image: postgres:16-alpine
     container_name: finance_prod_postgres
@@ -52,7 +79,7 @@ services:
       - finance_prod_network
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: quay.io/minio/minio:RELEASE.2024-11-07T00-52-28Z
     container_name: finance_prod_minio
     restart: always
     environment:
@@ -74,14 +101,16 @@ services:
     networks:
       - finance_prod_network
 
+  # ── 3. Application API: Production PHP-FPM FastCGI Daemon ───────────────────
   api:
     build:
       context: ../../apps/api
       dockerfile: Dockerfile
     container_name: finance_prod_api
     restart: always
-    ports:
-      - "${API_BIND_PORT:-8000}:8000"
+    # Security: Internal PHP-FPM port 9000 is routed only through Nginx
+    expose:
+      - "9000"
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -105,7 +134,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 0"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -117,6 +146,79 @@ services:
     networks:
       - finance_prod_network
 
+  # ── 4. Dedicated Background Processing: Laravel Queue Worker ────────────────
+  worker:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    container_name: finance_prod_worker
+    restart: always
+    command: ["php", "artisan", "queue:work", "redis", "--tries=3", "--timeout=90", "--sleep=3", "--max-time=3600"]
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY must be provided in production}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-finance_erp}
+      DB_USERNAME: ${DB_USERNAME:-finance_user}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided in production}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      AI_SERVICE_URL: http://ai:8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    networks:
+      - finance_prod_network
+
+  # ── 5. Dedicated Recurring Job Automation: Laravel Scheduler ────────────────
+  scheduler:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    container_name: finance_prod_scheduler
+    restart: always
+    command: ["sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY must be provided in production}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-finance_erp}
+      DB_USERNAME: ${DB_USERNAME:-finance_user}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided in production}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      AI_SERVICE_URL: http://ai:8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    networks:
+      - finance_prod_network
+
+  # ── 6. Internal AI Microservice: FastAPI Service (No Public Port Exposure) ──
   ai:
     build:
       context: ../../apps/ai
@@ -124,7 +226,7 @@ services:
     container_name: finance_prod_ai
     restart: always
     # Security: AI port 8001 is NEVER exposed to the public internet / host.
-    # It is accessible strictly by the api container over internal bridge network.
+    # Accessible strictly by api, worker, and scheduler on the internal bridge network.
     expose:
       - "8001"
     environment:
@@ -153,18 +255,19 @@ services:
     networks:
       - finance_prod_network
 
+  # ── 7. Next.js Web Frontend (Served Behind Nginx Reverse Proxy) ─────────────
   web:
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
     container_name: finance_prod_web
     restart: always
-    ports:
-      - "${WEB_BIND_PORT:-3000}:3000"
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
-      INTERNAL_API_URL: http://api:8000/api/v1
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+      INTERNAL_API_URL: http://nginx/api/v1
     depends_on:
       - api
     healthcheck:

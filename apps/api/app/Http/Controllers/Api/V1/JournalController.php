@@ -387,6 +387,26 @@ class JournalController extends Controller
             ], 403);
         }
 
+        // P1-10: Step-up authentication required for high-risk financial reversal
+        if ($request->user()?->hasEnabledTwoFactor()) {
+            $mfaService = app(\App\Domain\Security\Services\MfaService::class);
+            $mfaCode = $request->header('X-MFA-Code') ?? $request->input('mfa_code');
+            $stepUpToken = $request->header('X-MFA-Step-Up-Token') ?? $request->input('step_up_token');
+
+            if (! $mfaService->hasRecentStepUp($request->user(), $mfaCode, $stepUpToken)) {
+                return response()->json([
+                    'data' => null,
+                    'meta' => ['timestamp' => now()->toISOString()],
+                    'errors' => [
+                        [
+                            'code' => 'MFA_STEP_UP_REQUIRED',
+                            'message' => 'Step-up authentication required to reverse posted journal entries. Provide valid MFA code or recent verification.',
+                        ],
+                    ],
+                ], 403);
+            }
+        }
+
         $entry = JournalEntry::withoutGlobalScopes()
             ->where('organization_id', $organization->id)
             ->findOrFail($journalId);

@@ -144,4 +144,24 @@ class AuthTest extends TestCase
 
         $this->assertCount(0, $user->tokens);
     }
+
+    public function test_registration_fails_with_password_shorter_than_12_characters(): void
+    {
+        $payload = [
+            'name' => 'Short Pass User',
+            'email' => 'shortpass@example.com',
+            'password' => 'Pass12345!', // 10 chars, < 12
+            'password_confirmation' => 'Pass12345!',
+        ];
+
+        $response = $this->postJson('/api/v1/auth/register', $payload);
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'data' => null,
+            ])
+            ->assertJsonStructure(['errors']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'shortpass@example.com']);
+    }
 }

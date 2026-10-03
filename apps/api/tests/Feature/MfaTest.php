@@ -120,4 +120,46 @@ class MfaTest extends TestCase
         $this->assertNotContains($chosenRecoveryCode, $user->two_factor_recovery_codes);
         $this->assertCount(7, $user->two_factor_recovery_codes);
     }
+
+    public function test_step_up_authentication_verification_and_expiry(): void
+    {
+        $mfaService = app(MfaService::class);
+        $secret = $mfaService->generateSecretKey();
+
+        $user = User::factory()->create([
+            'email' => 'stepup@example.com',
+            'password' => Hash::make('StrongPassword123!'),
+            'two_factor_secret' => $secret,
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        // 1. Without MFA verification, step-up check fails
+        $this->assertFalse($mfaService->hasRecentStepUp($user));
+
+        // 2. Direct code verification satisfies step-up
+        $timeSlice = (int) floor(time() / 30);
+        $reflection = new \ReflectionClass($mfaService);
+        $method = $reflection->getMethod('calculateCode');
+        $method->setAccessible(true);
+        $validCode = $method->invoke($mfaService, $secret, $timeSlice);
+
+        $this->assertTrue($mfaService->hasRecentStepUp($user, $validCode));
+
+        // 3. Invalid code fails
+        $this->assertFalse($mfaService->hasRecentStepUp($user, '000000'));
+
+        // 4. Verifying via endpoint issues step_up_token and marks session
+        $verifyRes = $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/mfa/verify', [
+            'code' => $validCode,
+        ]);
+        $verifyRes->assertStatus(200);
+        $stepUpToken = $verifyRes->json('data.step_up_token');
+        $this->assertNotNull($stepUpToken);
+
+        // 5. Subsequent step-up check passes with token
+        $this->assertTrue($mfaService->hasRecentStepUp($user, null, $stepUpToken));
+
+        // 6. User recent MFA session passes
+        $this->assertTrue($mfaService->hasRecentStepUp($user));
+    }
 }

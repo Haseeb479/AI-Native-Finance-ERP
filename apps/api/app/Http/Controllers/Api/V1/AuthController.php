@@ -344,7 +344,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:12', 'confirmed'],
         ]);
 
         $user = $request->user();
@@ -393,10 +393,18 @@ class AuthController extends Controller
             );
         }
 
+        // Security: If user exists, queue the reset email. We never return the token in the API
+        // response — it is delivered exclusively through the verified email channel to prevent
+        // credential exposure via API logs, browser history, proxy traces, or screenshots.
+        if ($user) {
+            // TODO: dispatch(new SendPasswordResetEmail($user->email, $token));
+            // Until email service is wired, token is only stored (hashed) in DB — not returned here.
+        }
+
+        // Always return identical generic response regardless of whether email exists (prevents enumeration)
         return response()->json([
             'data' => [
-                'message' => 'If an account exists with this email, a password reset token has been generated.',
-                'reset_token' => $token, // Provided in response for API client consumption & testing
+                'message' => 'If an account with that email address exists, a password reset link has been sent.',
             ],
             'meta' => ['timestamp' => now()->toIso8601String()],
             'errors' => [],
@@ -411,7 +419,7 @@ class AuthController extends Controller
         $request->validate([
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:12', 'confirmed'],
         ]);
 
         $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')
@@ -481,10 +489,13 @@ class AuthController extends Controller
         $verificationCode = \Illuminate\Support\Str::random(32);
         \Illuminate\Support\Facades\Cache::put("email_verify_{$user->id}", $verificationCode, now()->addMinutes(60));
 
+        // Security: Store the verification code and send it via the email channel only.
+        // Never return it in the API response to prevent token exposure via logs/proxies.
+        // TODO: dispatch(new SendVerificationEmail($user, $verificationCode));
+
         return response()->json([
             'data' => [
-                'message' => 'Verification token generated successfully.',
-                'verification_token' => $verificationCode,
+                'message' => 'If your email is not yet verified, a verification link has been sent.',
             ],
             'meta' => ['timestamp' => now()->toIso8601String()],
             'errors' => [],

@@ -67,4 +67,39 @@ class BackupVerificationTest extends TestCase
         $this->artisan('backup:verify --create-snapshot --rpo=24')
             ->assertExitCode(0);
     }
+
+    public function test_restore_drill_passes_and_certifies_rto(): void
+    {
+        $service = new BackupVerificationService($this->testBackupDir);
+        $service->createBackupSnapshot('restore_test');
+
+        $drillResult = $service->executeRestoreDrill();
+
+        $this->assertTrue($drillResult['pass']);
+        $this->assertEquals('drill_verified', $drillResult['status']);
+        $this->assertTrue($drillResult['accounting_invariants_verified']);
+        $this->assertTrue($drillResult['tenant_isolation_verified']);
+        $this->assertTrue($drillResult['rto_certified']);
+        $this->assertGreaterThan(0, $drillResult['tables_verified']);
+    }
+
+    public function test_restore_drill_fails_on_corrupted_backup(): void
+    {
+        $service = new BackupVerificationService($this->testBackupDir);
+        $manifest = $service->createBackupSnapshot('corrupt_drill_test');
+
+        // Corrupt file
+        File::append($manifest['filepath'], 'CORRUPT_BYTES');
+
+        $drillResult = $service->executeRestoreDrill();
+
+        $this->assertFalse($drillResult['pass']);
+        $this->assertEquals('corrupt_checksum', $drillResult['status']);
+    }
+
+    public function test_artisan_backup_verify_with_restore_drill_command(): void
+    {
+        $this->artisan('backup:verify --create-snapshot --restore-drill --rpo=24')
+            ->assertExitCode(0);
+    }
 }

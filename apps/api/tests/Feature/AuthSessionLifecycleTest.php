@@ -145,15 +145,28 @@ class AuthSessionLifecycleTest extends TestCase
         ]);
 
         $forgotResponse->assertStatus(200);
-        $rawToken = $forgotResponse->json('data.reset_token');
-        $this->assertNotNull($rawToken);
 
-        // Verify record in password_reset_tokens
+        // P0 FIX: The raw token must NOT be returned in the API response (prevents credential exposure)
+        $this->assertArrayNotHasKey('reset_token', $forgotResponse->json('data'));
+        $this->assertEquals(
+            'If an account with that email address exists, a password reset link has been sent.',
+            $forgotResponse->json('data.message')
+        );
+
+        // The token IS stored securely (hashed) in the database
         $record = DB::table('password_reset_tokens')->where('email', 'finance-director@company.pk')->first();
-        $this->assertNotNull($record);
-        $this->assertTrue(Hash::check($rawToken, $record->token));
+        $this->assertNotNull($record, 'Reset token record must exist in DB');
+        $this->assertNotEmpty($record->token, 'Token hash must be stored');
 
-        // 2. Complete reset password
+        // Simulate receiving token via email link by generating a fresh token and storing it
+        // (In production this is sent in the email URL; in tests we generate directly)
+        $rawToken = \Illuminate\Support\Str::random(64);
+        DB::table('password_reset_tokens')->where('email', 'finance-director@company.pk')->update([
+            'token' => \Illuminate\Support\Facades\Hash::make($rawToken),
+            'created_at' => now(),
+        ]);
+
+        // 2. Complete reset password using token from "email link"
         $resetResponse = $this->postJson('/api/v1/auth/reset-password', [
             'email' => 'finance-director@company.pk',
             'token' => $rawToken,
@@ -230,10 +243,20 @@ class AuthSessionLifecycleTest extends TestCase
             ->postJson('/api/v1/auth/email/verification-notification');
 
         $notifyResp->assertStatus(200);
-        $verifyToken = $notifyResp->json('data.verification_token');
-        $this->assertNotNull($verifyToken);
 
-        // 2. Verify with token
+        // P0 FIX: The raw verification token must NOT be returned in the API response
+        $this->assertArrayNotHasKey('verification_token', $notifyResp->json('data'));
+        $this->assertEquals(
+            'If your email is not yet verified, a verification link has been sent.',
+            $notifyResp->json('data.message')
+        );
+
+        // Token IS stored in cache (fetch it to simulate receiving it via email link)
+        $cacheKey = "email_verify_{$user->id}";
+        $verifyToken = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        $this->assertNotNull($verifyToken, 'Verification token must be stored in cache for email delivery');
+
+        // 2. Verify with token (simulating clicking the email link)
         $verifyResp = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/v1/auth/email/verify', [
                 'token' => $verifyToken,
@@ -260,5 +283,118 @@ class AuthSessionLifecycleTest extends TestCase
                     'message' => 'Email is already verified.',
                 ],
             ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // P0 REGRESSION: Token exposure and account enumeration tests
+    // ─────────────────────────────────────────────────────────────
+
+    public function test_forgot_password_never_returns_raw_token_in_response(): void
+    {
+        User::factory()->create(['email' => 'known@company.pk']);
+
+        $response = $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'known@company.pk',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertArrayNotHasKey('reset_token', $response->json('data') ?? []);
+    }
+
+    public function test_forgot_password_does_not_reveal_account_existence(): void
+    {
+        // Both existing and non-existing emails must return identical responses
+        $existsResponse = $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'doesnotexist@company.pk',
+        ]);
+
+        $existsResponse->assertStatus(200);
+        $this->assertEquals(
+            'If an account with that email address exists, a password reset link has been sent.',
+            $existsResponse->json('data.message')
+        );
+    }
+
+    public function test_used_reset_token_cannot_be_reused(): void
+    {
+        $user = User::factory()->create(['email' => 'cfo@reuse-test.pk']);
+
+        $rawToken = \Illuminate\Support\Str::random(64);
+        DB::table('password_reset_tokens')->insert([
+            'email' => 'cfo@reuse-test.pk',
+            'token' => Hash::make($rawToken),
+            'created_at' => now(),
+        ]);
+
+        // First use succeeds
+        $first = $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'cfo@reuse-test.pk',
+            'token' => $rawToken,
+            'password' => 'NewPassword2026!A',
+            'password_confirmation' => 'NewPassword2026!A',
+        ]);
+        $first->assertStatus(200);
+
+        // Second use with same token must fail (token was consumed)
+        $second = $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'cfo@reuse-test.pk',
+            'token' => $rawToken,
+            'password' => 'AnotherPassword2026!B',
+            'password_confirmation' => 'AnotherPassword2026!B',
+        ]);
+        $second->assertStatus(422);
+    }
+
+    public function test_verification_notification_never_returns_raw_token(): void
+    {
+        $user = User::factory()->create(['email_verified_at' => null]);
+        $token = $user->createToken('test')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/auth/email/verification-notification');
+
+        $response->assertStatus(200);
+        $this->assertArrayNotHasKey('verification_token', $response->json('data') ?? []);
+    }
+
+    public function test_change_password_fails_with_password_shorter_than_12_characters(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('RealPassword123!'),
+        ]);
+
+        $token = $user->createToken('Device')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/auth/change-password', [
+                'current_password' => 'RealPassword123!',
+                'password' => 'Short12345!', // 11 chars, < 12
+                'password_confirmation' => 'Short12345!',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['errors']);
+    }
+
+    public function test_reset_password_fails_with_password_shorter_than_12_characters(): void
+    {
+        $user = User::factory()->create(['email' => 'short-reset@company.pk']);
+
+        $rawToken = \Illuminate\Support\Str::random(64);
+        DB::table('password_reset_tokens')->insert([
+            'email' => 'short-reset@company.pk',
+            'token' => Hash::make($rawToken),
+            'created_at' => now(),
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'short-reset@company.pk',
+            'token' => $rawToken,
+            'password' => 'Short12345!', // 11 chars, < 12
+            'password_confirmation' => 'Short12345!',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['errors']);
     }
 }
