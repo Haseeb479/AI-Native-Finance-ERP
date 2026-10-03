@@ -144,7 +144,8 @@ class ProductionReadinessTest extends TestCase
         $aiCheck = $response->json('data.checks.ai_service');
         $this->assertFalse($aiCheck['pass']);
         $this->assertSame('unhealthy', $aiCheck['status']);
-        $this->assertFalse($aiCheck['details']['online']);
+        $this->assertFalse($aiCheck['details']['verified']);
+        $this->assertArrayNotHasKey('online', $aiCheck['details']);
     }
 
     public function test_ai_service_unavailable_on_connection_failure(): void
@@ -199,13 +200,16 @@ class ProductionReadinessTest extends TestCase
         $this->assertArrayNotHasKey('driver', $data['checks']['database']['details']);
         $this->assertArrayNotHasKey('version', $data['checks']['database']['details']);
 
-        // 3. Must NOT leak internal service URLs publicly
+        // 3. Must NOT leak internal service URLs, latency, or online/secret flags publicly
         $this->assertArrayNotHasKey('service_url', $data['checks']['ai_service']['details']);
         $this->assertArrayNotHasKey('secret_configured', $data['checks']['ai_service']['details']);
+        $this->assertArrayNotHasKey('online', $data['checks']['ai_service']['details']);
+        $this->assertArrayNotHasKey('latency_ms', $data['checks']['ai_service']['details']);
 
         // 4. Must NOT leak env variables or app_debug flags publicly
         $this->assertArrayNotHasKey('app_debug', $data['checks']['environment']['details']);
         $this->assertArrayNotHasKey('app_env', $data['checks']['environment']['details']);
+        $this->assertArrayNotHasKey('environment', $response->json('meta'));
     }
 
     public function test_authorized_admin_can_access_detailed_diagnostics(): void
@@ -224,8 +228,12 @@ class ProductionReadinessTest extends TestCase
         $this->assertSame(PHP_VERSION, $data['system_info']['php_version']);
         $this->assertSame(app()->version(), $data['system_info']['laravel_version']);
 
-        // Authorized response includes driver and service url
+        // Authorized response includes driver, version, and AI diagnostics
         $this->assertArrayHasKey('driver', $data['checks']['database']['details']);
         $this->assertArrayHasKey('service_url', $data['checks']['ai_service']['details']);
+        $this->assertArrayHasKey('online', $data['checks']['ai_service']['details']);
+        $this->assertArrayHasKey('latency_ms', $data['checks']['ai_service']['details']);
+        $this->assertArrayHasKey('secret_configured', $data['checks']['ai_service']['details']);
+        $this->assertArrayHasKey('environment', $response->json('meta'));
     }
 }

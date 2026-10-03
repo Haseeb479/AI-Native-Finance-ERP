@@ -91,6 +91,10 @@ class ProductionReadinessController extends Controller
         ];
 
         // Detailed system information restricted to authorized operators
+        $meta = [
+            'timestamp' => now()->toIso8601String(),
+        ];
+
         if ($isAuthorized) {
             $data['system_info'] = [
                 'app_name'        => config('app.name'),
@@ -99,14 +103,12 @@ class ProductionReadinessController extends Controller
                 'php_version'     => PHP_VERSION,
                 'laravel_version' => app()->version(),
             ];
+            $meta['environment'] = config('app.env');
         }
 
         return response()->json([
-            'data' => $data,
-            'meta' => [
-                'timestamp'   => now()->toIso8601String(),
-                'environment' => config('app.env'),
-            ],
+            'data'   => $data,
+            'meta'   => $meta,
             'errors' => [],
         ], $statusCode);
     }
@@ -117,11 +119,17 @@ class ProductionReadinessController extends Controller
             DB::connection()->getPdo();
 
             $details = [
-                'connection' => 'established',
+                'verified' => true,
             ];
 
             if ($isAuthorized) {
-                $details['driver'] = DB::connection()->getDriverName();
+                $details['connection'] = 'established';
+                $details['driver']     = DB::connection()->getDriverName();
+                try {
+                    $details['version'] = DB::connection()->getPdo()->getAttribute(\PDO::ATTR_SERVER_VERSION);
+                } catch (Throwable) {
+                    // Ignore driver-specific version lookup failure
+                }
             }
 
             return [
@@ -132,7 +140,7 @@ class ProductionReadinessController extends Controller
             ];
         } catch (Throwable $e) {
             $details = [
-                'message' => 'Database connectivity unavailable',
+                'verified' => false,
             ];
 
             if ($isAuthorized) {
@@ -184,12 +192,14 @@ class ProductionReadinessController extends Controller
 
         $pass = empty($missing);
         $details = [
-            'required_count' => count($requiredTables),
-            'verified'       => $pass,
+            'verified' => $pass,
         ];
 
-        if (! $pass || $isAuthorized) {
-            $details['missing'] = $missing;
+        if ($isAuthorized) {
+            $details['required_count'] = count($requiredTables);
+            if (! $pass) {
+                $details['missing'] = $missing;
+            }
         }
 
         return [
@@ -208,19 +218,25 @@ class ProductionReadinessController extends Controller
 
             $hasPending = str_contains($output, 'Pending');
 
+            $details = [
+                'verified' => ! $hasPending,
+            ];
+
+            if ($isAuthorized) {
+                $details['pending_migrations'] = $hasPending;
+                $details['note']               = $hasPending
+                    ? 'Pending migrations detected'
+                    : 'All migrations applied';
+            }
+
             return [
                 'pass'        => ! $hasPending,
                 'status'      => $hasPending ? 'warning' : 'ok',
                 'description' => 'Database migrations',
-                'details'     => [
-                    'pending_migrations' => $hasPending,
-                    'note'               => $hasPending
-                        ? 'Pending migrations detected'
-                        : 'All migrations applied',
-                ],
+                'details'     => $details,
             ];
         } catch (Throwable $e) {
-            $details = ['message' => 'Unable to query migration status'];
+            $details = ['verified' => false];
             if ($isAuthorized) {
                 $details['error'] = $e->getMessage();
             }
@@ -292,7 +308,7 @@ class ProductionReadinessController extends Controller
         $pass = empty($issues);
 
         $details = [
-            'status' => $pass ? 'verified' : 'invalid_configuration',
+            'verified' => $pass,
         ];
 
         if ($isAuthorized) {
@@ -367,12 +383,12 @@ class ProductionReadinessController extends Controller
 
         $pass = empty($failed);
         $details = [
-            'total'   => count($servicesToCheck),
-            'online'  => count($servicesToCheck) - count($failed),
-            'healthy' => $pass,
+            'verified' => $pass,
         ];
 
-        if (! $pass && $isAuthorized) {
+        if ($isAuthorized) {
+            $details['total']          = count($servicesToCheck);
+            $details['online']         = count($servicesToCheck) - count($failed);
             $details['failed_modules'] = $failed;
         }
 
@@ -391,15 +407,15 @@ class ProductionReadinessController extends Controller
         $env    = config('app.env');
 
         if (empty($url)) {
+            $details = ['verified' => false];
+            if ($isAuthorized) {
+                $details['message'] = 'AI service URL is not configured';
+            }
             return [
                 'pass'        => false,
                 'status'      => 'not_checked',
                 'description' => 'AI Service & Security Configuration',
-                'details'     => [
-                    'online'  => false,
-                    'status'  => 'not_checked',
-                    'message' => 'AI service URL is not configured',
-                ],
+                'details'     => $details,
             ];
         }
 
@@ -450,15 +466,15 @@ class ProductionReadinessController extends Controller
         $pass = ($status === 'healthy' && empty($issues));
 
         $details = [
-            'online' => $online,
-            'status' => $status,
+            'verified' => $pass,
         ];
 
-        if ($latencyMs !== null) {
-            $details['latency_ms'] = $latencyMs;
-        }
-
         if ($isAuthorized) {
+            $details['online']            = $online;
+            $details['status']            = $status;
+            if ($latencyMs !== null) {
+                $details['latency_ms'] = $latencyMs;
+            }
             $details['service_url']        = $url;
             $details['secret_configured']  = ! empty($secret) && $secret !== 'ai-native-finance-erp-internal-service-secret-key';
             $details['issues']             = $issues;
