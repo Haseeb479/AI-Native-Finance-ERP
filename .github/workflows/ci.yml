@@ -11,52 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── 1. Fast Unit Tests & Security Audit Gate (SQLite) ──────────────────────
-  laravel-unit-and-security:
-    name: Laravel Unit Tests & Security Audit Gate
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP 8.4
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, sqlite3, bcmath, zip, curl
-          coverage: none
-
-      - name: Cache Composer Dependencies
-        uses: actions/cache@v4
-        with:
-          path: apps/api/vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('apps/api/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: Prepare Environment
-        run: |
-          cp .env.example .env
-          mkdir -p database
-          touch database/database.sqlite
-          php artisan key:generate --no-interaction --force
-
-      # P0 Security Audit Gate: Hard blocking failure on actionable advisories
-      - name: Composer Dependency Security Audit Gate
-        run: composer audit --no-interaction
-
-      - name: Run Fast Unit Test Suite (SQLite)
-        run: php -d memory_limit=512M vendor/bin/phpunit --testsuite=Unit --colors=never
-
-  # ── 2. Production PostgreSQL Integration & Accounting Invariants ──────────
-  laravel-postgres-integration:
-    name: Laravel PostgreSQL Integration & Invariants
+  # ── 1. Production PostgreSQL Accounting & Integration Test Suite ───────────
+  laravel-postgres-ci:
+    name: Laravel PostgreSQL Engine & Invariant Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -81,11 +38,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup PHP 8.4 with PostgreSQL Extensions
+      - name: Setup PHP 8.4 with PostgreSQL & SQLite Extensions
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, bcmath, zip, curl
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, pdo_sqlite, sqlite3, bcmath, zip, curl
           coverage: none
 
       - name: Cache Composer Dependencies
@@ -98,10 +55,14 @@ jobs:
       - name: Install Composer Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Prepare Environment
+      - name: Prepare Production-Ready Test Environment
         run: |
           cp .env.example .env
           php artisan key:generate --no-interaction --force
+
+      # P0 Security Audit Gate: Hard blocking failure on actionable advisories
+      - name: Composer Dependency Security Audit Gate
+        run: composer audit --no-interaction
 
       - name: Run Database Migrations on PostgreSQL
         env:
@@ -124,7 +85,10 @@ jobs:
           AI_INTERNAL_SECRET: ai-native-finance-erp-internal-service-secret-key
         run: php -d memory_limit=512M vendor/bin/phpunit --configuration=phpunit.pgsql.xml --colors=never
 
-  # ── 3. FastAPI AI Microservice Test Suite ───────────────────────────────────
+      - name: Run Fast Unit Tests
+        run: php -d memory_limit=512M vendor/bin/phpunit --testsuite=Unit --colors=never
+
+  # ── 2. FastAPI AI Microservice Test Suite ───────────────────────────────────
   fastapi-ai:
     name: FastAPI AI Microservice Tests
     runs-on: ubuntu-latest
@@ -153,7 +117,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: python -m pytest -v
 
-  # ── 4. Next.js Web Production Build ─────────────────────────────────────────
+  # ── 3. Next.js Web Production Build ─────────────────────────────────────────
   nextjs-web:
     name: Next.js Web Production Build
     runs-on: ubuntu-latest
