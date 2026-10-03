@@ -33,6 +33,7 @@ interface LaunchpadViewProps {
   promptText: string;
   setPromptText: (text: string) => void;
   onAskAxiomAI: (prompt?: string) => void;
+  onDismissCopilot?: () => void;
   copilotLoading: boolean;
   copilotResponse: {
     answer: string;
@@ -59,6 +60,7 @@ export function LaunchpadView({
   promptText,
   setPromptText,
   onAskAxiomAI,
+  onDismissCopilot,
   copilotLoading,
   copilotResponse,
   cashTotalPKR,
@@ -295,8 +297,17 @@ export function LaunchpadView({
                   </span>
                 </div>
                 <button
-                  onClick={() => onAskAxiomAI("")}
-                  className="text-xs text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onDismissCopilot) {
+                      onDismissCopilot();
+                    } else {
+                      onAskAxiomAI("");
+                    }
+                  }}
+                  className="text-xs text-[#94A3B8] hover:text-[#0F172A] cursor-pointer px-2 py-0.5 rounded hover:bg-slate-100 transition-colors"
                 >
                   Dismiss
                 </button>

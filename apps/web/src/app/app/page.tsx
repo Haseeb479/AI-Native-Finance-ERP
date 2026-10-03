@@ -822,20 +822,33 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await erpApi.logout();
+    try {
+      await erpApi.logout();
+    } catch (e) {
+      console.warn("Logout request failed:", e);
+    }
+    clearStoredSession();
     setToken(null);
     setCurrentUser(null);
     setCurrentOrg(null);
     setIsProfileOpen(false);
-    queryClient.invalidateQueries();
+    queryClient.clear();
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
   };
 
   // ─────────────────────────────────────────────────────────────
   // AXIOM AI FINANCIAL REASONING HANDLER
   // ─────────────────────────────────────────────────────────────
   const handleAskCopilot = async (customPrompt?: string) => {
-    const q = customPrompt || promptText;
-    if (!q.trim()) return;
+    if (customPrompt === "") {
+      setCopilotResponse(null);
+      setCopilotLoading(false);
+      return;
+    }
+    const q = (typeof customPrompt === "string" ? customPrompt : promptText)?.trim();
+    if (!q) return;
 
     setCopilotLoading(true);
 
@@ -1282,6 +1295,10 @@ export default function DashboardPage() {
             promptText={promptText}
             setPromptText={setPromptText}
             onAskAxiomAI={(p) => handleAskCopilot(p)}
+            onDismissCopilot={() => {
+              setCopilotResponse(null);
+              setPromptText("");
+            }}
             copilotLoading={copilotLoading}
             copilotResponse={copilotResponse}
             cashTotalPKR={5000000 + 1250000}
@@ -2053,9 +2070,21 @@ export default function DashboardPage() {
 
               {copilotResponse && (
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                  <span className="text-xs font-bold text-[#0F172A] block uppercase tracking-wider">
-                    Copilot Response
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0F172A] block uppercase tracking-wider">
+                      Copilot Response
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCopilotResponse(null);
+                        setPromptText("");
+                      }}
+                      className="text-xs text-[#94A3B8] hover:text-[#0F172A] cursor-pointer px-2 py-0.5 rounded hover:bg-slate-200 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                   <p className="text-xs text-[#334155] leading-relaxed">
                     {copilotResponse.answer}
                   </p>

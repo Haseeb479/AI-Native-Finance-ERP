@@ -1,6 +1,5 @@
 import React from "react";
-import Link from "next/link";
-import { Search, Zap, Building, ExternalLink, Key } from "lucide-react";
+import { Search, Zap, Building } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TopHeaderProps {
@@ -82,16 +81,6 @@ export function TopHeader({
         >
           <Search className="w-4 h-4 stroke-[1.75]" />
         </button>
-
-        {/* View Marketing Website link */}
-        <Link
-          href="/"
-          title="View Finova Marketing Site"
-          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors border border-[#E2E8F0]"
-        >
-          <span>Website</span>
-          <ExternalLink className="w-3 h-3 text-[#94A3B8]" />
-        </Link>
       </div>
     </header>
   );
