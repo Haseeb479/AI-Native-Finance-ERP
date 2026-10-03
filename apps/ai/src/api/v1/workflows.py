@@ -18,7 +18,7 @@ from apps.ai.src.schemas.workflows import (
 from apps.ai.src.adapters.factory import get_llm_adapter
 from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
 
-router = APIRouter(prefix="/copilot/workflows")
+router = APIRouter(prefix="/copilot/workflows", dependencies=[Depends(require_verified_claims)])
 
 CLOSE_SYSTEM_PROMPT = """
 You are an expert AI Financial Controller preparing a period close.

@@ -6,7 +6,7 @@ from apps.ai.src.schemas.classification import (
 from apps.ai.src.adapters.factory import get_llm_adapter
 from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
 
-router = APIRouter(prefix="/classify")
+router = APIRouter(prefix="/classify", dependencies=[Depends(require_verified_claims)])
 
 SYSTEM_PROMPT = """
 You are the AI Classification Specialist for AI-Native Finance ERP.

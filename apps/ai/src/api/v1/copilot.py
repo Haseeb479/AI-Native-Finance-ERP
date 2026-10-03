@@ -11,7 +11,7 @@ from apps.ai.src.schemas.guardrails import sanitize_untrusted_document_text
 from apps.ai.src.adapters.factory import get_llm_adapter
 from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
 
-router = APIRouter(prefix="/copilot")
+router = APIRouter(prefix="/copilot", dependencies=[Depends(require_verified_claims)])
 
 QA_SYSTEM_PROMPT = """
 You are the AI Financial Controller and Copilot for AI-Native Finance ERP in Pakistan.

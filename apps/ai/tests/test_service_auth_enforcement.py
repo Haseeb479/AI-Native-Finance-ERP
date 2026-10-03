@@ -21,6 +21,7 @@ async def test_all_ai_endpoints_reject_unauthenticated_requests(client: AsyncCli
         ("/v1/copilot/draft-journal", {"instruction": "test", "organization_id": "org-test-sec"}),
         ("/v1/copilot/explain-report", {"report_type": "pnl", "period_label": "P1", "report_data": {}, "organization_id": "org-test-sec"}),
         ("/v1/classify", {"description": "Office Supplies", "amount": "1000", "currency": "PKR", "organization_id": "org-test-sec"}),
+        ("/v1/classify/transaction", {"description": "Office Supplies", "amount": "1000", "currency": "PKR", "organization_id": "org-test-sec"}),
         ("/v1/extract/invoice", {"raw_document_text": "Vendor: ABC, Total: 100", "organization_id": "org-test-sec"}),
         ("/v1/copilot/workflows/prepare-close", {
             "organization_id": "org-test-sec",
@@ -31,6 +32,41 @@ async def test_all_ai_endpoints_reject_unauthenticated_requests(client: AsyncCli
             "unreconciled_bank_count": 0,
             "depreciation_run": True,
             "accruals_posted": True,
+        }),
+        ("/v1/copilot/workflows/unreconciled-transactions", {
+            "organization_id": "org-test-sec",
+            "bank_account_id": "acc-1",
+            "unreconciled_items": [],
+        }),
+        ("/v1/copilot/workflows/margin-analysis", {
+            "organization_id": "org-test-sec",
+            "current_period": "2025-Q3",
+            "prior_period": "2025-Q2",
+            "current_revenue": 1000000,
+            "prior_revenue": 900000,
+            "current_cogs": 600000,
+            "prior_cogs": 550000,
+            "current_gross_margin_pct": 40.0,
+            "prior_gross_margin_pct": 38.8,
+            "operating_expenses_change_pct": 5.0,
+        }),
+        ("/v1/copilot/workflows/invoice-approval-queue", {
+            "organization_id": "org-test-sec",
+            "pending_bills": [],
+        }),
+        ("/v1/copilot/workflows/draft-reconciliation-matches", {
+            "organization_id": "org-test-sec",
+            "bank_account_id": "acc-1",
+            "bank_transactions": [],
+            "candidate_ledger_entries": [],
+        }),
+        ("/v1/copilot/workflows/missing-vendor-documents", {
+            "organization_id": "org-test-sec",
+            "audit_bills": [],
+        }),
+        ("/v1/copilot/workflows/ar-collections-queue", {
+            "organization_id": "org-test-sec",
+            "overdue_invoices": [],
         }),
         ("/v1/tools/execute", {
             "tool_name": "get_account",
@@ -103,6 +139,7 @@ async def test_all_ai_endpoints_enforce_tenant_isolation_matrix(client: AsyncCli
         ("/v1/copilot/draft-journal", {"instruction": "Recognize rent", "organization_id": "org-tenant-B"}),
         ("/v1/copilot/explain-report", {"report_type": "pnl", "period_label": "P1", "report_data": {}, "organization_id": "org-tenant-B"}),
         ("/v1/classify", {"description": "Office Supplies", "amount": "1000", "currency": "PKR", "organization_id": "org-tenant-B"}),
+        ("/v1/classify/transaction", {"description": "Office Supplies", "amount": "1000", "currency": "PKR", "organization_id": "org-tenant-B"}),
         ("/v1/extract/invoice", {"raw_document_text": "Vendor: ABC", "organization_id": "org-tenant-B"}),
         ("/v1/copilot/workflows/prepare-close", {
             "organization_id": "org-tenant-B",
@@ -113,6 +150,41 @@ async def test_all_ai_endpoints_enforce_tenant_isolation_matrix(client: AsyncCli
             "unreconciled_bank_count": 0,
             "depreciation_run": True,
             "accruals_posted": True,
+        }),
+        ("/v1/copilot/workflows/unreconciled-transactions", {
+            "organization_id": "org-tenant-B",
+            "bank_account_id": "acc-1",
+            "unreconciled_items": [],
+        }),
+        ("/v1/copilot/workflows/margin-analysis", {
+            "organization_id": "org-tenant-B",
+            "current_period": "2025-Q3",
+            "prior_period": "2025-Q2",
+            "current_revenue": 1000000,
+            "prior_revenue": 900000,
+            "current_cogs": 600000,
+            "prior_cogs": 550000,
+            "current_gross_margin_pct": 40.0,
+            "prior_gross_margin_pct": 38.8,
+            "operating_expenses_change_pct": 5.0,
+        }),
+        ("/v1/copilot/workflows/invoice-approval-queue", {
+            "organization_id": "org-tenant-B",
+            "pending_bills": [],
+        }),
+        ("/v1/copilot/workflows/draft-reconciliation-matches", {
+            "organization_id": "org-tenant-B",
+            "bank_account_id": "acc-1",
+            "bank_transactions": [],
+            "candidate_ledger_entries": [],
+        }),
+        ("/v1/copilot/workflows/missing-vendor-documents", {
+            "organization_id": "org-tenant-B",
+            "audit_bills": [],
+        }),
+        ("/v1/copilot/workflows/ar-collections-queue", {
+            "organization_id": "org-tenant-B",
+            "overdue_invoices": [],
         }),
         ("/v1/tools/execute", {
             "tool_name": "get_account",

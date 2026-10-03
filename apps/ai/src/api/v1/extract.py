@@ -5,7 +5,7 @@ from apps.ai.src.schemas.guardrails import sanitize_untrusted_document_text
 from apps.ai.src.adapters.factory import get_llm_adapter
 from apps.ai.src.auth.service_auth import require_verified_claims, VerifiedClaims
 
-router = APIRouter(prefix="/extract")
+router = APIRouter(prefix="/extract", dependencies=[Depends(require_verified_claims)])
 
 class ExtractionRequest(BaseModel):
     raw_document_text: str
