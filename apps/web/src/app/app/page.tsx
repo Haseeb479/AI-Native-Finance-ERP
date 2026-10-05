@@ -65,6 +65,7 @@ import { BankMatchingRulesView } from "@/components/views/BankMatchingRulesView"
 import { ApprovalsWorkflowView } from "@/components/views/ApprovalsWorkflowView";
 import { ContinuousAccrualsFluxView } from "@/components/views/ContinuousAccrualsFluxView";
 import { AdvancedReportingConsolidationView } from "@/components/views/AdvancedReportingConsolidationView";
+import { LiveFinancialReportsView } from "@/components/views/LiveFinancialReportsView";
 import { ImmutableAuditSecurityView } from "@/components/views/ImmutableAuditSecurityView";
 import { IntegrationsSettingsView } from "@/components/views/IntegrationsSettingsView";
 import { AttentionItem } from "@/components/ui/AttentionStream";
@@ -379,6 +380,25 @@ export default function DashboardPage() {
     queryKey: ["accounts", activeOrgId],
     queryFn: () => erpApi.getAccounts(activeOrgId!),
     enabled: !!activeOrgId && !!token && isCreateInvoiceOpen,
+  });
+
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [customerForm, setCustomerForm] = useState({ name: "", email: "", ntn: "", phone: "" });
+  const createCustomerMutation = useMutation({
+    mutationFn: () => {
+      const payload: Record<string, string> = { name: customerForm.name.trim() };
+      if (customerForm.email.trim()) payload.email = customerForm.email.trim();
+      if (customerForm.ntn.trim()) payload.ntn = customerForm.ntn.trim();
+      if (customerForm.phone.trim()) payload.phone = customerForm.phone.trim();
+      return erpApi.createCustomer(activeOrgId!, payload as { name: string });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["customers", activeOrgId] });
+      const created = data?.customer ?? data;
+      if (created?.id) setInvoiceForm((previous) => ({ ...previous, customer_id: String(created.id) }));
+      setCustomerForm({ name: "", email: "", ntn: "", phone: "" });
+      setShowCustomerForm(false);
+    },
   });
 
   const createInvoiceMutation = useMutation({
@@ -997,16 +1017,17 @@ export default function DashboardPage() {
 
     // Call Axiom AI with live financial context
     const financialContext = {
-      organization: currentOrg?.name || "Apex Trading Pvt Ltd",
+      organization: currentOrg?.name || "Current organization",
       base_currency: currentOrg?.base_currency || "PKR",
       current_screen: activeNav,
       recorded_invoices_count: realInvoices.length,
       total_invoiced_pkr: realInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total_amount || 0), 0),
       recorded_vendor_bills: realBills.length,
-      cash_reserves: [
-        { bank: "Habib Bank Limited (HBL)", gl_code: "1010", balance: "PKR 5,000,000" },
-        { bank: "Meezan Bank Islamic", gl_code: "1020", balance: "PKR 1,250,000" },
-      ],
+      cash_reserves: realBankAccounts.map((account: any) => ({
+        bank: account.name || account.bank_name || "Bank account",
+        gl_code: account.gl_account?.code ?? undefined,
+        balance: `PKR ${Number(account.current_balance || 0).toLocaleString()}`,
+      })),
       tax_regime: "FBR Sales Tax 18%, Section 153 WHT, Annex-C",
     };
 
@@ -1070,7 +1091,7 @@ export default function DashboardPage() {
         id: inv.invoice_number,
         rawId: inv.id,
         customer: inv.customer?.name || "Customer",
-        date: inv.issue_date,
+        date: String(inv.issue_date ?? "").slice(0, 10),
         subtotal: parseFloat(inv.subtotal || 0).toLocaleString(),
         tax: parseFloat(inv.tax_amount || 0).toLocaleString(),
         total: parseFloat(inv.total_amount || 0).toLocaleString(),
@@ -1238,7 +1259,7 @@ export default function DashboardPage() {
         return {
           id: je.id || je.entry_number,
           number: je.entry_number,
-          date: je.entry_date || "2025-08-20",
+          date: String(je.entry_date ?? "").slice(0, 10),
           desc: je.description || "General Ledger Entry",
           dr: `PKR ${total.toLocaleString()}`,
           cr: `PKR ${total.toLocaleString()}`,
@@ -2166,7 +2187,10 @@ export default function DashboardPage() {
         {/* ─────────────────────────────────────────────────────────────
             VIEW 5: FINANCIAL REPORTS & MULTI-ENTITY CONSOLIDATION (PHASE 6)
         ─────────────────────────────────────────────────────────────── */}
-        {(activeNav === "reports" || activeNav.startsWith("reports_") || activeNav === "entities" || activeNav === "consolidation") && (
+        {(activeNav === "reports" || activeNav.startsWith("reports_")) && activeOrgId && (
+          <LiveFinancialReportsView orgId={activeOrgId} orgName={currentOrg?.name} />
+        )}
+        {(activeNav === "entities" || activeNav === "consolidation") && (
           <AdvancedReportingConsolidationView
             currentOrgName={currentOrg?.name}
             periodName={activePeriod?.name || "August 2025"}
@@ -3527,9 +3551,25 @@ export default function DashboardPage() {
                 {createInvoiceMutation.error?.message || (invoiceCustomersError as Error | null)?.message || (invoiceAccountsError as Error | null)?.message || "Unable to load invoice options."}
               </div>
             )}
-            {(!isLoadingInvoiceCustomers && invoiceCustomers.length === 0) && (
+            {(!isLoadingInvoiceCustomers && invoiceCustomers.length === 0 && !showCustomerForm) && (
               <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                 Add a customer to this organization before creating an invoice. Customer records are not generated automatically.
+              </div>
+            )}
+            {!isLoadingInvoiceCustomers && !showCustomerForm && (
+              <button type="button" onClick={() => setShowCustomerForm(true)} className="mb-4 text-xs font-semibold text-[#4F46E5] hover:underline">+ Add customer</button>
+            )}
+            {showCustomerForm && (
+              <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 sm:grid-cols-2">
+                <p className="text-xs font-bold text-[#0F172A] sm:col-span-2">New customer</p>
+                {createCustomerMutation.error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700 sm:col-span-2">{createCustomerMutation.error.message}</div>}
+                <input aria-label="Customer name" placeholder="Customer name *" maxLength={150} value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm sm:col-span-2" />
+                <input aria-label="Customer email" type="email" placeholder="Email (optional)" maxLength={150} value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm" />
+                <input aria-label="Customer NTN" placeholder="NTN (optional)" maxLength={30} value={customerForm.ntn} onChange={(e) => setCustomerForm({ ...customerForm, ntn: e.target.value })} className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm" />
+                <div className="flex justify-end gap-2 sm:col-span-2">
+                  <button type="button" onClick={() => setShowCustomerForm(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-[#64748B]">Cancel</button>
+                  <button type="button" disabled={!customerForm.name.trim() || createCustomerMutation.isPending} onClick={() => createCustomerMutation.mutate()} className="rounded-lg bg-[#4F46E5] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{createCustomerMutation.isPending ? "Saving…" : "Save customer"}</button>
+                </div>
               </div>
             )}
             {(!isLoadingInvoiceAccounts && !invoiceAccounts.some((account: any) => String(account.code || "").startsWith("4"))) && (

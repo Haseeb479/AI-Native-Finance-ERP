@@ -232,6 +232,14 @@ export const erpApi = {
     return res.data || [];
   },
 
+  createCustomer: async (orgId: string, customerData: { name: string; email?: string; ntn?: string; strn?: string; phone?: string; city?: string }) => {
+    const res = await apiFetch<any>(`/organizations/${orgId}/customers`, {
+      method: "POST",
+      body: JSON.stringify(customerData),
+    });
+    return res.data;
+  },
+
   // 4. Sales Invoices
   getInvoices: async (orgId: string, params?: { status?: string }) => {
     const query = new URLSearchParams(params as any).toString();
