@@ -173,3 +173,8 @@ When `test_guardrails` or AI Gateway logs alert on prompt injection or unapprove
 - The request is intercepted by `apps/ai/src/guardrails/security.py`.
 - Execution is terminated prior to calling any backend capability tool.
 - Audit event is logged with `status: rejected` and `audit_event: AI_GATEWAY_INJECTION_BLOCKED`.
+
+## Local database backups
+
+A Windows scheduled task (Finova Daily Postgres Backup, 02:00 daily) runs `scripts\backup-local-postgres.ps1`. It dumps PostgreSQL, restores the dump into a throwaway database to prove it is usable, and deletes automatic backups older than 14 days. Dumps are written to `apps/api/storage/app/backups/` (git-ignored). Run it manually any time with `powershell -ExecutionPolicy Bypass -File scripts\backup-local-postgres.ps1`.
+
