@@ -59,12 +59,27 @@ services:
       dockerfile: Dockerfile
     container_name: finance_erp_api
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "9000"
     environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
+      APP_ENV: local
+      APP_DEBUG: "true"
       APP_KEY: ${APP_KEY:-base64:7B5pC6f0Z4yWqM1hK9xL2jR8vT3nE5sY6uI4oP0aA2c=}
+      CONTROL_CENTER_STAFF_EMAILS: ${CONTROL_CENTER_STAFF_EMAILS:-}
+      CONTROL_CENTER_STAFF_ROLES: ${CONTROL_CENTER_STAFF_ROLES:-}
+      OPS_ALLOWED_HOSTS: ${OPS_ALLOWED_HOSTS:-localhost}
+      OPS_PORTAL_URL: ${OPS_PORTAL_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APP_URL: ${APP_URL:-http://localhost}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-127.0.0.1}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SCHEME: ${MAIL_SCHEME:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@finance-erp.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Finance ERP}
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
@@ -74,6 +89,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       AI_SERVICE_URL: http://ai:8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev_shared_internal_secret_change_in_prod}
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,8 +107,9 @@ services:
     # AI port kept strictly internal to private finance_network (P0-02)
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-local}
-      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      DEFAULT_LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       APP_PORT: 8001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev_shared_internal_secret_change_in_prod}
     networks:
       - finance_network
 
@@ -101,12 +118,17 @@ services:
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
     container_name: finance_erp_web
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_API_URL: http://localhost/api/v1
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+      INTERNAL_API_URL: http://nginx/api/v1
+      OPS_ALLOWED_HOSTS: ${OPS_ALLOWED_HOSTS:-localhost}
     depends_on:
       - api
     networks:

@@ -124,11 +124,11 @@ export default function FinovaLandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#0F172A] font-sans antialiased selection:bg-[#6366F1]/20 selection:text-[#4338CA]">
+    <div className="finova-site min-h-screen bg-white text-[#0F172A] font-sans antialiased selection:bg-[#6366F1]/20 selection:text-[#4338CA]">
       <style jsx>{`
         @keyframes finova-window-drift {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
+          0%, 100% { transform: rotateX(2deg) rotateY(-1deg) translateY(0); }
+          50% { transform: rotateX(2deg) rotateY(-1deg) translateY(-5px); }
         }
 
         @keyframes finova-panel-reveal {
@@ -177,20 +177,20 @@ export default function FinovaLandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           1. TOP ANNOUNCEMENT BAR
       ─────────────────────────────────────────────────────────────── */}
-      <div className="bg-[#4F46E5] text-white text-[11px] sm:text-xs font-semibold py-2 px-4 text-center tracking-tight flex items-center justify-center space-x-2 relative z-30">
-        <span>Join us for Finova Reconcile: Zero Day Close in San Francisco on 10.23.24</span>
+      <div className="finova-announcement bg-[#4F46E5] text-white text-[11px] sm:text-xs font-semibold py-2 px-4 text-center tracking-tight flex items-center justify-center space-x-2 relative z-30">
+        <span>Finance, operations, and AI — connected in one workspace</span>
         <ArrowRight className="w-3 h-3 inline-block" />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
           2. STICKY GLOBAL NAVIGATION
       ─────────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#F1F5F9] transition-all">
+      <header className="finova-nav sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#F1F5F9] transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
           <div className="flex items-center space-x-8">
             <Link href="/website" className="flex items-center space-x-2">
-              <span className="font-extrabold text-2xl tracking-tighter text-[#0F172A] font-serif">
+              <span className="finova-wordmark font-extrabold text-2xl tracking-tighter text-[#0F172A] font-serif">
                 Finova
               </span>
               <span className="w-2 h-2 rounded-full bg-[#4F46E5] inline-block mb-1"></span>
@@ -222,13 +222,13 @@ export default function FinovaLandingPage() {
           {/* Right Action Buttons */}
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={() => router.push("/login")}
               className="text-xs font-semibold text-[#475569] hover:text-[#0F172A] px-3 py-1.5 transition-colors cursor-pointer"
             >
               Login
             </button>
             <button
-              onClick={() => setIsDemoModalOpen(true)}
+              onClick={() => router.push("/request-demo")}
               className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-sm hover:shadow transition-all cursor-pointer"
             >
               Request a demo
@@ -240,7 +240,7 @@ export default function FinovaLandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           3. HERO SECTION (Zero-Day Close starts here)
       ─────────────────────────────────────────────────────────────── */}
-      <section className="relative pt-12 pb-20 md:pt-16 md:pb-28 overflow-hidden bg-gradient-to-b from-[#FAFAFA] via-white to-white">
+      <section className="finova-hero relative pt-12 pb-20 md:pt-16 md:pb-28 overflow-hidden bg-gradient-to-b from-[#FAFAFA] via-white to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Top Pill & Headline Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-12">
@@ -269,7 +269,7 @@ export default function FinovaLandingPage() {
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={() => setIsDemoModalOpen(true)}
+                  onClick={() => router.push("/request-demo")}
                   className="bg-black hover:bg-neutral-800 text-white text-xs font-semibold px-5 py-3 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center space-x-2"
                 >
                   <span>Request a demo</span>
@@ -287,19 +287,11 @@ export default function FinovaLandingPage() {
           </div>
 
           {/* Floating Product UI Mockup with Skyline Glow */}
-          <div className="relative mt-4 group finova-panel-reveal">
+          <div className="finova-hero-stage relative mt-4 group finova-panel-reveal">
             {/* Dusk Skyline Background Frame */}
-            <div className="relative rounded-3xl overflow-hidden border border-[#E2E8F0] shadow-2xl bg-gradient-to-tr from-[#F59E0B]/30 via-[#EC4899]/20 to-[#6366F1]/30 p-2 sm:p-6 lg:p-10">
-              <div
-                className="absolute inset-0 opacity-40 bg-cover bg-center mix-blend-multiply"
-                style={{
-                  backgroundImage:
-                    "url('https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?q=80&w=2000&auto=format&fit=crop')",
-                }}
-              />
-
+            <div className="finova-hero-device relative rounded-3xl overflow-hidden border border-[#E2E8F0] shadow-2xl bg-gradient-to-tr from-[#F59E0B]/30 via-[#EC4899]/20 to-[#6366F1]/30 p-2 sm:p-6 lg:p-10">
               {/* Centered Floating ERP Window */}
-              <div className="relative z-10 bg-white/95 backdrop-blur-xl rounded-2xl border border-white/80 shadow-2xl overflow-hidden finova-window-drift">
+              <div className="finova-window relative z-10 bg-white/95 backdrop-blur-xl rounded-2xl border border-white/80 shadow-2xl overflow-hidden finova-window-drift">
                 {/* Window Chrome Header */}
                 <div className="bg-[#F8FAFC]/90 border-b border-[#E2E8F0] px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -759,7 +751,7 @@ export default function FinovaLandingPage() {
               </p>
               <div className="pt-2">
                 <button
-                  onClick={() => setIsDemoModalOpen(true)}
+                  onClick={() => router.push("/request-demo")}
                   className="bg-white text-black hover:bg-slate-100 text-xs font-semibold px-4 py-2 rounded-full transition-colors cursor-pointer inline-flex items-center space-x-1"
                 >
                   <span>Learn more</span>
@@ -981,13 +973,13 @@ export default function FinovaLandingPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
-              onClick={() => setIsDemoModalOpen(true)}
+              onClick={() => router.push("/request-demo")}
               className="bg-white text-black hover:bg-slate-100 text-xs font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer"
             >
               Request a demo
             </button>
             <button
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={() => router.push("/login")}
               className="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold px-6 py-3 rounded-full transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <span>Sign in to your account</span>
@@ -1137,7 +1129,7 @@ export default function FinovaLandingPage() {
                     onClick={() => {
                       setIsDemoModalOpen(false);
                       setDemoSubmitted(false);
-                      setIsLoginModalOpen(true);
+                      router.push("/login");
                     }}
                     className="bg-[#4F46E5] text-white text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4338CA] transition-colors cursor-pointer"
                   >
@@ -1408,7 +1400,7 @@ export default function FinovaLandingPage() {
                 <button
                   onClick={() => {
                     setIsVideoModalOpen(false);
-                    setIsLoginModalOpen(true);
+                    router.push("/login");
                   }}
                   className="bg-white text-black text-xs font-semibold px-4 py-2 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
                 >

@@ -48,3 +48,378 @@ body {
 .ai-search-shadow:focus-within {
   box-shadow: 0 14px 30px -4px rgba(124, 58, 237, 0.14), 0 10px 12px -5px rgba(124, 58, 237, 0.08);
 }
+
+.finova-site {
+  --finova-ink: #14231d;
+  --finova-muted: #66756d;
+  --finova-green: #176b4a;
+  --finova-line: #e5ebe6;
+  color: var(--finova-ink);
+  background: #fbfcfa;
+}
+
+.finova-site .finova-announcement {
+  background: #163e30;
+  color: #e5f2e9;
+  letter-spacing: 0.015em;
+}
+
+.finova-site .finova-nav {
+  background: rgb(251 252 250 / 88%);
+  border-color: rgb(226 234 228 / 80%);
+  box-shadow: 0 4px 22px rgb(17 48 35 / 3%);
+}
+
+.finova-site .finova-wordmark {
+  color: #183d2e;
+  font-family: var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.075em;
+}
+
+.finova-site .finova-wordmark + span {
+  background: #55a77a;
+  box-shadow: 0 0 0 4px rgb(85 167 122 / 12%);
+}
+
+.finova-site .finova-hero {
+  background:
+    radial-gradient(ellipse at 50% 46%, rgb(228 241 230 / 58%), transparent 54%),
+    linear-gradient(180deg, #fbfcfa 0%, #fff 78%);
+}
+
+.finova-site .finova-hero h1 {
+  color: #142a20;
+  letter-spacing: -0.065em;
+  line-height: 1.02;
+}
+
+.finova-site .finova-hero h1 span {
+  color: #477b5e;
+}
+
+.finova-site .finova-hero-stage {
+  perspective: 1500px;
+  isolation: isolate;
+}
+
+.finova-site .finova-hero-device {
+  padding: clamp(1rem, 4vw, 3.5rem);
+  border-color: rgb(255 255 255 / 70%);
+  background:
+    radial-gradient(ellipse at 48% 15%, rgb(183 224 190 / 55%), transparent 40%),
+    radial-gradient(ellipse at 83% 83%, rgb(172 204 184 / 30%), transparent 36%),
+    linear-gradient(145deg, #edf4ec 0%, #e2ede4 48%, #d9e7dd 100%);
+  box-shadow:
+    0 36px 90px -48px rgb(29 76 51 / 40%),
+    inset 0 1px 0 rgb(255 255 255 / 90%);
+}
+
+.finova-site .finova-hero-device::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(37 86 57 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(37 86 57 / 4%) 1px, transparent 1px);
+  background-size: 34px 34px;
+  content: "";
+  mask-image: linear-gradient(180deg, #000 0%, transparent 88%);
+  pointer-events: none;
+}
+
+.finova-site .finova-hero-device::after {
+  position: absolute;
+  top: 8%;
+  right: 8%;
+  width: 9rem;
+  height: 9rem;
+  border: 1px solid rgb(255 255 255 / 60%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 18px rgb(255 255 255 / 16%),
+    0 0 0 38px rgb(255 255 255 / 10%);
+  content: "";
+  pointer-events: none;
+}
+
+.finova-site .finova-window {
+  transform-style: preserve-3d;
+  border-color: rgb(255 255 255 / 92%);
+  box-shadow:
+    0 42px 90px -38px rgb(18 45 31 / 48%),
+    0 8px 24px rgb(18 45 31 / 10%),
+    0 1px 0 rgb(255 255 255 / 90%) inset;
+}
+
+.finova-site .finova-hero button.bg-black,
+.finova-site .finova-nav button.bg-black {
+  background: #1d5c40;
+}
+
+.finova-site .finova-hero button.bg-black:hover,
+.finova-site .finova-nav button.bg-black:hover {
+  background: #174a34;
+}
+
+.finova-site #platform .group {
+  border-color: #e7ece7;
+  border-radius: 1.25rem;
+  background: linear-gradient(155deg, #fff, #f9fbf8);
+  box-shadow: 0 6px 20px rgb(25 55 37 / 3%);
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+
+.finova-site #platform .group:hover {
+  transform: translateY(-4px);
+  border-color: #c7d9cb;
+  box-shadow: 0 20px 38px -24px rgb(25 68 43 / 22%);
+}
+
+.finova-site #axiom-ai {
+  background:
+    radial-gradient(ellipse at 78% 5%, rgb(58 111 78 / 25%), transparent 38%),
+    linear-gradient(155deg, #142a20 0%, #101d18 58%, #17251e 100%);
+}
+
+.finova-site #axiom-ai > div:first-child {
+  opacity: 0.07;
+}
+
+.finova-site #testimonials {
+  background: #fbfcfa;
+}
+
+.finova-site #footer {
+  background: #fbfcfa;
+  border-color: var(--finova-line);
+}
+
+@media (max-width: 767px) {
+  .finova-site .finova-hero-device {
+    padding: 0.75rem;
+  }
+
+  .finova-site .finova-window {
+    transform: none;
+  }
+
+  .finova-site .finova-hero-device::after {
+    top: 3%;
+    right: 2%;
+    width: 5rem;
+    height: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finova-site .finova-window,
+  .finova-site #platform .group {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+}
+
+.finova-dashboard {
+  --dashboard-ink: #17251e;
+  --dashboard-muted: #718076;
+  --dashboard-green: #1d5c40;
+  --dashboard-green-soft: #edf5ef;
+  --dashboard-border: #e4ebe5;
+  background:
+    radial-gradient(ellipse at 46% 0%, rgb(226 239 228 / 55%), transparent 45%),
+    #f4f7f4;
+  color: var(--dashboard-ink);
+}
+
+.finova-dashboard-main {
+  min-width: 0;
+  background:
+    radial-gradient(ellipse at 48% 0%, rgb(229 240 230 / 52%), transparent 34%),
+    #f5f8f5;
+}
+
+.finova-dashboard-header {
+  box-shadow: 0 4px 18px rgb(24 53 35 / 3%);
+}
+
+.finova-sidebar {
+  border-color: #e7eee8;
+  background: rgb(255 255 255 / 94%);
+}
+
+.finova-sidebar-brand {
+  box-shadow: 0 7px 18px rgb(29 92 64 / 22%);
+}
+
+.finova-dashboard [class~="bg-indigo-50"],
+.finova-dashboard [class~="bg-indigo-100"] {
+  background-color: #edf5ef;
+}
+
+.finova-dashboard [class~="text-indigo-500"],
+.finova-dashboard [class~="text-indigo-600"],
+.finova-dashboard [class~="text-indigo-700"] {
+  color: #286344;
+}
+
+.finova-dashboard [class~="border-indigo-100"],
+.finova-dashboard [class~="border-indigo-200"] {
+  border-color: #d6ead9;
+}
+
+.finova-dashboard [class~="bg-purple-50"] {
+  background-color: #edf5ef;
+}
+
+.finova-dashboard [class~="text-purple-600"],
+.finova-dashboard [class~="text-purple-700"] {
+  color: #286344;
+}
+
+.dashboard-launchpad {
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+.dashboard-launchpad > div:first-child {
+  margin-bottom: 0.15rem;
+}
+
+.dashboard-metric-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgb(26 49 33 / 3%),
+    0 8px 22px -18px rgb(26 49 33 / 18%);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dashboard-metric-card:hover {
+  transform: translateY(-2px);
+  border-color: #ccddcf;
+  box-shadow:
+    0 2px 4px rgb(26 49 33 / 4%),
+    0 18px 30px -22px rgb(26 73 43 / 24%);
+}
+
+.dashboard-launchpad .dashboard-metric-card > div:first-child::before {
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  width: 2.5rem;
+  height: 2px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, #37805b, #93c49b);
+  content: "";
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.dashboard-launchpad .dashboard-metric-card:hover > div:first-child::before {
+  opacity: 1;
+}
+
+.dashboard-ai-prompt {
+  box-shadow:
+    0 8px 24px -18px rgb(29 92 64 / 26%),
+    0 1px 3px rgb(29 92 64 / 5%);
+}
+
+.dashboard-launchpad button:focus-visible,
+.finova-dashboard-header button:focus-visible,
+.finova-sidebar button:focus-visible {
+  outline: 3px solid rgb(55 128 91 / 30%);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .finova-sidebar {
+    width: 52px;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .finova-sidebar nav {
+    gap: 0.35rem;
+  }
+
+  .finova-sidebar nav button {
+    height: 2.25rem;
+    width: 2.25rem;
+    border-radius: 0.75rem;
+  }
+
+  .finova-sidebar-brand {
+    height: 2.25rem;
+    width: 2.25rem;
+  }
+
+  .dashboard-launchpad {
+    padding-right: 1rem;
+    padding-left: 1rem;
+    padding-top: 1.25rem;
+    gap: 1.25rem;
+  }
+
+  .finova-dashboard-header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-metric-card,
+  .dashboard-launchpad .dashboard-metric-card > div:first-child::before {
+    transition: none;
+  }
+
+  .dashboard-metric-card:hover {
+    transform: none;
+  }
+}
+
+.axiom-workspace :is(
+  button,
+  .axiom-workspace-tab,
+  [class*="rounded-xl"][class*="border"],
+  [class*="rounded-2xl"][class*="border"]
+) {
+  transition:
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    background-color 220ms ease;
+}
+
+.axiom-workspace :is(
+  button,
+  .axiom-workspace-tab,
+  [class*="rounded-xl"][class*="border"],
+  [class*="rounded-2xl"][class*="border"]
+):hover {
+  border-color: rgb(55 128 91 / 28%);
+  box-shadow:
+    0 0 0 1px rgb(55 128 91 / 7%),
+    0 5px 18px -9px rgb(29 92 64 / 20%);
+}
+
+.axiom-workspace button:focus-visible {
+  outline: 3px solid rgb(55 128 91 / 30%);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axiom-workspace :is(
+    button,
+    .axiom-workspace-tab,
+    [class*="rounded-xl"][class*="border"],
+    [class*="rounded-2xl"][class*="border"]
+  ) {
+    transition: none;
+  }
+}

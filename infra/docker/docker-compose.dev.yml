@@ -64,12 +64,27 @@ services:
       dockerfile: Dockerfile
     container_name: finance_dev_api
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "9000"
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_KEY: ${APP_KEY:-base64:7B5pC6f0Z4yWqM1hK9xL2jR8vT3nE5sY6uI4oP0aA2c=}
+      CONTROL_CENTER_STAFF_EMAILS: ${CONTROL_CENTER_STAFF_EMAILS:-}
+      CONTROL_CENTER_STAFF_ROLES: ${CONTROL_CENTER_STAFF_ROLES:-}
+      OPS_ALLOWED_HOSTS: ${OPS_ALLOWED_HOSTS:-localhost}
+      OPS_PORTAL_URL: ${OPS_PORTAL_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-127.0.0.1}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SCHEME: ${MAIL_SCHEME:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@finance-erp.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Finance ERP}
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
@@ -100,7 +115,7 @@ services:
       - "8001:8001"
     environment:
       ENVIRONMENT: development
-      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      DEFAULT_LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       APP_PORT: 8001
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev_shared_internal_secret_change_in_prod}
       REDIS_URL: redis://redis:6379/0
@@ -118,6 +133,8 @@ services:
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
     container_name: finance_dev_web
     restart: unless-stopped
     ports:
@@ -125,12 +142,28 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-      INTERNAL_API_URL: http://api:8000/api/v1
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+      INTERNAL_API_URL: http://nginx/api/v1
+      OPS_ALLOWED_HOSTS: ${OPS_ALLOWED_HOSTS:-localhost}
     volumes:
       - ../../apps/web:/app
       - /app/node_modules
       - /app/.next
     depends_on:
+      - api
+    networks:
+      - finance_dev_network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: finance_dev_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
       - api
     networks:
       - finance_dev_network

@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\ResetPasswordLinkNotification;
+use App\Notifications\VerifyEmailAddressNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AuthSessionLifecycleTest extends TestCase
@@ -132,6 +135,7 @@ class AuthSessionLifecycleTest extends TestCase
 
     public function test_forgot_and_reset_password_flow(): void
     {
+        Notification::fake();
         $user = User::factory()->create([
             'email' => 'finance-director@company.pk',
             'password' => bcrypt('InitialPassword123!'),
@@ -145,6 +149,7 @@ class AuthSessionLifecycleTest extends TestCase
         ]);
 
         $forgotResponse->assertStatus(200);
+        Notification::assertSentTo($user, ResetPasswordLinkNotification::class);
 
         // P0 FIX: The raw token must NOT be returned in the API response (prevents credential exposure)
         $this->assertArrayNotHasKey('reset_token', $forgotResponse->json('data'));
@@ -232,6 +237,7 @@ class AuthSessionLifecycleTest extends TestCase
 
     public function test_email_verification_lifecycle(): void
     {
+        Notification::fake();
         $user = User::factory()->create([
             'email_verified_at' => null,
         ]);
@@ -243,6 +249,7 @@ class AuthSessionLifecycleTest extends TestCase
             ->postJson('/api/v1/auth/email/verification-notification');
 
         $notifyResp->assertStatus(200);
+        Notification::assertSentTo($user, VerifyEmailAddressNotification::class);
 
         // P0 FIX: The raw verification token must NOT be returned in the API response
         $this->assertArrayNotHasKey('verification_token', $notifyResp->json('data'));
@@ -283,6 +290,69 @@ class AuthSessionLifecycleTest extends TestCase
                     'message' => 'Email is already verified.',
                 ],
             ]);
+    }
+
+    public function test_signed_verification_email_link_verifies_the_matching_user(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['email_verified_at' => null]);
+        $user->createToken('Web Client');
+
+        $this->withHeader('Authorization', 'Bearer '.$user->createToken('Verification Client')->plainTextToken)
+            ->postJson('/api/v1/auth/email/verification-notification')
+            ->assertOk();
+
+        $verificationUrl = null;
+        Notification::assertSentTo(
+            $user,
+            VerifyEmailAddressNotification::class,
+            function (VerifyEmailAddressNotification $notification, array $channels) use ($user, &$verificationUrl): bool {
+                $this->assertContains('mail', $channels);
+                $verificationUrl = $notification->toMail($user)->actionUrl;
+
+                return true;
+            }
+        );
+
+        $this->assertNotNull($verificationUrl);
+        $this->assertTrue(\Illuminate\Support\Facades\URL::hasValidSignature(
+            \Illuminate\Http\Request::create($verificationUrl)
+        ));
+
+        $parsedUrl = parse_url($verificationUrl);
+        $response = $this->getJson($parsedUrl['path'].'?'.$parsedUrl['query']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.message', 'Email verified successfully.');
+        $this->assertNotNull($user->fresh()->email_verified_at);
+
+        $this->getJson($parsedUrl['path'].'?'.$parsedUrl['query'])
+            ->assertOk()
+            ->assertJsonPath('data.message', 'Email verified successfully.');
+    }
+
+    public function test_signed_verification_link_rejects_modified_or_expired_signatures(): void
+    {
+        $user = User::factory()->create(['email_verified_at' => null]);
+        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'api.v1.auth.verify',
+            now()->subMinute(),
+            ['id' => $user->id, 'hash' => sha1($user->getEmailForVerification())]
+        );
+
+        $expired = parse_url($url);
+        $this->getJson($expired['path'].'?'.$expired['query'])->assertForbidden();
+
+        $validUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'api.v1.auth.verify',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($user->getEmailForVerification())]
+        );
+        $modified = parse_url($validUrl);
+        $query = $modified['query'].'&id=another-user';
+
+        $this->getJson($modified['path'].'?'.$query)->assertForbidden();
+        $this->assertNull($user->fresh()->email_verified_at);
     }
 
     // ─────────────────────────────────────────────────────────────

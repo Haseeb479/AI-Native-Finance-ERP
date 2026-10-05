@@ -11,6 +11,7 @@ RUN apk add --no-cache \
     zip \
     unzip \
     git \
+    postgresql-client \
     postgresql-dev \
     sqlite-dev \
     libzip-dev \

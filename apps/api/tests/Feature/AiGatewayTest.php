@@ -176,7 +176,7 @@ class AiGatewayTest extends TestCase
         $this->assertEquals('laravel-finance-erp', $payload['iss']);
         $this->assertEquals('ai-tool-gateway', $payload['aud']);
         $this->assertEquals($this->org->id, $payload['organization_id']);
-        $this->assertEquals($this->owner->id, $payload['user_id']);
+        $this->assertSame((string) $this->owner->id, $payload['user_id']);
         $this->assertNotEmpty($payload['jti']);
         $this->assertGreaterThan(time(), $payload['exp']);
     }
@@ -284,4 +284,3 @@ class AiGatewayTest extends TestCase
         $this->assertStringContainsString('exceeded its monthly AI quota', $response->json('errors.0.message'));
     }
 }
-

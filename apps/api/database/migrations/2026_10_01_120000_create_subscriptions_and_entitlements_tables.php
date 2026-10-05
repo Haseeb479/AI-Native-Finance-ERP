@@ -27,7 +27,7 @@ return new class extends Migration
 
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
+            $table->foreignUuid('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->string('plan_id');
             $table->string('status', 32)->default('active'); // active, past_due, canceled, trialing
             $table->timestamp('current_period_start')->nullable();
@@ -40,7 +40,7 @@ return new class extends Migration
 
         Schema::create('usage_meters', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
+            $table->foreignUuid('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->string('metric_name', 64); // transactions_count, ai_queries, documents_uploaded, storage_bytes
             $table->string('billing_period', 7); // YYYY-MM
             $table->unsignedBigInteger('usage_count')->default(0);

@@ -6,9 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
+use App\Notifications\ResetPasswordLinkNotification;
+use App\Notifications\VerifyEmailAddressNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -393,12 +398,29 @@ class AuthController extends Controller
             );
         }
 
-        // Security: If user exists, queue the reset email. We never return the token in the API
+        // Security: If user exists, send the reset email. We never return the token in the API
         // response — it is delivered exclusively through the verified email channel to prevent
         // credential exposure via API logs, browser history, proxy traces, or screenshots.
         if ($user) {
-            // TODO: dispatch(new SendPasswordResetEmail($user->email, $token));
-            // Until email service is wired, token is only stored (hashed) in DB — not returned here.
+            try {
+                $user->notify(new ResetPasswordLinkNotification($token));
+            } catch (Throwable $exception) {
+                \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+                    ->where('email', $request->email)
+                    ->delete();
+                Log::error('Password reset email delivery failed.', [
+                    'exception' => get_class($exception),
+                ]);
+
+                return response()->json([
+                    'data' => null,
+                    'meta' => ['timestamp' => now()->toIso8601String()],
+                    'errors' => [[
+                        'code' => 'EMAIL_DELIVERY_UNAVAILABLE',
+                        'message' => 'Password reset email could not be delivered. Please try again later.',
+                    ]],
+                ], 503);
+            }
         }
 
         // Always return identical generic response regardless of whether email exists (prevents enumeration)
@@ -487,11 +509,27 @@ class AuthController extends Controller
         }
 
         $verificationCode = \Illuminate\Support\Str::random(32);
-        \Illuminate\Support\Facades\Cache::put("email_verify_{$user->id}", $verificationCode, now()->addMinutes(60));
+        Cache::put("email_verify_{$user->id}", $verificationCode, now()->addMinutes(60));
 
         // Security: Store the verification code and send it via the email channel only.
         // Never return it in the API response to prevent token exposure via logs/proxies.
-        // TODO: dispatch(new SendVerificationEmail($user, $verificationCode));
+        try {
+            $user->notify(new VerifyEmailAddressNotification());
+        } catch (Throwable $exception) {
+            Cache::forget("email_verify_{$user->id}");
+            Log::error('Email verification message delivery failed.', [
+                'exception' => get_class($exception),
+            ]);
+
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toIso8601String()],
+                'errors' => [[
+                    'code' => 'EMAIL_DELIVERY_UNAVAILABLE',
+                    'message' => 'Verification email could not be delivered. Please try again later.',
+                ]],
+            ], 503);
+        }
 
         return response()->json([
             'data' => [
@@ -542,5 +580,29 @@ class AuthController extends Controller
             'meta' => ['timestamp' => now()->toIso8601String()],
             'errors' => [],
         ], 200);
+    }
+
+    public function verifySignedEmail(Request $request, string $id, string $hash): JsonResponse
+    {
+        $user = User::find($id);
+        if (! $user || ! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+            return response()->json([
+                'data' => null,
+                'meta' => ['timestamp' => now()->toIso8601String()],
+                'errors' => [['code' => 'INVALID_VERIFICATION_LINK', 'message' => 'This email verification link is invalid or expired.']],
+            ], 403);
+        }
+
+        if (! $user->email_verified_at) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        Cache::forget("email_verify_{$user->id}");
+
+        return response()->json([
+            'data' => ['message' => 'Email verified successfully.'],
+            'meta' => ['timestamp' => now()->toIso8601String()],
+            'errors' => [],
+        ]);
     }
 }

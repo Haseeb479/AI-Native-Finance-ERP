@@ -129,6 +129,15 @@ cp .env.example .env
 docker-compose up -d
 ```
 
+### Step 3: Start the AI service for local development
+The root Compose file starts infrastructure only. When Laravel runs directly on the host, start FastAPI separately from the repository root so it can read the root `.env` configuration:
+
+```powershell
+.\apps\ai\.venv\Scripts\python.exe -m uvicorn apps.ai.src.main:app --host 127.0.0.1 --port 8001
+```
+
+Confirm the service is available at `http://127.0.0.1:8001/health`. The Laravel `AI_SERVICE_URL` must point to this host address for native local development; when Laravel runs inside Compose, use the Compose service address `http://ai:8001`. Configure `DEFAULT_LLM_PROVIDER` and its matching provider key in `.env`; supported providers are `groq`, `gemini`, and local-only `mock`.
+
 ---
 
 ## Documentation

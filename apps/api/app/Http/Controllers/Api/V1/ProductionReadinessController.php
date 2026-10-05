@@ -297,7 +297,11 @@ class ProductionReadinessController extends Controller
         $debug  = config('app.debug');
         $issues = [];
 
-        if ($env === 'production' && $debug) {
+        if ($env !== 'production') {
+            $issues[] = 'APP_ENV must be production';
+        }
+
+        if ($debug) {
             $issues[] = 'APP_DEBUG must be false in production';
         }
 
@@ -332,6 +336,27 @@ class ProductionReadinessController extends Controller
             'database.default'    => config('database.default'),
             'auth.guards.sanctum' => config('auth.guards.sanctum') !== null,
         ];
+
+        if (config('app.env') === 'production') {
+            $mailer = config('mail.default');
+            $smtp = config('mail.mailers.smtp', []);
+            $smtpPort = filter_var($smtp['port'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1, 'max_range' => 65535],
+            ]);
+            $smtpConfigured = $mailer !== 'smtp'
+                || (! empty($smtp['host'])
+                    && $smtpPort !== false
+                    && ! empty($smtp['username'])
+                    && ! empty($smtp['password']));
+            $mailConfigured = ! in_array($mailer, ['log', 'array', 'failover'], true)
+                && $smtpConfigured
+                && filter_var(config('services.frontend_url'), FILTER_VALIDATE_URL)
+                && filter_var(config('mail.from.address'), FILTER_VALIDATE_EMAIL);
+
+            if (! $mailConfigured) {
+                $requiredKeys['production email delivery'] = false;
+            }
+        }
 
         $missing = [];
         foreach ($requiredKeys as $key => $value) {
@@ -556,6 +581,12 @@ class ProductionReadinessController extends Controller
 
     private function isAuthorizedDiagnostic(Request $request): bool
     {
+        $staffEmails = config('control_center.staff_emails', []);
+        $staffEmail = strtolower(trim((string) $request->user()?->email));
+        if ($staffEmail !== '' && is_array($staffEmails) && in_array($staffEmail, $staffEmails, true)) {
+            return true;
+        }
+
         // 1. Authenticated user with admin/owner role in any organization
         if ($user = $request->user()) {
             try {

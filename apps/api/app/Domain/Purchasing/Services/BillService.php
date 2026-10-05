@@ -380,7 +380,11 @@ class BillService
                 ));
             }
 
-            $paymentKey = $paymentData['idempotency_key'] ?? ("pay-bill-{$lockedBill->id}-" . hash('sha256', "{$amount}|{$paymentDate->toDateString()}|" . ($paymentData['reference'] ?? '')));
+            $paymentKey = $paymentData['idempotency_key']
+                ?? hash('sha256', "pay-bill|{$lockedBill->id}|{$amount}|{$paymentDate->toDateString()}|" . ($paymentData['reference'] ?? ''));
+            if (strlen((string) $paymentKey) > 100) {
+                $paymentKey = hash('sha256', $paymentKey);
+            }
 
             // Post Disbursement Journal: Debit AP, Credit Bank
             $journalDraft = $this->postingEngine->createDraft($organization, [

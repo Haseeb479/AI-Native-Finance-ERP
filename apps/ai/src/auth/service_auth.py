@@ -138,7 +138,7 @@ async def require_verified_claims(
         aud=payload["aud"],
         organization_id=payload["organization_id"],
         entity_id=payload.get("entity_id"),
-        user_id=payload["user_id"],
+        user_id=str(payload["user_id"]),
         user_permissions=payload.get("user_permissions", []),
         jti=jti,
         exp=payload["exp"],

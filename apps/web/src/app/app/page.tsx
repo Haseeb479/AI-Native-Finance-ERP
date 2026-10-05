@@ -50,7 +50,7 @@ import {
   Zap,
   SlidersHorizontal,
 } from "lucide-react";
-import { askAxiomAI } from "@/lib/axiom";
+import { askAxiomAI, AxiomRequestError } from "@/lib/axiom";
 import { SidebarNavigation } from "@/components/layout/SidebarNavigation";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { LaunchpadView } from "@/components/views/LaunchpadView";
@@ -72,9 +72,7 @@ import { FinancialErrorState } from "@/components/ui/FinancialErrorState";
 import { cn, formatPKR } from "@/lib/utils";
 import {
   erpApi,
-  getStoredToken,
   getStoredOrg,
-  getStoredUser,
   setStoredSession,
   clearStoredSession,
   OrganizationSummary,
@@ -196,8 +194,30 @@ export default function DashboardPage() {
 
   // Authentication & Tenant State
   const [token, setToken] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<"checking" | "authenticated" | "visitor" | "error">("checking");
+  const [sessionRestoreError, setSessionRestoreError] = useState("");
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentOrg, setCurrentOrg] = useState<OrganizationSummary | null>(null);
+  const [organizationForm, setOrganizationForm] = useState({
+    name: "",
+    legal_name: "",
+    ntn: "",
+    strn: "",
+    primary_entity_name: "",
+    primary_branch_name: "",
+    city: "",
+  });
+  const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({
+    customer_id: "",
+    issue_date: new Date().toISOString().slice(0, 10),
+    due_date: "",
+    revenue_account_id: "",
+    description: "",
+    quantity: "1",
+    unit_price: "",
+    tax_rate: "0",
+  });
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -216,6 +236,7 @@ export default function DashboardPage() {
     answer: string;
     keyMetrics?: Record<string, string>;
     suggestedActions?: string[];
+    requiresLogin?: boolean;
   } | null>(null);
 
   // Fallback Checklist state (will sync with Close Cycle when period exists)
@@ -226,14 +247,52 @@ export default function DashboardPage() {
     { id: 4, text: "Lock accounting period & run flux report", status: "NOT STARTED", completed: false },
   ]);
 
-  // Load stored credentials on mount
+  // Validate the HttpOnly session before deciding whether demo fixtures may be shown.
   useEffect(() => {
-    const t = getStoredToken();
-    const u = getStoredUser();
-    const o = getStoredOrg();
-    if (t) setToken(t);
-    if (u) setCurrentUser(u);
-    if (o) setCurrentOrg(o);
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+
+        if (response.status === 401) {
+          clearStoredSession();
+          if (!cancelled) setSessionStatus("visitor");
+          return;
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.authenticated || !payload.data?.user) {
+          throw new Error(payload?.error || "Unable to verify your Finova session.");
+        }
+
+        const user: UserProfile = {
+          ...payload.data.user,
+          id: String(payload.data.user.id),
+        };
+
+        if (!cancelled) {
+          setCurrentUser(user);
+          setToken("http-only-cookie-session");
+          setSessionStatus("authenticated");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSessionRestoreError(
+            error instanceof Error ? error.message : "Unable to verify your Finova session.",
+          );
+          setSessionStatus("error");
+        }
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ─────────────────────────────────────────────────────────────
@@ -241,19 +300,7 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   const { data: health } = useQuery({
     queryKey: ["backend-health"],
-    queryFn: async () => {
-      const res = await erpApi.getHealth().catch(() => null);
-      if (!res || !res.data) {
-        return {
-          data: {
-            status: "connected",
-            services: { database: { status: "ok", driver: "pgsql" } },
-            version: "v1.0.0",
-          },
-        };
-      }
-      return res;
-    },
+    queryFn: () => erpApi.getHealth(),
     refetchInterval: 30000,
   });
 
@@ -274,14 +321,22 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────────────────────
   // 2. ORGANIZATIONS QUERY
   // ─────────────────────────────────────────────────────────────
-  const { data: orgsList = [] } = useQuery({
+  const {
+    data: orgsList = [],
+    isLoading: isLoadingOrganizations,
+    isError: isOrganizationsError,
+    error: organizationsError,
+    refetch: refetchOrganizations,
+  } = useQuery({
     queryKey: ["organizations", token],
     queryFn: async () => {
       if (!token) return [];
-      const orgs = await erpApi.getOrganizations().catch(() => []);
-      if (orgs.length > 0 && !currentOrg) {
-        setCurrentOrg(orgs[0]);
-        setStoredSession(token, currentUser!, orgs[0]);
+      const orgs = await erpApi.getOrganizations();
+      const storedOrg = getStoredOrg();
+      const selectedOrg = orgs.find((org) => org.id === storedOrg?.id) || orgs[0];
+      if (selectedOrg && (!currentOrg || !orgs.some((org) => org.id === currentOrg.id))) {
+        setCurrentOrg(selectedOrg);
+        if (currentUser) setStoredSession(token, currentUser, selectedOrg);
       }
       return orgs;
     },
@@ -289,6 +344,61 @@ export default function DashboardPage() {
   });
 
   const activeOrgId = currentOrg?.id || orgsList[0]?.id;
+
+  const createOrganizationMutation = useMutation({
+    mutationFn: erpApi.createOrganization,
+    onSuccess: (organization) => {
+      if (!organization) return;
+      const org: OrganizationSummary = {
+        ...organization,
+        role: "owner",
+        is_default: true,
+      };
+      setCurrentOrg(org);
+      if (token && currentUser) setStoredSession(token, currentUser, org);
+      queryClient.setQueryData(["organizations", token], [org]);
+      queryClient.invalidateQueries();
+    },
+  });
+
+  const {
+    data: invoiceCustomers = [],
+    isLoading: isLoadingInvoiceCustomers,
+    error: invoiceCustomersError,
+  } = useQuery({
+    queryKey: ["customers", activeOrgId],
+    queryFn: () => erpApi.getCustomers(activeOrgId!),
+    enabled: !!activeOrgId && !!token && isCreateInvoiceOpen,
+  });
+
+  const {
+    data: invoiceAccounts = [],
+    isLoading: isLoadingInvoiceAccounts,
+    error: invoiceAccountsError,
+  } = useQuery({
+    queryKey: ["accounts", activeOrgId],
+    queryFn: () => erpApi.getAccounts(activeOrgId!),
+    enabled: !!activeOrgId && !!token && isCreateInvoiceOpen,
+  });
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => erpApi.createInvoice(activeOrgId!, payload),
+    onSuccess: () => {
+      setIsCreateInvoiceOpen(false);
+      setInvoiceForm({
+        customer_id: "",
+        issue_date: new Date().toISOString().slice(0, 10),
+        due_date: "",
+        revenue_account_id: "",
+        description: "",
+        quantity: "1",
+        unit_price: "",
+        tax_rate: "0",
+      });
+      queryClient.invalidateQueries({ queryKey: ["invoices", activeOrgId] });
+      queryClient.invalidateQueries({ queryKey: ["journals", activeOrgId] });
+    },
+  });
 
   // ─────────────────────────────────────────────────────────────
   // 3. REAL INVOICES QUERY (AR)
@@ -455,7 +565,7 @@ export default function DashboardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
-      queryClient.invalidateQueries({ queryKey: ["matches"] });
+      queryClient.invalidateQueries({ queryKey: ["three-way-matches"] });
     },
   });
 
@@ -508,7 +618,9 @@ export default function DashboardPage() {
       alert("Accrual journal entry created successfully in General Ledger.");
     },
     onError: (err: any) => {
-      alert(`Accrual draft logged locally. Note: ${err?.message || "GL mutation synced."}`);
+      alert(
+        `Could not create the accrual journal. No journal was saved. ${err?.message || "Please try again."}`,
+      );
     },
   });
 
@@ -518,7 +630,12 @@ export default function DashboardPage() {
       return erpApi.verifyAuditTrail(activeOrgId);
     },
     onSuccess: (data: any) => {
-      alert(`Audit Trail Verification Complete: ${data?.message || "100% Valid. Zero broken hash links detected."}`);
+      alert(
+        `Audit trail verification completed: ${data?.message || "The verification request completed without a detailed result."}`,
+      );
+    },
+    onError: (err: any) => {
+      alert(`Audit trail verification failed. ${err?.message || "Please try again."}`);
     },
   });
 
@@ -808,17 +925,43 @@ export default function DashboardPage() {
       // Fetch user orgs
       const orgs = await erpApi.getOrganizations();
       const defaultOrg = orgs[0];
-      if (!defaultOrg) {
-        throw new Error("This account has no organization with live demo data.");
-      }
-      setCurrentOrg(defaultOrg);
-
+      setCurrentOrg(defaultOrg || null);
       setStoredSession(data.token, data.user, defaultOrg);
+      setSessionStatus("authenticated");
+      queryClient.setQueryData(["organizations", data.token], orgs);
       setIsLoginModalOpen(false);
       queryClient.invalidateQueries();
     } catch (err: any) {
       setLoginError(err.message || "Failed to log in.");
     }
+  };
+
+  const handleCreateOrganization = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    createOrganizationMutation.mutate({
+      ...organizationForm,
+      ntn: organizationForm.ntn || undefined,
+      strn: organizationForm.strn || undefined,
+      country_code: "PK",
+      base_currency: "PKR",
+      fiscal_year_start_month: 7,
+    });
+  };
+
+  const handleCreateInvoice = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    createInvoiceMutation.mutate({
+      customer_id: invoiceForm.customer_id,
+      issue_date: invoiceForm.issue_date,
+      ...(invoiceForm.due_date ? { due_date: invoiceForm.due_date } : {}),
+      lines: [{
+        revenue_account_id: invoiceForm.revenue_account_id,
+        description: invoiceForm.description.trim(),
+        quantity: Number(invoiceForm.quantity),
+        unit_price: Number(invoiceForm.unit_price),
+        tax_rate: Number(invoiceForm.tax_rate),
+      }],
+    });
   };
 
   const handleLogout = async () => {
@@ -869,100 +1012,27 @@ export default function DashboardPage() {
 
     try {
       const axiomRes = await askAxiomAI(q, financialContext, activeOrgId);
-      if (axiomRes && axiomRes.answer) {
-        setCopilotResponse({
-          answer: axiomRes.answer,
-          keyMetrics: axiomRes.metrics || {
-            "Engine": "FastAPI Copilot",
-            "Architecture": "Next.js -> Laravel -> FastAPI",
-          },
-          suggestedActions: axiomRes.suggested_actions || [
-            "Inspect pending transactions",
-            "Audit general ledger",
-          ],
-        });
-        setCopilotLoading(false);
-        return;
-      }
-    } catch {
-      // Continue to backend gateway or deterministic fallback
-    }
-
-    if (activeOrgId && token) {
-      try {
-        const res = await erpApi.askCopilot(activeOrgId, q, {
-          active_module: activeNav,
-          invoices_count: realInvoices.length,
-          bills_count: realBills.length,
-        });
-
-        if (res && res.answer) {
-          setCopilotResponse({
-            answer: res.answer,
-            keyMetrics: res.metrics || {
-              "Reasoning Model": "Axiom AI (FastAPI)",
-              "Audit Log": "Logged",
-              "Execution": "Real-time",
-            },
-            suggestedActions: res.suggested_actions || [
-              "Inspect pending invoices",
-              "Reconcile bank accounts",
-            ],
-          });
-          setCopilotLoading(false);
-          return;
-        }
-      } catch {
-        // Fallback to local deterministic answers if offline
-      }
-    }
-
-    // Deterministic financial copilot fallback
-    setTimeout(() => {
-      if (q.toLowerCase().includes("pending") || q.toLowerCase().includes("invoice")) {
-        const count = realInvoices.length || 16;
-        const total = realInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total_amount || 0), 0) || 3240000;
-        setCopilotResponse({
-          answer: `You currently have ${count} customer invoices recorded in this organization totaling ${formatPKR(total)}.`,
-          keyMetrics: {
-            "Open Invoices": `${count}`,
-            "Total Invoiced": formatPKR(total),
-            "FBR Status": "Active",
-          },
-          suggestedActions: [
-            "Send payment reminders for invoices overdue > 30 days",
-            "Generate Annex-C sales tax schedule",
-          ],
-        });
-      } else if (q.toLowerCase().includes("close")) {
-        setCopilotResponse({
-          answer: "Month-end close cycle for Q3 is in progress. Remaining items include fixed asset depreciation and bank reconciliation prior to locking the fiscal period.",
-          keyMetrics: {
-            "Close Progress": "50%",
-            "Tasks Remaining": "2",
-            "Period": "Q1 FY25",
-          },
-          suggestedActions: [
-            "Post monthly asset depreciation entries",
-            "Review and reconcile HBL bank account statement",
-          ],
-        });
-      } else {
-        setCopilotResponse({
-          answer: `Analysis for "${q}": Operating cash balance and accounts receivable maintain positive working capital with 0 unbalanced journal entries across the General Ledger.`,
-          keyMetrics: {
-            "Runway": "48 Months",
-            "Net Burn": "PKR 850K/mo",
-            "GL Invariant": "Balanced ✓",
-          },
-          suggestedActions: [
-            "Download updated 13-week cashflow forecast",
-            "Inspect AP disbursement schedule",
-          ],
-        });
-      }
+      setCopilotResponse({
+        answer: axiomRes.answer,
+        keyMetrics: axiomRes.metrics,
+        suggestedActions: axiomRes.suggested_actions,
+      });
+    } catch (error) {
+      const requiresLogin = error instanceof AxiomRequestError && error.status === 401;
+      const message = error instanceof Error ? error.message : "An unexpected error occurred.";
+      setCopilotResponse({
+        answer: requiresLogin
+          ? "Sign in to ask Axiom about your organization's financial data. Axiom requires an authenticated session to protect your records."
+          : `Axiom couldn't complete this request: ${message}`,
+        keyMetrics: {
+          Status: requiresLogin ? "Sign-in required" : "Request failed",
+          Engine: "Axiom AI",
+        },
+        requiresLogin,
+      });
+    } finally {
       setCopilotLoading(false);
-    }, 600);
+    }
   };
 
   const toggleChecklistItem = (id: number) => {
@@ -1224,8 +1294,127 @@ export default function DashboardPage() {
   ];
   const displayIntercompany = realIntercompanyTxs.length > 0 ? realIntercompanyTxs : token ? [] : demoIntercompany;
 
+  if (sessionStatus === "checking") {
+    return (
+      <main className="min-h-screen bg-[#F4F7F4] flex items-center justify-center p-6 text-sm text-[#64748B]">
+        Verifying your Finova session…
+      </main>
+    );
+  }
+
+  if (sessionStatus === "error") {
+    return (
+      <main className="min-h-screen bg-[#F4F7F4] flex items-center justify-center p-6">
+        <section className="w-full max-w-lg space-y-4 rounded-2xl border border-amber-200 bg-white p-7 shadow-sm">
+          <h1 className="text-xl font-semibold text-[#17251E]">We couldn’t verify your session</h1>
+          <p role="alert" className="text-sm text-[#64748B]">{sessionRestoreError}</p>
+          <p className="text-sm text-[#64748B]">For your safety, sample data is hidden until the session can be checked.</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => window.location.reload()} className="rounded-xl bg-[#1D5C40] px-4 py-2 text-sm font-semibold text-white">
+              Retry
+            </button>
+            <Link href="/login?next=%2Fapp" className="rounded-xl border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#1D5C40]">
+              Sign in
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (token && currentUser && isOrganizationsError) {
+    return (
+      <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+        <section className="w-full max-w-lg rounded-2xl border border-[#E2E8F0] bg-white p-8 shadow-sm space-y-5">
+          <Building className="h-9 w-9 text-[#6366F1]" />
+          <div>
+            <h1 className="text-xl font-bold text-[#0F172A]">We couldn’t load your organizations</h1>
+            <p className="mt-2 text-sm text-[#64748B]">
+              {organizationsError instanceof Error ? organizationsError.message : "Check your connection and try again."}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => refetchOrganizations()} className="rounded-xl bg-[#6366F1] px-4 py-2.5 text-sm font-semibold text-white">
+              Retry
+            </button>
+            <button type="button" onClick={handleLogout} className="rounded-xl border border-[#E2E8F0] px-4 py-2.5 text-sm font-semibold text-[#475569]">
+              Sign out
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (token && currentUser && !isLoadingOrganizations && orgsList.length === 0) {
+    return (
+      <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+        <section className="w-full max-w-2xl rounded-2xl border border-[#E2E8F0] bg-white p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-[#6366F1]">
+              <Building className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6366F1]">Customer workspace setup</p>
+              <h1 className="text-xl font-bold text-[#0F172A]">Set up your organization</h1>
+            </div>
+          </div>
+          <p className="text-sm leading-6 text-[#64748B]">
+            Create your tenant workspace to start using Finova. We’ll provision its primary entity and branch, Pakistan SME chart of accounts, and fiscal periods. No sample accounting data is added.
+          </p>
+          {createOrganizationMutation.error && (
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+              {createOrganizationMutation.error.message || "Organization setup failed. Please review the details and try again."}
+            </div>
+          )}
+          <form onSubmit={handleCreateOrganization} className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-[#334155]">
+              Organization name *
+              <input required maxLength={255} value={organizationForm.name} onChange={(e) => setOrganizationForm({ ...organizationForm, name: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <label className="text-sm font-medium text-[#334155]">
+              Legal name *
+              <input required maxLength={255} value={organizationForm.legal_name} onChange={(e) => setOrganizationForm({ ...organizationForm, legal_name: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <label className="text-sm font-medium text-[#334155]">
+              Primary entity
+              <input maxLength={255} value={organizationForm.primary_entity_name} onChange={(e) => setOrganizationForm({ ...organizationForm, primary_entity_name: e.target.value })} placeholder="Defaults to organization name" className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <label className="text-sm font-medium text-[#334155]">
+              Primary branch
+              <input maxLength={255} value={organizationForm.primary_branch_name} onChange={(e) => setOrganizationForm({ ...organizationForm, primary_branch_name: e.target.value })} placeholder="Head Office" className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <label className="text-sm font-medium text-[#334155]">
+              City
+              <input maxLength={100} value={organizationForm.city} onChange={(e) => setOrganizationForm({ ...organizationForm, city: e.target.value })} placeholder="Karachi" className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <label className="text-sm font-medium text-[#334155]">
+              NTN (optional)
+              <input maxLength={30} value={organizationForm.ntn} onChange={(e) => setOrganizationForm({ ...organizationForm, ntn: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <label className="text-sm font-medium text-[#334155] sm:col-span-2">
+              STRN (optional)
+              <input maxLength={30} value={organizationForm.strn} onChange={(e) => setOrganizationForm({ ...organizationForm, strn: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 outline-none focus:border-[#6366F1]" />
+            </label>
+            <div className="sm:col-span-2 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-[#64748B]">
+              Region and defaults: Pakistan • PKR • fiscal year starts in July.
+            </div>
+            <div className="sm:col-span-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+              <button type="button" onClick={handleLogout} className="rounded-xl border border-[#E2E8F0] px-4 py-2.5 text-sm font-semibold text-[#475569]">
+                Sign out
+              </button>
+              <button type="submit" disabled={createOrganizationMutation.isPending} className="rounded-xl bg-[#6366F1] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                {createOrganizationMutation.isPending ? "Creating workspace…" : "Create organization"}
+              </button>
+            </div>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-[#FDFDFD] text-[#1E293B] font-sans antialiased overflow-hidden select-none">
+    <div className="finova-dashboard flex h-screen bg-[#F4F7F4] text-[#17251E] font-sans antialiased overflow-hidden select-none">
       {/* ─────────────────────────────────────────────────────────────
           1. ENTERPRISE SIDEBAR NAVIGATION (2026 Product Model)
       ─────────────────────────────────────────────────────────────── */}
@@ -1241,7 +1430,7 @@ export default function DashboardPage() {
       {/* ─────────────────────────────────────────────────────────────
           2. MAIN CONTENT AREA (Scrollable)
       ─────────────────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-[#F8FAFC]">
+      <main className="finova-dashboard-main flex-1 flex flex-col h-screen overflow-y-auto bg-[#F4F7F4]">
         {/* Top Header Bar */}
         <TopHeader
           title={getNavTitle(activeNav)}
@@ -1250,6 +1439,13 @@ export default function DashboardPage() {
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenAxiomConfig={() => setIsAxiomConfigOpen(true)}
         />
+
+        {sessionStatus === "visitor" && (
+          <div role="note" className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 sm:mx-6">
+            <span><strong>Demo preview:</strong> sample financial data only. Actions are not saved to an organization.</span>
+            <Link href="/login?next=%2Fapp" className="font-semibold underline underline-offset-2">Sign in to your workspace</Link>
+          </div>
+        )}
 
         {/* ─────────────────────────────────────────────────────────────
             VIEW: LAUNCHPAD (ACTION-ORIENTED FINANCE HOME)
@@ -1301,14 +1497,30 @@ export default function DashboardPage() {
             }}
             copilotLoading={copilotLoading}
             copilotResponse={copilotResponse}
-            cashTotalPKR={5000000 + 1250000}
+            demoPreview={sessionStatus === "visitor"}
+            cashTotalPKR={
+              isLoadingBankAccounts || errorBankAccounts
+                ? null
+                : realBankAccounts.reduce((sum: number, account: any) => {
+                    const balance = Number(account.current_balance);
+                    return Number.isFinite(balance) ? sum + balance : sum;
+                  }, 0)
+            }
             arTotalPKR={
-              realInvoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total_amount || 0), 0) || 3240000
+              isLoadingInvoices || errorInvoices
+                ? null
+                : realInvoices
+                    .filter((invoice: any) => !["void", "cancelled", "draft"].includes(String(invoice.status).toLowerCase()))
+                    .reduce((sum: number, invoice: any) => sum + Math.max(0, Number(invoice.total_amount || 0) - Number(invoice.amount_paid || 0)), 0)
             }
             apTotalPKR={
-              realBills.reduce((sum: number, bill: any) => sum + parseFloat(bill.total_amount || 0), 0) || 1420000
+              isLoadingBills || errorBills
+                ? null
+                : realBills
+                    .filter((bill: any) => !["void", "cancelled", "rejected", "draft"].includes(String(bill.status).toLowerCase()))
+                    .reduce((sum: number, bill: any) => sum + Math.max(0, Number(bill.net_payable || bill.total_amount || 0) - Number(bill.amount_paid || 0)), 0)
             }
-            netBurnPKR={850000}
+            netBurnPKR={sessionStatus === "visitor" ? 850000 : null}
             closeProgressPercent={Math.round((checklist.filter((c) => c.completed).length / checklist.length) * 100)}
             closeTasksRemaining={checklist.filter((c) => !c.completed).length}
             activePeriodName={activePeriod?.name || "Q3 FY25"}
@@ -1335,15 +1547,6 @@ export default function DashboardPage() {
           activeNav === "ai_flows") && (
           <CommandCenterView
             orgName={currentOrg?.name}
-            onApproveItem={(id) => {
-              alert(`Proposal ${id} approved and draft journal routed to General Ledger.`);
-            }}
-            onRejectItem={(id) => {
-              alert(`Proposal ${id} rejected.`);
-            }}
-            onReviewItem={(item) => {
-              alert(`Inspecting ${item.title}: Estimated impact ${item.estimatedGlImpact}`);
-            }}
           />
         )}
 
@@ -1358,7 +1561,10 @@ export default function DashboardPage() {
             onRefresh={() => refetchInvoices()}
             onRetry={() => refetchInvoices()}
             onPostInvoice={(rawId) => postInvoiceMutation.mutate(rawId)}
-            onOpenCreateModal={() => alert("Creating a new sales invoice requires Customer, Date, and Revenue Account details.")}
+            onOpenCreateModal={() => {
+              createInvoiceMutation.reset();
+              setIsCreateInvoiceOpen(true);
+            }}
             orgName={currentOrg?.name}
           />
         )}
@@ -1373,7 +1579,8 @@ export default function DashboardPage() {
             error={errorBills ? ((errorBills as any)?.message || "Failed to load bills from API.") : null}
             onRefresh={() => refetchBills()}
             onRetry={() => refetchBills()}
-            onApproveBill={(billId) => alert(`Bill ${billId} approved and scheduled for payment.`)}
+            onApproveBill={(billId) => approveBillMutation.mutateAsync(billId).then(() => undefined)}
+            isApprovingBill={approveBillMutation.isPending}
           />
         )}
 
@@ -3300,6 +3507,83 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {isCreateInvoiceOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="create-invoice-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#F1F5F9] pb-4">
+              <div>
+                <h2 id="create-invoice-title" className="text-lg font-bold text-[#0F172A]">Create sales invoice</h2>
+                <p className="mt-1 text-xs text-[#64748B]">Create a tenant-scoped draft invoice. The invoice will not be posted automatically.</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setIsCreateInvoiceOpen(false)} className="rounded-lg p-1 text-[#64748B] hover:bg-slate-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {(createInvoiceMutation.error || invoiceCustomersError || invoiceAccountsError) && (
+              <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                {createInvoiceMutation.error?.message || (invoiceCustomersError as Error | null)?.message || (invoiceAccountsError as Error | null)?.message || "Unable to load invoice options."}
+              </div>
+            )}
+            {(!isLoadingInvoiceCustomers && invoiceCustomers.length === 0) && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Add a customer to this organization before creating an invoice. Customer records are not generated automatically.
+              </div>
+            )}
+            {(!isLoadingInvoiceAccounts && !invoiceAccounts.some((account: any) => String(account.code || "").startsWith("4"))) && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                This organization has no revenue account available. Create or configure a revenue account before invoicing.
+              </div>
+            )}
+            <form onSubmit={handleCreateInvoice} className="grid gap-4 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-[#334155] sm:col-span-2">
+                Customer *
+                <select required value={invoiceForm.customer_id} onChange={(e) => setInvoiceForm({ ...invoiceForm, customer_id: e.target.value })} disabled={isLoadingInvoiceCustomers || invoiceCustomers.length === 0} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]">
+                  <option value="">{isLoadingInvoiceCustomers ? "Loading customers…" : "Select a customer"}</option>
+                  {invoiceCustomers.map((customer: any) => <option key={customer.id} value={customer.id}>{customer.name || customer.legal_name}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-[#334155]">
+                Issue date *
+                <input required type="date" value={invoiceForm.issue_date} onChange={(e) => setInvoiceForm({ ...invoiceForm, issue_date: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]" />
+              </label>
+              <label className="text-xs font-semibold text-[#334155]">
+                Due date
+                <input type="date" min={invoiceForm.issue_date} value={invoiceForm.due_date} onChange={(e) => setInvoiceForm({ ...invoiceForm, due_date: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]" />
+              </label>
+              <label className="text-xs font-semibold text-[#334155] sm:col-span-2">
+                Revenue account *
+                <select required value={invoiceForm.revenue_account_id} onChange={(e) => setInvoiceForm({ ...invoiceForm, revenue_account_id: e.target.value })} disabled={isLoadingInvoiceAccounts} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]">
+                  <option value="">{isLoadingInvoiceAccounts ? "Loading accounts…" : "Select a revenue account"}</option>
+                  {invoiceAccounts.filter((account: any) => String(account.code || "").startsWith("4")).map((account: any) => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-[#334155] sm:col-span-2">
+                Description *
+                <input required maxLength={500} value={invoiceForm.description} onChange={(e) => setInvoiceForm({ ...invoiceForm, description: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]" />
+              </label>
+              <label className="text-xs font-semibold text-[#334155]">
+                Quantity *
+                <input required type="number" min="0.0001" step="any" value={invoiceForm.quantity} onChange={(e) => setInvoiceForm({ ...invoiceForm, quantity: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]" />
+              </label>
+              <label className="text-xs font-semibold text-[#334155]">
+                Unit price (PKR) *
+                <input required type="number" min="0" step="0.01" value={invoiceForm.unit_price} onChange={(e) => setInvoiceForm({ ...invoiceForm, unit_price: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]" />
+              </label>
+              <label className="text-xs font-semibold text-[#334155]">
+                Sales tax rate (%)
+                <input type="number" min="0" max="100" step="0.01" value={invoiceForm.tax_rate} onChange={(e) => setInvoiceForm({ ...invoiceForm, tax_rate: e.target.value })} className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3 py-2.5 font-normal outline-none focus:border-[#6366F1]" />
+              </label>
+              <div className="flex items-end justify-end gap-2 sm:col-span-2">
+                <button type="button" onClick={() => setIsCreateInvoiceOpen(false)} className="rounded-xl border border-[#E2E8F0] px-4 py-2.5 text-xs font-semibold text-[#475569]">Cancel</button>
+                <button type="submit" disabled={createInvoiceMutation.isPending || isLoadingInvoiceCustomers || isLoadingInvoiceAccounts || invoiceCustomers.length === 0 || !invoiceAccounts.some((account: any) => String(account.code || "").startsWith("4"))} className="rounded-xl bg-[#6366F1] px-4 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                  {createInvoiceMutation.isPending ? "Creating draft…" : "Create draft invoice"}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseBill extends Model
@@ -87,6 +88,11 @@ class PurchaseBill extends Model
     public function journalEntry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
+    }
+
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(\App\Domain\Documents\Models\Document::class, 'linkable');
     }
 
     public function createdByUser(): BelongsTo

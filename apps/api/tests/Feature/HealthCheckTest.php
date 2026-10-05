@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class HealthCheckTest extends TestCase
 {
@@ -44,6 +46,21 @@ class HealthCheckTest extends TestCase
                 ],
                 'errors',
             ]);
+    }
+
+    public function test_api_health_check_does_not_expose_database_connection_errors(): void
+    {
+        DB::shouldReceive('connection')
+            ->once()
+            ->andThrow(new RuntimeException('password=private-db-secret'));
+
+        $response = $this->getJson('/api/v1/health');
+
+        $response->assertStatus(503)
+            ->assertJsonPath('data.status', 'degraded')
+            ->assertJsonPath('data.services.database.status', 'error')
+            ->assertJsonPath('errors', [])
+            ->assertDontSee('private-db-secret');
     }
 
     /**

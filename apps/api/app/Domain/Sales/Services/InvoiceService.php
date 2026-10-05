@@ -373,7 +373,11 @@ class InvoiceService
                 ));
             }
 
-            $paymentKey = $paymentData['idempotency_key'] ?? ("pay-inv-{$lockedInvoice->id}-" . hash('sha256', "{$amount}|{$paymentDate->toDateString()}|" . ($paymentData['reference'] ?? '')));
+            $paymentKey = $paymentData['idempotency_key']
+                ?? hash('sha256', "pay-invoice|{$lockedInvoice->id}|{$amount}|{$paymentDate->toDateString()}|" . ($paymentData['reference'] ?? ''));
+            if (strlen((string) $paymentKey) > 100) {
+                $paymentKey = hash('sha256', $paymentKey);
+            }
 
             // Post Payment Journal: Debit Bank, Credit AR
             $journalDraft = $this->postingEngine->createDraft($organization, [

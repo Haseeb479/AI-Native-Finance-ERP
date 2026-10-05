@@ -493,7 +493,7 @@ class AiGatewayService
             'aud' => 'ai-tool-gateway',
             'organization_id' => $organization->id,
             'entity_id' => $entityId,
-            'user_id' => $user->id,
+            'user_id' => (string) $user->id,
             'user_permissions' => $user->getPermissionsForOrganization($organization),
             'jti' => (string) \Illuminate\Support\Str::uuid(),
             'iat' => $now,
@@ -548,7 +548,7 @@ class AiGatewayService
                 'organization_id' => $organization->id,
                 'user_id' => $user->id,
                 'prompt_key' => $promptKey,
-                'prompt_version' => '1.0.0',
+                'prompt_version' => 1,
                 'provider' => 'gemini',
                 'model' => 'gemini-1.5-pro',
                 'input_tokens' => $metrics['input_tokens'],
@@ -595,7 +595,7 @@ class AiGatewayService
 
         $unreconciledBankCount = \App\Domain\Banking\Models\BankTransaction::withoutGlobalScopes()
             ->where('organization_id', $organization->id)
-            ->where('status', 'unreconciled')
+            ->where('reconciliation_status', 'unreconciled')
             ->count();
 
         $openExceptionsCount = \App\Domain\Exceptions\Models\FinancialException::withoutGlobalScopes()
@@ -633,7 +633,7 @@ class AiGatewayService
     {
         $query = \App\Domain\Banking\Models\BankTransaction::withoutGlobalScopes()
             ->where('organization_id', $organization->id)
-            ->where('status', 'unreconciled')
+            ->where('reconciliation_status', 'unreconciled')
             ->orderBy('transaction_date', 'desc')
             ->limit(50);
 
@@ -725,7 +725,7 @@ class AiGatewayService
         $transactions = \App\Domain\Banking\Models\BankTransaction::withoutGlobalScopes()
             ->where('organization_id', $organization->id)
             ->where('bank_account_id', $bankAccountId)
-            ->where('status', 'unreconciled')
+            ->where('reconciliation_status', 'unreconciled')
             ->limit(20)
             ->get()
             ->map(fn ($t) => [
@@ -763,7 +763,7 @@ class AiGatewayService
         $bills = \App\Domain\Purchasing\Models\PurchaseBill::withoutGlobalScopes()
             ->where('organization_id', $organization->id)
             ->where('status', 'posted')
-            ->whereNull('document_id')
+            ->whereDoesntHave('documents')
             ->with('vendor')
             ->limit(25)
             ->get()
@@ -812,4 +812,3 @@ class AiGatewayService
         return $this->callAiWorkflow($organization, $user, 'ar-collections-queue', $payload, 'workflow_ar_collections');
     }
 }
-

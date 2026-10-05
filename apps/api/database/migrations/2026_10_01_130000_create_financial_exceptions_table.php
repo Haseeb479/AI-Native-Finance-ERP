@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('financial_exceptions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
+            $table->foreignUuid('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->string('entity_id')->nullable()->index();
             $table->string('exception_type', 64)->index(); 
             // Types: unmatched_bank_transaction, duplicate_invoice, low_ocr_confidence, missing_document,

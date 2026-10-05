@@ -21,13 +21,14 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/health', function (): JsonResponse {
         $dbStatus = 'ok';
-        $dbError = null;
 
         try {
             DB::connection()->getPdo();
-        } catch (\Throwable $e) {
+        } catch (\Throwable $exception) {
             $dbStatus = 'error';
-            $dbError = $e->getMessage();
+            \Illuminate\Support\Facades\Log::warning('Health check database connection failed.', [
+                'exception' => get_class($exception),
+            ]);
         }
 
         $healthy = ($dbStatus === 'ok');
@@ -39,7 +40,6 @@ Route::prefix('v1')->group(function () {
                     'database' => [
                         'status' => $dbStatus,
                         'driver' => config('database.default'),
-                        'error' => $dbError,
                     ],
                 ],
                 'version' => 'v1.0.0',
@@ -48,18 +48,25 @@ Route::prefix('v1')->group(function () {
                 'timestamp' => now()->toIso8601String(),
                 'environment' => config('app.env'),
             ],
-            'errors' => $dbError ? [$dbError] : [],
+            'errors' => [],
         ], $healthy ? 200 : 503);
     });
 
     // Authentication Routes with rate limiting (P1-01)
+    Route::post('/demo-requests', [\App\Http\Controllers\Api\V1\DemoRequestController::class, 'store'])
+        ->middleware('throttle:5,1');
+
     Route::prefix('auth')->group(function () {
         Route::post('/register', [\App\Http\Controllers\Api\V1\AuthController::class, 'register'])->middleware('throttle:10,1');
         Route::post('/login', [\App\Http\Controllers\Api\V1\AuthController::class, 'login'])->middleware('throttle:15,1');
+        Route::post('/google', [\App\Http\Controllers\Api\V1\GoogleAuthenticationController::class, 'authenticate'])->middleware('throttle:10,1');
 
         Route::post('/forgot-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
         Route::post('/reset-password', [\App\Http\Controllers\Api\V1\AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
         Route::post('/mfa/challenge', [\App\Http\Controllers\Api\V1\AuthController::class, 'challengeLogin'])->middleware('throttle:5,1');
+        Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\Api\V1\AuthController::class, 'verifySignedEmail'])
+            ->middleware(['signed', 'throttle:10,1'])
+            ->name('api.v1.auth.verify');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [\App\Http\Controllers\Api\V1\AuthController::class, 'logout']);
@@ -87,6 +94,95 @@ Route::prefix('v1')->group(function () {
         });
     });
 
+    Route::post(
+        '/internal/control-center/staff-invitations/accept',
+        [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'acceptInvitation'],
+    )->middleware('throttle:5,1')
+        ->name('control_center.staff_invitations.accept');
+
+    // Internal SaaS Control Center: separate from tenant RBAC and read-only by design.
+    Route::middleware(['auth:sanctum'])
+        ->prefix('internal/control-center')
+        ->group(function () {
+            Route::get('/staff-preflight', function (\Illuminate\Http\Request $request): JsonResponse {
+                return response()->json([
+                    'data' => [
+                        'user' => [
+                            'id' => (string) $request->user()->id,
+                            'name' => $request->user()->name,
+                            'email' => $request->user()->email,
+                        ],
+                        'role' => $request->attributes->get('control_center_staff_role', 'ops_readonly'),
+                        'mfa_enabled' => $request->user()->hasEnabledTwoFactor(),
+                    ],
+                    'errors' => [],
+                ]);
+            })->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':mfa_setup')
+                ->name('control_center.staff_preflight');
+            Route::get('/session', function (\Illuminate\Http\Request $request): JsonResponse {
+                return response()->json([
+                    'data' => [
+                        'user' => [
+                            'id' => (string) $request->user()->id,
+                            'name' => $request->user()->name,
+                            'email' => $request->user()->email,
+                        ],
+                        'role' => $request->attributes->get('control_center_staff_role', 'ops_readonly'),
+                        'mfa_enabled' => $request->user()->hasEnabledTwoFactor(),
+                    ],
+                    'errors' => [],
+                ]);
+            })->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class)
+                ->name('control_center.session');
+            Route::get('/organizations', [\App\Http\Controllers\Api\V1\ControlCenterOrganizationController::class, 'index'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class)
+                ->name('control_center.organizations.index');
+            Route::get('/organizations/{organizationId}', [\App\Http\Controllers\Api\V1\ControlCenterOrganizationController::class, 'show'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class)
+                ->name('control_center.organizations.show');
+            Route::get('/demo-requests', [\App\Http\Controllers\Api\V1\ControlCenterDemoRequestController::class, 'index'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager,ops_sales')
+                ->name('control_center.demo_requests.index');
+            Route::patch('/demo-requests/{demoRequest}', [\App\Http\Controllers\Api\V1\ControlCenterDemoRequestController::class, 'update'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager,ops_sales')
+                ->name('control_center.demo_requests.update');
+            Route::get('/support-cases', [\App\Http\Controllers\Api\V1\ControlCenterSupportCaseController::class, 'index'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager,ops_support')
+                ->name('control_center.support_cases.index');
+            Route::post('/support-cases', [\App\Http\Controllers\Api\V1\ControlCenterSupportCaseController::class, 'store'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager,ops_support')
+                ->name('control_center.support_cases.store');
+            Route::patch('/support-cases/{supportCase}', [\App\Http\Controllers\Api\V1\ControlCenterSupportCaseController::class, 'update'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager,ops_support')
+                ->name('control_center.support_cases.update');
+            Route::get('/service-readiness', [\App\Http\Controllers\Api\V1\ControlCenterServiceReadinessController::class, 'show'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager')
+                ->name('control_center.service_readiness.show');
+            Route::get('/audit-events', [\App\Http\Controllers\Api\V1\ControlCenterAuditController::class, 'index'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin,ops_manager')
+                ->name('control_center.audit_events.index');
+            Route::get('/staff', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'index'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin')
+                ->name('control_center.staff.index');
+            Route::get('/staff-invitations', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'invitations'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin')
+                ->name('control_center.staff_invitations.index');
+            Route::post('/staff-invitations', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'invite'])
+                ->middleware([\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin', 'throttle:30,1'])
+                ->name('control_center.staff_invitations.store');
+            Route::delete('/staff-invitations/{staffInvitation}', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'revokeInvitation'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin')
+                ->name('control_center.staff_invitations.destroy');
+            Route::post('/staff', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'store'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin')
+                ->name('control_center.staff.store');
+            Route::patch('/staff/{staffMember}', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'update'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':ops_admin')
+                ->name('control_center.staff.update');
+            Route::post('/staff-mfa-complete', [\App\Http\Controllers\Api\V1\ControlCenterStaffController::class, 'completeMfaSetup'])
+                ->middleware(\App\Http\Middleware\EnsureControlCenterStaff::class.':mfa_setup')
+                ->name('control_center.staff.mfa_complete');
+        });
 
     // Multi-Tenant Protected Routes
     Route::middleware(['auth:sanctum', 'api.limiter'])->group(function () {

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   Sparkles,
   ArrowRight,
@@ -39,11 +40,13 @@ interface LaunchpadViewProps {
     answer: string;
     keyMetrics?: Record<string, string>;
     suggestedActions?: string[];
+    requiresLogin?: boolean;
   } | null;
-  cashTotalPKR: number;
-  arTotalPKR: number;
-  apTotalPKR: number;
-  netBurnPKR: number;
+  demoPreview: boolean;
+  cashTotalPKR: number | null;
+  arTotalPKR: number | null;
+  apTotalPKR: number | null;
+  netBurnPKR: number | null;
   closeProgressPercent: number;
   closeTasksRemaining: number;
   activePeriodName: string;
@@ -63,6 +66,7 @@ export function LaunchpadView({
   onDismissCopilot,
   copilotLoading,
   copilotResponse,
+  demoPreview,
   cashTotalPKR,
   arTotalPKR,
   apTotalPKR,
@@ -85,13 +89,13 @@ export function LaunchpadView({
   ];
 
   return (
-    <div className="max-w-[1320px] w-full mx-auto px-6 sm:px-10 py-7 flex flex-col space-y-7 animate-in fade-in duration-200">
+    <div className="dashboard-launchpad max-w-[1320px] w-full mx-auto px-6 sm:px-10 py-7 flex flex-col space-y-7 animate-in fade-in duration-200">
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER: GREETING & DATE
       ─────────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-[#0F172A]">
+          <h1 className="text-2xl sm:text-[28px] font-semibold tracking-tight text-[#17251E]">
             Hi, {userName}
           </h1>
           <p className="text-xs text-[#64748B] mt-0.5">
@@ -99,13 +103,13 @@ export function LaunchpadView({
           </p>
         </div>
 
-        {/* Authoritative AI Gateway Pill */}
+        {/* Gateway configuration shortcut; it does not represent live service health. */}
         <button
           onClick={onOpenAxiomConfig}
-          className="self-start sm:self-auto inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#0F172A] border border-[#E2E8F0] transition-colors cursor-pointer"
+          className="self-start sm:self-auto inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#EFF7F0] hover:bg-[#E4F0E6] text-[#286344] border border-[#D6EAD9] transition-colors cursor-pointer"
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[#64748B]">• Authoritative AI Connected</span>
+          <Sparkles className="w-3.5 h-3.5" />
+          <span className="text-[#52745D]">Axiom AI settings</span>
         </button>
       </div>
 
@@ -114,7 +118,7 @@ export function LaunchpadView({
       ─────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: ARR */}
-        <div className="bg-[#F4F6FB] border border-[#E2E8F0]/80 rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[170px]">
+        <div className="dashboard-metric-card bg-white border border-[#E4EBE5] rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(20,50,32,0.035)] min-h-[170px]">
           <div>
             <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
               <span className="flex items-center gap-1">
@@ -124,33 +128,33 @@ export function LaunchpadView({
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-baseline space-x-1.5">
                 <span className="text-3xl font-extrabold tracking-tight text-[#0F172A]">
-                  $28.3M
+                  {demoPreview ? "$28.3M" : "—"}
                 </span>
-                <ArrowUpRight className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                {demoPreview && <ArrowUpRight className="w-4 h-4 text-emerald-600 stroke-[2.5]" />}
               </div>
 
               {/* Sparkline curve */}
-              <div className="w-24 h-9">
+              {demoPreview && <div className="w-24 h-9">
                 <svg viewBox="0 0 100 36" fill="none" className="w-full h-full">
                   <path
                     d="M 2 28 C 18 26, 32 18, 48 24 C 64 30, 78 8, 98 4"
-                    stroke="#4F46E5"
+                    stroke="#37805B"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                   />
                 </svg>
-              </div>
+              </div>}
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#E2E8F0]/60 text-[10px] text-[#94A3B8] flex items-center justify-between">
-            <span>As of 23:59, 30 Nov 2025</span>
-            <span className="text-[#64748B]">vs previous mo</span>
+            <span>{demoPreview ? "Sample snapshot" : "Annual recurring revenue"}</span>
+            {demoPreview && <span className="text-[#64748B]">Sample</span>}
           </div>
         </div>
 
         {/* Card 2: Cash Balance */}
-        <div className="bg-[#F4F6FB] border border-[#E2E8F0]/80 rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[170px]">
+        <div className="dashboard-metric-card bg-white border border-[#E4EBE5] rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(20,50,32,0.035)] min-h-[170px]">
           <div>
             <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
               <span className="flex items-center gap-1">
@@ -160,38 +164,43 @@ export function LaunchpadView({
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-baseline space-x-1.5">
                 <span className="text-3xl font-extrabold tracking-tight text-[#0F172A]">
-                  $30.8M
+                  {demoPreview
+                    ? "$30.8M"
+                    : cashTotalPKR === null
+                    ? "—"
+                    : formatPKR(cashTotalPKR)}
                 </span>
-                <ArrowUpRight className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                {demoPreview && <ArrowUpRight className="w-4 h-4 text-emerald-600 stroke-[2.5]" />}
               </div>
 
               {/* Vertical mini bar chart sparkline matching PDF */}
-              <div className="flex items-end space-x-1.5 h-8">
+              {demoPreview && <div className="flex items-end space-x-1.5 h-8">
                 <div className="w-1.5 h-4 bg-slate-300/80 rounded-full" />
                 <div className="w-1.5 h-5 bg-slate-300/80 rounded-full" />
                 <div className="w-1.5 h-3 bg-slate-300/80 rounded-full" />
                 <div className="w-1.5 h-6 bg-slate-300/80 rounded-full" />
-                <div className="w-2 h-8 bg-indigo-600 rounded-full" />
+                <div className="w-2 h-8 bg-[#37805B] rounded-full" />
                 <div className="w-1.5 h-5 bg-slate-300/80 rounded-full" />
-              </div>
+              </div>}
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#E2E8F0]/60 text-[10px] text-[#94A3B8] flex items-center justify-between">
-            <span>Live HBL + Meezan Accounts</span>
-            <span className="text-emerald-700 font-semibold">100% Reconciled</span>
+            <span>{demoPreview ? "Sample bank accounts" : "Bank account balances"}</span>
+            {demoPreview && <span className="text-emerald-700 font-semibold">Sample</span>}
           </div>
         </div>
 
         {/* Card 3: Dual Metric (Outstanding AR & Net Burn) */}
-        <div className="bg-[#F4F6FB] border border-[#E2E8F0]/80 rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[170px]">
+        <div className="dashboard-metric-card bg-white border border-[#E4EBE5] rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(20,50,32,0.035)] min-h-[170px]">
           <div>
             <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
               <span className="flex items-center gap-1">
                 Outstanding AR <Info className="w-3 h-3 text-[#94A3B8]" />
               </span>
               <span className="text-lg font-bold text-[#0F172A] flex items-center gap-1">
-                $2.3M <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+                {demoPreview ? "$2.3M" : arTotalPKR === null ? "—" : formatPKR(arTotalPKR)}
+                {demoPreview && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />}
               </span>
             </div>
           </div>
@@ -202,26 +211,27 @@ export function LaunchpadView({
                 Net Burn <Info className="w-3 h-3 text-[#94A3B8]" />
               </span>
               <span className="text-lg font-bold text-[#0F172A]">
-                $1.2M
+                {demoPreview ? "$1.2M" : netBurnPKR === null ? "—" : formatPKR(netBurnPKR)}
               </span>
             </div>
           </div>
 
           <div className="mt-3 pt-2 border-t border-[#E2E8F0]/60 text-[10px] text-[#94A3B8] flex items-center justify-between">
-            <span>DSO: 28 Days</span>
-            <span className="text-[#64748B]">Monthly OpEx Invariant</span>
+            <span>{demoPreview ? "DSO: 28 Days" : "Outstanding invoice balance"}</span>
+            {demoPreview && <span className="text-[#64748B]">Sample</span>}
           </div>
         </div>
 
         {/* Card 4: Dual Metric (Outstanding AP & Runway) */}
-        <div className="bg-[#F4F6FB] border border-[#E2E8F0]/80 rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[170px]">
+        <div className="dashboard-metric-card bg-white border border-[#E4EBE5] rounded-2xl p-5 flex flex-col justify-between shadow-[0_1px_3px_rgba(20,50,32,0.035)] min-h-[170px]">
           <div>
             <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
               <span className="flex items-center gap-1">
                 Outstanding AP <Info className="w-3 h-3 text-[#94A3B8]" />
               </span>
               <span className="text-lg font-bold text-[#0F172A] flex items-center gap-1">
-                $3.5M <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />
+                {demoPreview ? "$3.5M" : apTotalPKR === null ? "—" : formatPKR(apTotalPKR)}
+                {demoPreview && <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />}
               </span>
             </div>
           </div>
@@ -232,14 +242,14 @@ export function LaunchpadView({
                 Runway <Info className="w-3 h-3 text-[#94A3B8]" />
               </span>
               <span className="text-lg font-bold text-[#0F172A]">
-                31 months
+                {demoPreview ? "31 months" : "—"}
               </span>
             </div>
           </div>
 
           <div className="mt-3 pt-2 border-t border-[#E2E8F0]/60 text-[10px] text-[#94A3B8] flex items-center justify-between">
-            <span>3-Way Match Active</span>
-            <span className="text-emerald-700 font-semibold">Zero Cash Default Risk</span>
+            <span>{demoPreview ? "3-Way Match Active" : "Open vendor bills"}</span>
+            {demoPreview && <span className="text-emerald-700 font-semibold">Sample</span>}
           </div>
         </div>
       </div>
@@ -249,8 +259,8 @@ export function LaunchpadView({
       ─────────────────────────────────────────────────────────────── */}
       <div className="flex flex-col items-center justify-center space-y-3 pt-1">
         <div className="w-full max-w-3xl relative">
-          <div className="bg-white rounded-full border border-[#E2E8F0] px-4 py-2.5 flex items-center space-x-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-indigo-300 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
-            <div className="w-7 h-7 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0 shadow-xs">
+          <div className="dashboard-ai-prompt bg-white rounded-full border border-[#E2E8F0] px-4 py-2.5 flex items-center space-x-3 shadow-[0_2px_8px_rgba(20,50,32,0.05)] hover:border-[#A8CCB1] focus-within:border-[#37805B] focus-within:ring-2 focus-within:ring-[#DDEBDF] transition-all">
+            <div className="w-7 h-7 rounded-full bg-[#2D7651] text-white flex items-center justify-center shrink-0 shadow-xs">
               <span className="text-xs font-serif leading-none">❋</span>
             </div>
 
@@ -268,7 +278,7 @@ export function LaunchpadView({
             <button
               onClick={() => onAskAxiomAI()}
               disabled={copilotLoading}
-              className="bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0 shadow-xs"
+              className="bg-[#1D5C40] hover:bg-[#174A34] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0 shadow-xs"
             >
               {copilotLoading ? (
                 <>
@@ -293,7 +303,7 @@ export function LaunchpadView({
                     ✦
                   </div>
                   <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-                    Authoritative AI Financial Reasoning
+                    Axiom AI response
                   </span>
                 </div>
                 <button
@@ -327,6 +337,16 @@ export function LaunchpadView({
                   ))}
                 </div>
               )}
+
+              {copilotResponse.requiresLogin && (
+                <Link
+                  href="/login?next=%2Fapp"
+                  className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#1D5C40] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#174A34] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#37805B]"
+                >
+                  Sign in to Finova
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           )}
 
@@ -354,6 +374,7 @@ export function LaunchpadView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
         {/* Left Column (8 cols): Cockpit / Workflow snapshot + Tech Stack */}
         <div className="lg:col-span-8 flex flex-col space-y-6">
+          {demoPreview && <>
           {/* Cockpit Card */}
           <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between pb-4 border-b border-[#F1F5F9]">
@@ -524,11 +545,12 @@ export function LaunchpadView({
               </button>
             </div>
           </div>
+          </>}
         </div>
 
         {/* Right Column (4 cols): Reports Card (PDF Page 3/11) */}
         <div className="lg:col-span-4">
-          <div className="bg-[#F4F6FB] border border-[#E2E8F0]/80 rounded-2xl p-5 space-y-3">
+          <div className="dashboard-metric-card bg-white border border-[#E4EBE5] rounded-2xl p-5 space-y-3">
             <h3 className="text-sm font-bold text-[#0F172A] tracking-tight">
               Reports
             </h3>

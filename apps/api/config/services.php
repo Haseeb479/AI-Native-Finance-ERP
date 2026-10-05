@@ -37,7 +37,13 @@ return [
 
     'ai' => [
         'url' => env('AI_SERVICE_URL', 'http://localhost:8001'),
-        'internal_secret' => env('AI_INTERNAL_SECRET', 'ai-native-finance-erp-internal-service-secret-key'),
+        'internal_secret' => env('AI_INTERNAL_SECRET', env('INTERNAL_SERVICE_SECRET')),
+    ],
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
     ],
 
 ];

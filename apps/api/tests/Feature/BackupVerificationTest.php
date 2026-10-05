@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Domain\Operations\Services\BackupVerificationService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class BackupVerificationTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected string $testBackupDir;
 
     protected function setUp(): void
@@ -70,6 +73,7 @@ class BackupVerificationTest extends TestCase
 
     public function test_restore_drill_passes_and_certifies_rto(): void
     {
+        \App\Models\User::factory()->create();
         $service = new BackupVerificationService($this->testBackupDir);
         $service->createBackupSnapshot('restore_test');
 
@@ -81,6 +85,7 @@ class BackupVerificationTest extends TestCase
         $this->assertTrue($drillResult['tenant_isolation_verified']);
         $this->assertTrue($drillResult['rto_certified']);
         $this->assertGreaterThan(0, $drillResult['tables_verified']);
+        $this->assertGreaterThan(0, $drillResult['rows_verified']);
     }
 
     public function test_restore_drill_fails_on_corrupted_backup(): void

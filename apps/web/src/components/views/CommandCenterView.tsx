@@ -94,17 +94,11 @@ export interface ActivityItem {
 }
 
 interface CommandCenterViewProps {
-  onApproveItem?: (id: string) => void;
-  onRejectItem?: (id: string) => void;
-  onReviewItem?: (item: QueueItem) => void;
   orgName?: string;
   className?: string;
 }
 
 export function CommandCenterView({
-  onApproveItem,
-  onRejectItem,
-  onReviewItem,
   orgName = "Apex Trading (Pvt) Ltd",
   className,
 }: CommandCenterViewProps) {
@@ -120,13 +114,8 @@ export function CommandCenterView({
     {
       role: "assistant",
       content:
-        `Welcome to the Axiom AI Workspace for ${orgName}. I am your Autonomous Financial Controller connected to live General Ledger journals, FBR tax rules, and 3-Way matching pipelines. Ask me about your close status, bill variances, or request a draft journal.`,
+        `Welcome to the Axiom AI Workspace preview for ${orgName}. The agent activity, ledger examples, FBR checks, and matching proposals shown here are sample data and are not connected to live operations. You can ask Axiom a general question, but verify any financial answer against your organization's records.`,
       time: "Just now",
-      metrics: {
-        "GL Invariant": "Balanced (0 Diff)",
-        "Base Currency": "PKR",
-        "Active Period": "August 2025",
-      },
       actions: [
         "What's left on my month-end close?",
         "Audit 3-way match variances on AP bills",
@@ -136,15 +125,15 @@ export function CommandCenterView({
   ]);
 
   // 2. Autonomous Agents Dataset
-  const [agents, setAgents] = useState<FinancialAgent[]>([
+  const agents: FinancialAgent[] = [
     {
       id: "agent-ap-match",
       name: "AP & 3-Way Match Agent",
       role: "Autonomous Subledger Auditor",
       description: "Continuously validates Purchase Orders vs. Goods Receipts (GRN) vs. Vendor Bills. Flags quantity and price variances exceeding ±2.0% tolerance.",
       icon: Scale,
-      status: "active",
-      model: "Axiom AI (Llama 3.3 70B)",
+      status: "idle",
+      model: "Preview configuration",
       lastExecution: "3 mins ago",
       processedCount: 142,
       accuracyRate: "99.4%",
@@ -156,8 +145,8 @@ export function CommandCenterView({
       role: "Tax Compliance Inspector",
       description: "Cross-checks vendor NTNs against the Federal Board of Revenue Active Taxpayer List (ATL). Calculates Section 153 WHT deductions and prepares Annex-C returns.",
       icon: ShieldCheck,
-      status: "active",
-      model: "Axiom AI (Llama 3.3 70B)",
+      status: "idle",
+      model: "Preview configuration",
       lastExecution: "12 mins ago",
       processedCount: 88,
       accuracyRate: "100%",
@@ -169,7 +158,7 @@ export function CommandCenterView({
       role: "Cryptographic Integrity Guardian",
       description: "Enforces non-negotiable double-entry rule (Debits == Credits). Verifies SHA-256 fingerprint chains and blocks manual direct journals to control accounts.",
       icon: Cpu,
-      status: "active",
+      status: "idle",
       model: "Axiom Deterministic Invariant Verifier",
       lastExecution: "Just now",
       processedCount: 512,
@@ -182,8 +171,8 @@ export function CommandCenterView({
       role: "Month-End Operations Controller",
       description: "Monitors close countdown, inspects subledger-to-GL account flux (>10% month-over-month), and drafts fixed asset depreciation and prepaid expense amortization.",
       icon: Clock,
-      status: "active",
-      model: "Axiom AI (Llama 3.3 70B)",
+      status: "idle",
+      model: "Preview configuration",
       lastExecution: "25 mins ago",
       processedCount: 64,
       accuracyRate: "98.8%",
@@ -195,23 +184,23 @@ export function CommandCenterView({
       role: "Bank Statement Clearing Worker",
       description: "Parses Meezan Bank & HBL CSV statement feeds, computes SHA-256 deduplication fingerprints, and executes regex matching rules with auto-reconcile confidence scoring.",
       icon: Landmark,
-      status: "active",
-      model: "Axiom AI (Llama 3.3 70B)",
+      status: "idle",
+      model: "Preview configuration",
       lastExecution: "1 hour ago",
       processedCount: 230,
       accuracyRate: "99.1%",
       tasksQueued: 1,
     },
-  ]);
+  ];
 
   // 3. Flow Execution Plans Dataset
-  const [flows, setFlows] = useState<FlowPlan[]>([
+  const flows: FlowPlan[] = [
     {
       id: "FLOW-001",
       name: "Vendor Bill Ingestion & 3-Way Match Pipeline",
       category: "Procurement",
       trigger: "New Vendor Bill Draft or OCR Upload",
-      status: "active",
+      status: "idle",
       lastRun: "8 mins ago",
       avgDuration: "3.2s",
       steps: [
@@ -227,7 +216,7 @@ export function CommandCenterView({
       name: "Continuous Month-End Accruals & Close Pipeline",
       category: "Month-End Close",
       trigger: "Daily Schedule at 00:00 UTC or Soft-Close Request",
-      status: "active",
+      status: "idle",
       lastRun: "Today at 00:00",
       avgDuration: "5.8s",
       steps: [
@@ -243,7 +232,7 @@ export function CommandCenterView({
       name: "Dual-Sided Statement Cash Clearing Pipeline",
       category: "Cash Clearing",
       trigger: "Bank Statement CSV Ingestion",
-      status: "active",
+      status: "idle",
       lastRun: "1 hour ago",
       avgDuration: "2.4s",
       steps: [
@@ -252,14 +241,14 @@ export function CommandCenterView({
         { name: "Unmatched Ledger Proposal", description: "Suggest draft journal entry for bank fees and FED charges", status: "completed", runtimeMs: 420, outputSummary: "PKR 1,160 FED tax entry proposed" },
       ],
     },
-  ]);
+  ];
 
   const [selectedFlow, setSelectedFlow] = useState<FlowPlan | null>(null);
 
   // 4. Draft Proposals Queue
   const [queueSearch, setQueueSearch] = useState("");
   const [queueDomainFilter, setQueueDomainFilter] = useState("all");
-  const [queueItems, setQueueItems] = useState<QueueItem[]>([
+  const queueItems: QueueItem[] = [
     {
       id: "Q-101",
       domain: "AP",
@@ -299,7 +288,7 @@ export function CommandCenterView({
       accountsInvolved: { debit: "6090", credit: "1010", amount: 1160 },
       proposalType: "draft_journal",
     },
-  ]);
+  ];
 
   // 5. Activity Log
   const [activityLog] = useState<ActivityItem[]>([
@@ -392,20 +381,8 @@ export function CommandCenterView({
     return matchesDomain && matchesSearch;
   });
 
-  const handleApprove = (id: string) => {
-    setQueueItems((prev) => prev.filter((it) => it.id !== id));
-    if (onApproveItem) onApproveItem(id);
-    else alert(`Proposal ${id} approved and draft journal routed to General Ledger.`);
-  };
-
-  const handleReject = (id: string) => {
-    setQueueItems((prev) => prev.filter((it) => it.id !== id));
-    if (onRejectItem) onRejectItem(id);
-    else alert(`Proposal ${id} dismissed.`);
-  };
-
   return (
-    <div className={cn("max-w-[1320px] w-full mx-auto px-6 sm:px-10 py-7 space-y-6 animate-in fade-in duration-200", className)}>
+    <div className={cn("axiom-workspace max-w-[1320px] w-full mx-auto px-6 sm:px-10 py-7 space-y-6 animate-in fade-in duration-200", className)}>
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER & 5 SUB-TABS (Assistant, Agents, Flows, Proposals, Activity)
       ─────────────────────────────────────────────────────────────── */}
@@ -419,8 +396,8 @@ export function CommandCenterView({
               <h1 className="text-2xl font-bold tracking-tight text-[#0F172A]">
                 Axiom AI Workspace
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                FastAPI AI • Llama 3.3 70B
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Preview data
               </span>
             </div>
             <p className="text-xs text-[#64748B] mt-1">
@@ -454,7 +431,7 @@ export function CommandCenterView({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  "pb-2 border-b-2 transition-all cursor-pointer flex items-center space-x-2 text-xs sm:text-sm",
+                  "axiom-workspace-tab pb-2 border-b-2 transition-all cursor-pointer flex items-center space-x-2 text-xs sm:text-sm",
                   active
                     ? "border-[#6366F1] text-[#0F172A]"
                     : "border-transparent text-[#64748B] hover:text-[#0F172A]"
@@ -476,6 +453,10 @@ export function CommandCenterView({
             );
           })}
         </div>
+      </div>
+
+      <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+        <strong>Preview data:</strong> agent activity, execution plans, audit entries, and proposals below are examples. Agent runs and proposal posting are not connected to live operations.
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
@@ -508,13 +489,13 @@ export function CommandCenterView({
             {/* Terminal Header */}
             <div className="px-6 py-3.5 border-b border-[#F1F5F9] bg-[#F8FAFC] flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
                 <span className="text-xs font-bold text-[#0F172A]">
-                  Axiom Autonomous Controller • Llama 3.3 70B (FastAPI Engine)
+                  Axiom AI • Live data connections not verified
                 </span>
               </div>
-              <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-mono">
-                Double-Entry Invariant Verified ✓
+              <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-mono">
+                Preview environment
               </span>
             </div>
 
@@ -620,8 +601,8 @@ export function CommandCenterView({
                 Domain-specific agents continuously monitoring subledgers, FBR compliance, and mathematical invariants.
               </p>
             </div>
-            <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full">
-              5 of 5 Agents Active
+            <span className="text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-full">
+              {agents.length} example agents · idle
             </span>
           </div>
 
@@ -638,8 +619,8 @@ export function CommandCenterView({
                       <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                         <Icon className="w-5 h-5" />
                       </div>
-                      <span className="inline-flex items-center space-x-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="inline-flex items-center space-x-1 text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                         <span className="capitalize">{agent.status}</span>
                       </span>
                     </div>
@@ -675,11 +656,13 @@ export function CommandCenterView({
                     </div>
 
                     <button
-                      onClick={() => alert(`Triggering autonomous run for ${agent.name}...`)}
-                      className="w-full py-2 bg-[#F8FAFC] hover:bg-indigo-50 text-[#0F172A] hover:text-indigo-700 border border-[#E2E8F0] hover:border-indigo-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                      type="button"
+                      disabled
+                      title="Agent execution is not connected to a live workflow."
+                      className="w-full py-2 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 cursor-not-allowed"
                     >
                       <Play className="w-3.5 h-3.5" />
-                      <span>Trigger Agent Run</span>
+                      <span>Agent run unavailable</span>
                     </button>
                   </div>
                 </div>
@@ -702,10 +685,12 @@ export function CommandCenterView({
               </p>
             </div>
             <button
-              onClick={() => alert("Creating a new custom autonomous flow plan.")}
-              className="px-3.5 py-1.5 bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs font-semibold rounded-xl flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
+              type="button"
+              disabled
+              title="Custom flow creation is not connected to a live workflow."
+              className="px-3.5 py-1.5 bg-slate-100 text-slate-500 border border-slate-200 text-xs font-semibold rounded-xl cursor-not-allowed"
             >
-              <span>+ New Execution Flow</span>
+              <span>Flow creation unavailable</span>
             </button>
           </div>
 
@@ -815,16 +800,20 @@ export function CommandCenterView({
 
                   <div className="flex items-center space-x-2 shrink-0">
                     <button
-                      onClick={() => handleReject(item.id)}
-                      className="px-3 py-1.5 text-xs text-[#64748B] hover:text-rose-600 rounded-xl border border-[#E2E8F0] hover:border-rose-200 transition-colors cursor-pointer"
+                      type="button"
+                      disabled
+                      title="This preview proposal is not connected to the approval API."
+                      className="px-3 py-1.5 text-xs text-slate-500 rounded-xl border border-slate-200 bg-slate-100 cursor-not-allowed"
                     >
-                      Dismiss
+                      Dismiss unavailable
                     </button>
                     <button
-                      onClick={() => handleApprove(item.id)}
-                      className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+                      type="button"
+                      disabled
+                      title="This preview proposal is not connected to the approval API."
+                      className="px-3.5 py-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed"
                     >
-                      Approve & Post to GL
+                      Posting unavailable
                     </button>
                   </div>
                 </div>

@@ -16,59 +16,56 @@ export interface AxiomResponse {
   message?: string;
 }
 
+export class AxiomRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = "AxiomRequestError";
+  }
+}
+
 export async function askAxiomAI(
   query: string,
-  financialContext: Record<string, any> = {},
+  financialContext: Record<string, unknown> = {},
   organizationId?: string
 ): Promise<AxiomResponse> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  try {
-    const res = await fetch("/api/axiom", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        query,
-        financial_context: financialContext,
-        organization_id: organizationId,
-      }),
-    });
+  const res = await fetch("/api/axiom", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query,
+      financial_context: financialContext,
+      organization_id: organizationId,
+    }),
+  });
 
-    const data = await res.json().catch(() => null);
+  const data = await res.json().catch(() => null);
 
-    if (!data) {
-      throw new Error("Invalid response received from AI service.");
-    }
-
-    if (!res.ok) {
-      throw new Error(data.message || data.error || "AI service failed to respond.");
-    }
-
-    return {
-      configured: data.configured ?? true,
-      success: true,
-      answer: data.answer || "No response generated.",
-      metrics: data.metrics || {},
-      suggested_actions: data.suggested_actions || [],
-      latency_ms: data.latency_ms,
-    };
-  } catch (err: any) {
-    return {
-      configured: false,
-      error: "REQUEST_FAILED",
-      answer: `AI Gateway Connection Error: ${err.message || "Failed to reach AI service."}`,
-      metrics: {
-        "Status": "Connection Failed",
-        "Engine": "FastAPI AI Microservice",
-      },
-      suggested_actions: [
-        "Verify network connectivity to backend",
-        "Ensure enterprise session is authenticated",
-      ],
-    };
+  if (!data) {
+    throw new AxiomRequestError("Invalid response received from AI service.", res.status);
   }
+
+  if (!res.ok) {
+    throw new AxiomRequestError(
+      data.message || data.error || "AI service failed to respond.",
+      res.status,
+    );
+  }
+
+  return {
+    configured: data.configured ?? true,
+    success: true,
+    answer: data.answer || "No response generated.",
+    metrics: data.metrics || {},
+    suggested_actions: data.suggested_actions || [],
+    latency_ms: data.latency_ms,
+  };
 }
 
 export async function checkAxiomStatus(): Promise<{

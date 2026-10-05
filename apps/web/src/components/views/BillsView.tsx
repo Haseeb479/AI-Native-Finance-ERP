@@ -23,6 +23,7 @@ import { Badge } from "../ui/Badge";
 
 export interface BillRecord {
   id: string;
+  rawId?: string;
   vendor: string;
   vendorNtn?: string;
   po: string;
@@ -44,7 +45,8 @@ interface BillsViewProps {
   error?: string | null;
   onRefresh?: () => void;
   onRetry?: () => void;
-  onApproveBill?: (billId: string) => void;
+  onApproveBill?: (billId: string) => Promise<void> | void;
+  isApprovingBill?: boolean;
   className?: string;
 }
 
@@ -55,12 +57,14 @@ export function BillsView({
   onRefresh,
   onRetry,
   onApproveBill,
+  isApprovingBill = false,
   className,
 }: BillsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [matchFilter, setMatchFilter] = useState("all");
   const [selectedBill, setSelectedBill] = useState<BillRecord | null>(null);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
 
   // Filter logic
   const filteredBills = bills.filter((b) => {
@@ -162,7 +166,10 @@ export function BillsView({
       render: (b) => (
         <div className="flex items-center justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => setSelectedBill(b)}
+            onClick={() => {
+              setApprovalError(null);
+              setSelectedBill(b);
+            }}
             className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50 transition-colors cursor-pointer"
           >
             Review 3-Way
@@ -232,7 +239,10 @@ export function BillsView({
         isLoading={isLoading}
         error={error}
         onRetry={onRetry || onRefresh}
-        onRowClick={(b) => setSelectedBill(b)}
+        onRowClick={(b) => {
+          setApprovalError(null);
+          setSelectedBill(b);
+        }}
         rowKey={(b) => b.id}
         emptyMessage="No vendor bills found"
         emptySubtext="Create a new vendor bill or adjust your search filter."
@@ -261,17 +271,23 @@ export function BillsView({
         }
         footer={
           selectedBill && (
-            <div className="flex items-center justify-between w-full">
-              <button
-                onClick={() => setSelectedBill(null)}
-                className="px-4 py-2 border border-[#E2E8F0] hover:bg-slate-50 text-xs font-semibold rounded-xl text-[#64748B] transition-colors cursor-pointer"
-              >
-                Close
-              </button>
+            <div className="w-full space-y-3">
+              {approvalError && (
+                <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  {approvalError}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setSelectedBill(null)}
+                  className="px-4 py-2 border border-[#E2E8F0] hover:bg-slate-50 text-xs font-semibold rounded-xl text-[#64748B] transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
 
-              <div className="flex items-center space-x-2">
-                {selectedBill.status !== "Approved" && (
-                  <>
+                <div className="flex items-center space-x-2">
+                  {selectedBill.status !== "Approved" && (
+                    <>
                     <button
                       onClick={() => {
                         alert(`Waived variance on bill ${selectedBill.id} with CFO sign-off log.`);
@@ -281,19 +297,27 @@ export function BillsView({
                     >
                       Waive Variance
                     </button>
-                    <button
-                      onClick={() => {
-                        if (onApproveBill) onApproveBill(selectedBill.id);
-                        alert(`Bill ${selectedBill.id} approved for payment release.`);
-                        setSelectedBill(null);
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs flex items-center space-x-1.5"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Approve Bill</span>
-                    </button>
-                  </>
-                )}
+                      {onApproveBill && (
+                        <button
+                          disabled={isApprovingBill}
+                          onClick={async () => {
+                            setApprovalError(null);
+                            try {
+                              await onApproveBill(selectedBill.rawId || selectedBill.id);
+                              setSelectedBill(null);
+                            } catch (error) {
+                              setApprovalError(error instanceof Error ? error.message : "Bill approval failed. Please try again.");
+                            }
+                          }}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs flex items-center space-x-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isApprovingBill ? "Approving…" : "Approve Bill"}</span>
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )

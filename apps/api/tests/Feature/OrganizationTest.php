@@ -78,6 +78,17 @@ class OrganizationTest extends TestCase
             'name' => 'Karachi Main',
             'city' => 'Karachi',
         ]);
+
+        $this->assertDatabaseHas('accounts', [
+            'organization_id' => $orgId,
+            'code' => '4010',
+        ]);
+        $this->assertSame(
+            12,
+            \Illuminate\Support\Facades\DB::table('accounting_periods')
+                ->where('organization_id', $orgId)
+                ->count()
+        );
     }
 
     public function test_user_can_list_their_organizations(): void

@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('idempotency_keys', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('organization_id')->constrained('organizations')->cascadeOnDelete();
-            $table->foreignUuid('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('idempotency_key', 255);
             $table->string('request_method', 10);
             $table->string('request_path', 1000);

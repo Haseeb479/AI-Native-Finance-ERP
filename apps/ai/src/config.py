@@ -19,7 +19,9 @@ class AISettings(BaseSettings):
     REDIS_URL: Optional[str] = None
     
     # LLM Provider Configuration
-    DEFAULT_LLM_PROVIDER: str = "mock"  # "gemini", "openai", "anthropic", "mock"
+    DEFAULT_LLM_PROVIDER: str = "mock"  # "gemini", "groq", or "mock"
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     GEMINI_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
@@ -64,5 +66,3 @@ class AISettings(BaseSettings):
 
 settings = AISettings()
 settings.validate_production_readiness()
-
-

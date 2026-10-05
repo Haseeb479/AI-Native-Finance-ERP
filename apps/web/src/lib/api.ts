@@ -208,6 +208,30 @@ export const erpApi = {
     return res.data?.organizations || [];
   },
 
+  createOrganization: async (organizationData: {
+    name: string;
+    legal_name: string;
+    ntn?: string;
+    strn?: string;
+    country_code: string;
+    base_currency: string;
+    fiscal_year_start_month: number;
+    primary_entity_name: string;
+    primary_branch_name: string;
+    city: string;
+  }) => {
+    const res = await apiFetch<{ organization: OrganizationSummary & { fiscal_year_start_month: number } }>("/organizations", {
+      method: "POST",
+      body: JSON.stringify(organizationData),
+    });
+    return res.data?.organization;
+  },
+
+  getCustomers: async (orgId: string) => {
+    const res = await apiFetch<any[]>(`/organizations/${orgId}/customers`);
+    return res.data || [];
+  },
+
   // 4. Sales Invoices
   getInvoices: async (orgId: string, params?: { status?: string }) => {
     const query = new URLSearchParams(params as any).toString();

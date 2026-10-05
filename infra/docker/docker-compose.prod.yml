@@ -1,14 +1,13 @@
 name: finance-erp-prod
 
 services:
-  # ── 1. Edge Ingress: Nginx Reverse Proxy & TLS Termination ──────────────────
+  # ── 1. Edge Ingress: HTTP reverse proxy; TLS must terminate at a trusted external ingress ─
   nginx:
     image: nginx:1.27-alpine
     container_name: finance_prod_nginx
     restart: always
     ports:
       - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
     volumes:
       - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -111,10 +110,27 @@ services:
     # Security: Internal PHP-FPM port 9000 is routed only through Nginx
     expose:
       - "9000"
+    volumes:
+      - backup_prod_data:/var/www/html/storage/app/backups
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_KEY: ${APP_KEY:?APP_KEY must be provided in production}
+      CONTROL_CENTER_STAFF_EMAILS: ${CONTROL_CENTER_STAFF_EMAILS:?CONTROL_CENTER_STAFF_EMAILS must be provisioned in production}
+      CONTROL_CENTER_STAFF_ROLES: ${CONTROL_CENTER_STAFF_ROLES:?CONTROL_CENTER_STAFF_ROLES must be provisioned in production}
+      OPS_ALLOWED_HOSTS: ${OPS_ALLOWED_HOSTS:?OPS_ALLOWED_HOSTS must name the dedicated staff portal host}
+      OPS_PORTAL_URL: ${OPS_PORTAL_URL:?OPS_PORTAL_URL must use the dedicated staff portal host}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APP_URL: ${APP_URL:?APP_URL must be provided in production}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL must be provided in production}
+      MAIL_MAILER: ${MAIL_MAILER:?MAIL_MAILER must be provided in production}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SCHEME: ${MAIL_SCHEME:-smtps}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:?MAIL_FROM_ADDRESS must be provided in production}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Finance ERP}
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
@@ -125,7 +141,19 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       AI_SERVICE_URL: http://ai:8001
-      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      AI_INTERNAL_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      BACKUP_REMOTE_DISK: backups
+      BACKUP_S3_KEY: ${BACKUP_S3_KEY:?BACKUP_S3_KEY must be provided for off-host backups}
+      BACKUP_S3_SECRET: ${BACKUP_S3_SECRET:?BACKUP_S3_SECRET must be provided for off-host backups}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:?BACKUP_S3_BUCKET must be provided for off-host backups}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_USE_PATH_STYLE_ENDPOINT: ${BACKUP_S3_USE_PATH_STYLE_ENDPOINT:-false}
+      BACKUP_RESTORE_DB_HOST: ${BACKUP_RESTORE_DB_HOST:-postgres}
+      BACKUP_RESTORE_DB_PORT: ${BACKUP_RESTORE_DB_PORT:-5432}
+      BACKUP_RESTORE_DB_USERNAME: ${BACKUP_RESTORE_DB_USERNAME:?BACKUP_RESTORE_DB_USERNAME must be provided for restore drills}
+      BACKUP_RESTORE_DB_PASSWORD: ${BACKUP_RESTORE_DB_PASSWORD:?BACKUP_RESTORE_DB_PASSWORD must be provided for restore drills}
+      BACKUP_RESTORE_DB_MAINTENANCE_DATABASE: ${BACKUP_RESTORE_DB_MAINTENANCE_DATABASE:-postgres}
       SESSION_SECURE_COOKIE: "true"
       SANCTUM_STATEFUL_DOMAINS: ${APP_DOMAINS:-localhost:3000}
     depends_on:
@@ -134,7 +162,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 0"]
+      test: ["CMD-SHELL", "php -r \"exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);\""]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -168,7 +196,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       AI_SERVICE_URL: http://ai:8001
-      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      AI_INTERNAL_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
     depends_on:
       postgres:
         condition: service_healthy
@@ -190,6 +218,8 @@ services:
     container_name: finance_prod_scheduler
     restart: always
     command: ["sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
+    volumes:
+      - backup_prod_data:/var/www/html/storage/app/backups
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -204,7 +234,19 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       AI_SERVICE_URL: http://ai:8001
-      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      AI_INTERNAL_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
+      BACKUP_REMOTE_DISK: backups
+      BACKUP_S3_KEY: ${BACKUP_S3_KEY:?BACKUP_S3_KEY must be provided for off-host backups}
+      BACKUP_S3_SECRET: ${BACKUP_S3_SECRET:?BACKUP_S3_SECRET must be provided for off-host backups}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:?BACKUP_S3_BUCKET must be provided for off-host backups}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_USE_PATH_STYLE_ENDPOINT: ${BACKUP_S3_USE_PATH_STYLE_ENDPOINT:-false}
+      BACKUP_RESTORE_DB_HOST: ${BACKUP_RESTORE_DB_HOST:-postgres}
+      BACKUP_RESTORE_DB_PORT: ${BACKUP_RESTORE_DB_PORT:-5432}
+      BACKUP_RESTORE_DB_USERNAME: ${BACKUP_RESTORE_DB_USERNAME:?BACKUP_RESTORE_DB_USERNAME must be provided for restore drills}
+      BACKUP_RESTORE_DB_PASSWORD: ${BACKUP_RESTORE_DB_PASSWORD:?BACKUP_RESTORE_DB_PASSWORD must be provided for restore drills}
+      BACKUP_RESTORE_DB_MAINTENANCE_DATABASE: ${BACKUP_RESTORE_DB_MAINTENANCE_DATABASE:-postgres}
     depends_on:
       postgres:
         condition: service_healthy
@@ -231,7 +273,7 @@ services:
       - "8001"
     environment:
       ENVIRONMENT: production
-      LLM_PROVIDER: ${LLM_PROVIDER:?LLM_PROVIDER must be configured in production (e.g. groq, deepseek, anthropic)}
+      DEFAULT_LLM_PROVIDER: ${LLM_PROVIDER:?LLM_PROVIDER must be configured in production (e.g. gemini, openai, anthropic)}
       APP_PORT: 8001
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET must be provided in production}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -260,6 +302,8 @@ services:
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
     container_name: finance_prod_web
     restart: always
     expose:
@@ -267,7 +311,9 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
       INTERNAL_API_URL: http://nginx/api/v1
+      OPS_ALLOWED_HOSTS: ${OPS_ALLOWED_HOSTS:?OPS_ALLOWED_HOSTS must name the dedicated staff portal host}
     depends_on:
       - api
     healthcheck:
@@ -287,6 +333,7 @@ volumes:
   postgres_prod_data:
   redis_prod_data:
   minio_prod_data:
+  backup_prod_data:
 
 networks:
   finance_prod_network:

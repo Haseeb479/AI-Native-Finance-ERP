@@ -73,7 +73,7 @@ export function SidebarNavigation({
   return (
     <aside
       className={cn(
-        "w-[68px] bg-white border-r border-[#F1F5F9] flex flex-col items-center justify-between py-4 shrink-0 z-30 select-none shadow-[1px_0_4px_rgba(0,0,0,0.02)]",
+        "finova-sidebar w-[68px] bg-white border-r border-[#E7EEE8] flex flex-col items-center justify-between py-4 shrink-0 z-30 select-none shadow-[1px_0_4px_rgba(20,50,32,0.04)]",
         className
       )}
     >
@@ -83,7 +83,7 @@ export function SidebarNavigation({
         <Link
           href="/"
           title="Finova ERP - Home"
-          className="w-10 h-10 rounded-[12px] bg-[#6366F1] text-white flex items-center justify-center font-bold text-base shadow-sm tracking-tight hover:opacity-90 transition-opacity cursor-pointer"
+          className="finova-sidebar-brand w-10 h-10 rounded-[12px] bg-[#1D5C40] text-white flex items-center justify-center font-bold text-base shadow-sm tracking-tight hover:opacity-90 transition-opacity cursor-pointer"
         >
           Fi
         </Link>
@@ -102,13 +102,13 @@ export function SidebarNavigation({
                   className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 relative cursor-pointer",
                     active
-                      ? "text-[#0F172A] bg-[#F1F5F9] font-semibold shadow-xs"
-                      : "text-[#94A3B8] hover:text-[#0F172A] hover:bg-[#F8FAFC]"
+                      ? "text-[#174A34] bg-[#EAF3EC] font-semibold shadow-xs"
+                      : "text-[#839188] hover:text-[#174A34] hover:bg-[#F3F7F3]"
                   )}
                 >
                   <Icon className="w-[19px] h-[19px] stroke-[1.75]" />
                   {active && (
-                    <span className="absolute -left-2 w-[3px] h-5 bg-[#6366F1] rounded-r-full" />
+                    <span className="absolute -left-2 w-[3px] h-5 bg-[#37805B] rounded-r-full" />
                   )}
                 </button>
 
@@ -130,8 +130,8 @@ export function SidebarNavigation({
             onClick={() => onSelectNav("audit")}
             title="Immutable Audit Trail (SHA-256)"
             className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center text-[#94A3B8] hover:text-[#0F172A] hover:bg-[#F8FAFC] transition-colors cursor-pointer",
-              (activeNav === "audit" || activeNav === "security" || activeNav === "audit_logs") && "text-[#0F172A] bg-[#F1F5F9]"
+              "w-10 h-10 rounded-xl flex items-center justify-center text-[#839188] hover:text-[#174A34] hover:bg-[#F3F7F3] transition-colors cursor-pointer",
+              (activeNav === "audit" || activeNav === "security" || activeNav === "audit_logs") && "text-[#174A34] bg-[#EAF3EC]"
             )}
           >
             <History className="w-[18px] h-[18px] stroke-[1.75]" />
@@ -146,7 +146,7 @@ export function SidebarNavigation({
           <button
             onClick={onOpenProfile}
             title={currentUser ? `${currentUser.name || "User"} (${currentOrg?.name || "Apex"})` : "Click to Sign In"}
-            className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#8B5CF6] to-[#6366F1] text-white flex items-center justify-center text-xs font-bold ring-2 ring-white shadow-xs cursor-pointer hover:scale-105 transition-all"
+            className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#2D7651] to-[#65A978] text-white flex items-center justify-center text-xs font-bold ring-2 ring-white shadow-xs cursor-pointer hover:scale-105 transition-all"
           >
             {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "S"}
           </button>

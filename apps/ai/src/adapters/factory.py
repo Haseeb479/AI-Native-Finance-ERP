@@ -1,6 +1,7 @@
 from apps.ai.src.adapters.base import BaseLLMAdapter
 from apps.ai.src.adapters.mock_adapter import MockLLMAdapter
 from apps.ai.src.adapters.gemini_adapter import GeminiLLMAdapter
+from apps.ai.src.adapters.groq_adapter import GroqLLMAdapter
 from apps.ai.src.config import settings
 
 def get_llm_adapter(provider: str = None) -> BaseLLMAdapter:
@@ -12,13 +13,21 @@ def get_llm_adapter(provider: str = None) -> BaseLLMAdapter:
     
     if prov == "gemini":
         return GeminiLLMAdapter()
-    
+
+    if prov == "groq":
+        return GroqLLMAdapter()
+
+    if prov == "mock" and settings.ENVIRONMENT != "production":
+        return MockLLMAdapter()
+
     if settings.ENVIRONMENT == "production":
+        if prov == "mock":
+            raise RuntimeError(
+                "Security Violation: MockLLMAdapter is strictly forbidden in production."
+            )
         raise RuntimeError(
-            f"Security Violation: MockLLMAdapter is strictly forbidden in production. Configured provider: '{prov}'. "
-            "Please configure real provider credentials (e.g. GEMINI_API_KEY)."
+            f"Security Violation: LLM provider '{prov}' is not supported for production. "
+            "Configure a supported provider and credentials."
         )
 
-    # Fallback to deterministic mock adapter strictly for offline development and local test runs
-    return MockLLMAdapter()
-
+    raise ValueError(f"Unsupported LLM provider: '{prov}'. Configure 'groq', 'gemini', or 'mock'.")

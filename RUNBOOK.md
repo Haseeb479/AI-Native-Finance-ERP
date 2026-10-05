@@ -6,10 +6,14 @@ This document defines authoritative operational procedures for the **AI-Native F
 
 ## 1. Service Level Objectives (SLOs) & Targets
 
+The production Compose Nginx listener serves HTTP only. Terminate TLS at a trusted
+load balancer or ingress before traffic reaches it; do not publish the HTTP port
+directly to the public internet.
+
 | Metric | Target | Verification Method |
 |---|---|---|
-| **Recovery Point Objective (RPO)** | **< 24 Hours** (Daily snapshot + WAL archiving) | Automated verification via `php artisan backup:verify --rpo=24` |
-| **Recovery Time Objective (RTO)** | **< 60 Minutes** to full restored database state | Benchmarked restoration rate: 25 MB/sec minimum |
+| **Recovery Point Objective (RPO)** | **<= 24 Hours** (daily scheduled PostgreSQL snapshot) | Automated verification via `php artisan backup:verify --rpo=24` |
+| **Recovery Time Objective (RTO)** | **< 60 Minutes** to full restored database state | Measured by `php artisan backup:verify --restore-drill` |
 | **API Availability** | **99.95%** | Uptime monitoring on `/api/v1/health` and `/up` |
 | **Database Double-Entry Invariance** | **100% Zero-Imbalance Tolerance** | Enforced by PostgreSQL trigger `trg_assert_balanced_journal` |
 
@@ -17,12 +21,51 @@ This document defines authoritative operational procedures for the **AI-Native F
 
 ## 2. Backup & Disaster Recovery Procedures (P1-36)
 
+### 2.0 Authentication email delivery
+Production password-reset and email-verification links require `APP_URL` to be
+the public API URL, `FRONTEND_URL` to be the public web URL, and `MAIL_MAILER`
+to be a configured real transport (for example SMTP, SES, or Postmark).
+`MAIL_FROM_ADDRESS` must be a verified sender. Production readiness reports a
+configuration failure when a non-delivering mailer or invalid URL/sender is
+configured. Readiness also fails unless `APP_ENV=production`,
+`APP_DEBUG=false`, and the test suite has a verified passing execution report.
+For SMTP, set a reachable host, valid port, username, and password; the readiness
+check fails closed if authenticated SMTP settings are incomplete.
+Verify delivery using the password-reset and verification flows before opening
+registration to users.
+
+### 2.0.1 Finova Control Center staff access
+The Control Center is separate from customer workspaces and exposes company
+operations metadata only. Production requires `CONTROL_CENTER_STAFF_EMAILS` as
+a comma-separated allowlist of existing staff login email addresses. Access is
+denied when the allowlist is empty; customer tenant roles do not grant staff
+access. Provision this value through the production secret/configuration
+manager, review membership regularly, and follow [the Control Center
+operations guide](./docs/control-center.md). Staff directory and detail
+requests are recorded in the append-only staff audit trail.
+
+### 2.0.2 Google sign-in and demo inquiries
+To enable Google sign-in, configure the same Google OAuth Web client ID as
+`GOOGLE_CLIENT_ID` for the API and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` for the web
+build, and allowlist the production web origin in Google Cloud. If either value
+is absent or mismatched, Google sign-in will fail closed; email/password login
+remains available. Google cannot bypass a user's enabled MFA.
+
+Public walkthrough requests are rate-limited and stored for staff follow-up.
+They do not book a meeting or send a calendar invite. Provisioned staff review
+them in `/control-center/demo-requests`; access to this inbox is audited.
+
 ### 2.1 Automated Snapshot Creation
-Database backups are generated with SHA-256 cryptographic manifests:
+PostgreSQL backups are generated as `pg_dump` custom-format archives, hashed
+with SHA-256, and copied to the separately administered S3-compatible
+`BACKUP_REMOTE_DISK` with server-side AES-256 encryption:
 ```bash
 php artisan backup:verify --create-snapshot --rpo=24
 ```
-Output manifests are saved in `storage/app/backups/` and mirrored to cold S3/MinIO off-site buckets.
+The scheduler runs this command daily at 01:00. The remote backup bucket must
+be outside the database host and MinIO deployment failure domain; configure
+versioning, retention, and access controls independently. Production startup
+requires backup-storage credentials and a restore-drill database role.
 
 ### 2.2 Integrity & RPO Verification
 CI/CD schedules run verification hourly or prior to deployment:
@@ -30,9 +73,12 @@ CI/CD schedules run verification hourly or prior to deployment:
 php artisan backup:verify --rpo=24
 ```
 Verification performs:
-1. Manifest discovery and age verification against RPO target.
-2. Cryptographic SHA-256 validation comparing actual archive bytes with manifest.
-3. RTO estimate based on payload size and decompression benchmarking.
+1. Manifest discovery and age verification against the RPO target.
+2. SHA-256 validation of both the local archive and its remote copy.
+3. A restore drill creates a uniquely named temporary database, restores the
+   archive, checks required tables, posted journal balances, and tenant
+   consistency, then removes the temporary database. The restore credentials
+   must have permission to create and drop databases.
 
 ### 2.3 Database Restoration Procedure (Cold Recovery)
 If total database loss occurs:
@@ -40,14 +86,23 @@ If total database loss occurs:
    ```bash
    docker compose -f infra/docker/docker-compose.prod.yml stop api web nginx
    ```
-2. **Retrieve latest verified snapshot**:
+2. **Retrieve the latest archive and its manifest** from the remote backup bucket
+   using approved storage tooling, and copy both into the API container's shared
+   `storage/app/backups/` directory:
    ```bash
-   LATEST_BACKUP=$(ls -t storage/app/backups/*.json | head -1)
-   sha256sum "$LATEST_BACKUP" # verify against .manifest.json
+   LATEST_BACKUP=/path/to/retrieved/backup-YYYYMMDD-HHMMSS.dump
+   docker cp "$LATEST_BACKUP" finance_prod_api:/var/www/html/storage/app/backups/
+   docker cp "$LATEST_BACKUP.manifest.json" finance_prod_api:/var/www/html/storage/app/backups/
+   docker compose -f infra/docker/docker-compose.prod.yml exec api \
+     php artisan backup:verify --restore-drill --rpo=24
    ```
-3. **Restore PostgreSQL data**:
+   If the archive is older than 24 hours, record the RPO breach and set `--rpo`
+   to its actual age; do not report the original RPO as met.
+3. **Restore PostgreSQL data** to the recovered database:
    ```bash
-   docker compose -f infra/docker/docker-compose.prod.yml exec -T postgres psql -U finance_user -d finance_erp < "$LATEST_BACKUP"
+   docker compose -f infra/docker/docker-compose.prod.yml exec -T postgres \
+     pg_restore --exit-on-error --no-owner --no-privileges \
+     -U finance_user -d finance_erp < "$LATEST_BACKUP"
    ```
 4. **Run post-restore integrity and reconciliation checks**:
    ```bash

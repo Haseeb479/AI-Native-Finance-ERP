@@ -76,6 +76,18 @@ class ProductionReadinessTest extends TestCase
 
     public function test_verified_test_execution_report_produces_pass(): void
     {
+        config([
+            'app.env' => 'production',
+            'app.debug' => false,
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => 'smtp.gmail.com',
+            'mail.mailers.smtp.port' => 587,
+            'mail.mailers.smtp.username' => 'noreply@example.com',
+            'mail.mailers.smtp.password' => 'test-password',
+            'mail.from.address' => 'noreply@example.com',
+            'services.frontend_url' => 'http://localhost:3000',
+        ]);
+
         Http::fake([
             '*/health' => Http::response(['status' => 'healthy', 'service' => 'AI Service'], 200),
         ]);
@@ -100,6 +112,64 @@ class ProductionReadinessTest extends TestCase
         $response->assertStatus(200);
         $this->assertTrue($response->json('data.ready'));
         $this->assertSame('production_ready', $response->json('data.status'));
+    }
+
+    public function test_production_readiness_rejects_smtp_without_credentials(): void
+    {
+        config([
+            'app.env' => 'production',
+            'app.debug' => false,
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => 'smtp.gmail.com',
+            'mail.mailers.smtp.port' => 587,
+            'mail.mailers.smtp.username' => null,
+            'mail.mailers.smtp.password' => null,
+            'mail.from.address' => 'noreply@example.com',
+            'services.frontend_url' => 'http://localhost:3000',
+        ]);
+
+        Http::fake([
+            '*/health' => Http::response(['status' => 'healthy', 'service' => 'AI Service'], 200),
+        ]);
+
+        file_put_contents(storage_path('app/test-results.json'), json_encode([
+            'passed' => 65,
+            'failed' => 0,
+            'total' => 65,
+            'timestamp' => now()->toIso8601String(),
+        ]));
+
+        $response = $this->getJson('/api/v1/health/production-readiness');
+
+        $response->assertStatus(503);
+        $this->assertFalse($response->json('data.checks.configuration.pass'));
+        $this->assertFalse($response->json('data.ready'));
+    }
+
+    public function test_local_environment_cannot_be_reported_as_production_ready(): void
+    {
+        config([
+            'app.env' => 'local',
+            'app.debug' => true,
+        ]);
+
+        Http::fake([
+            '*/health' => Http::response(['status' => 'healthy', 'service' => 'AI Service'], 200),
+        ]);
+
+        file_put_contents(storage_path('app/test-results.json'), json_encode([
+            'passed' => 65,
+            'failed' => 0,
+            'total' => 65,
+            'timestamp' => now()->toIso8601String(),
+        ]));
+
+        $response = $this->getJson('/api/v1/health/production-readiness');
+
+        $response->assertStatus(503);
+        $this->assertFalse($response->json('data.ready'));
+        $this->assertSame('not_ready', $response->json('data.status'));
+        $this->assertFalse($response->json('data.checks.environment.pass'));
     }
 
     public function test_failed_tests_in_execution_report_causes_readiness_failure(): void
