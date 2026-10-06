@@ -177,7 +177,7 @@ class BankController extends Controller
 
         $query = BankTransaction::where('organization_id', $org->id)
             ->where('bank_account_id', $bankAccount->id)
-            ->with(['matchedJournalEntry:id,entry_number,description,total_debit,entry_date']);
+            ->with(['matchedJournalEntry:id,entry_number,description,total_amount,entry_date']);
 
         if ($request->filled('status')) {
             $query->where('reconciliation_status', $request->query('status'));

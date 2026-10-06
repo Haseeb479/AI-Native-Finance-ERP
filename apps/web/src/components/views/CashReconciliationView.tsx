@@ -20,6 +20,8 @@ import { cn, formatPKR } from "@/lib/utils";
 
 import { FinancialErrorState } from "../ui/FinancialErrorState";
 
+const amt = (value: unknown) => parseFloat(String(value ?? 0).replace(/,/g, "")) || 0;
+
 interface CashReconciliationViewProps {
   bankAccounts: any[];
   activeAccount: any;
@@ -75,8 +77,8 @@ export function CashReconciliationView({
 
   // Selected amounts calculation
   const selectedBankTx = bankTransactions.find((t: any) => t.id === selectedBankTxId) || currentList[0];
-  const bankAmount = selectedBankTx ? (selectedBankTx.type === "debit" ? -parseFloat(selectedBankTx.amount) : parseFloat(selectedBankTx.amount)) : 0;
-  const glAmount = selectedGlEntryId ? (selectedBankTx?.suggestion ? parseFloat(selectedBankTx.amount) : 0) : 0;
+  const bankAmount = selectedBankTx ? (selectedBankTx.type === "debit" ? -amt(selectedBankTx.amount) : amt(selectedBankTx.amount)) : 0;
+  const glAmount = selectedGlEntryId ? (selectedBankTx?.suggestion ? amt(selectedBankTx.amount) : 0) : 0;
   const diff = bankAmount - glAmount;
 
   return (
@@ -169,7 +171,7 @@ export function CashReconciliationView({
               </div>
               <div className="text-right">
                 <span className="text-base font-extrabold text-[#0F172A]">
-                  PKR {parseFloat(activeAccount?.current_balance || "5000000").toLocaleString()}
+                  PKR {amt(activeAccount?.current_balance).toLocaleString()}
                 </span>
                 <span className="text-[10px] text-[#64748B] block">Bank Balance</span>
               </div>
@@ -206,7 +208,7 @@ export function CashReconciliationView({
                             {tx.description}
                           </h4>
                           <span className="text-[10px] text-[#94A3B8] font-mono">
-                            {tx.transaction_date} • {tx.reference || "No Ref"}
+                            {String(tx.transaction_date ?? "").slice(0, 10)} • {tx.reference || "No Ref"}
                           </span>
                         </div>
                       </div>
@@ -218,7 +220,7 @@ export function CashReconciliationView({
                             isDebit ? "text-rose-600" : "text-emerald-600"
                           )}
                         >
-                          {isDebit ? "-" : "+"}PKR {parseFloat(tx.amount || 0).toLocaleString()}
+                          {isDebit ? "-" : "+"}PKR {amt(tx.amount).toLocaleString()}
                         </span>
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-[#64748B]">
                           Bank Feed
@@ -244,7 +246,7 @@ export function CashReconciliationView({
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] px-2 py-1 rounded bg-[#F1F5F9] text-[#64748B] font-medium">
-                  Auto-Match 98%
+                  {selectedBankTx?.suggestion ? `Suggested match ${Math.round(Number(selectedBankTx.suggestion.confidence || 0) * 100)}%` : "No suggestion"}
                 </span>
               </div>
             </div>
@@ -275,7 +277,7 @@ export function CashReconciliationView({
 
                   <div className="text-right shrink-0">
                     <span className="text-xs font-bold font-mono text-emerald-700 block">
-                      PKR {parseFloat(selectedBankTx.amount || 0).toLocaleString()}
+                      PKR {amt(selectedBankTx.amount).toLocaleString()}
                     </span>
                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">
                       Journal Entry

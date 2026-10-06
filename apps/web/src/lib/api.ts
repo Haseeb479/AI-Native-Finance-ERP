@@ -297,6 +297,31 @@ export const erpApi = {
     return res.data || [];
   },
 
+  getVendors: async (orgId: string) => {
+    const res = await apiFetch<any[]>(`/organizations/${orgId}/vendors`);
+    return res.data || [];
+  },
+
+  createVendor: async (orgId: string, data: { name: string; email?: string; ntn?: string; phone?: string }) => {
+    const res = await apiFetch<any>(`/organizations/${orgId}/vendors`, { method: "POST", body: JSON.stringify(data) });
+    return res.data;
+  },
+
+  createBill: async (orgId: string, data: Record<string, unknown>) => {
+    const res = await apiFetch<any>(`/organizations/${orgId}/bills`, { method: "POST", body: JSON.stringify(data) });
+    return res.data;
+  },
+
+  postBill: async (orgId: string, billId: string) => {
+    const res = await apiFetch<any>(`/organizations/${orgId}/bills/${billId}/post`, { method: "POST" });
+    return res.data;
+  },
+
+  recordBillPayment: async (orgId: string, billId: string, data: { amount: number; payment_date?: string; bank_account_id: string; reference?: string }) => {
+    const res = await apiFetch<any>(`/organizations/${orgId}/bills/${billId}/payments`, { method: "POST", body: JSON.stringify(data) });
+    return res.data;
+  },
+
   submitBillForApproval: async (orgId: string, billId: string) => {
     const res = await apiFetch(`/organizations/${orgId}/bills/${billId}/submit`, {
       method: "POST",
@@ -350,6 +375,11 @@ export const erpApi = {
     return res.data;
   },
 
+  getCashFlow: async (orgId: string, from: string, to: string) => {
+    const res = await apiFetch(`/organizations/${orgId}/reports/cash-flow?from=${from}&to=${to}`);
+    return res.data;
+  },
+
   getProfitAndLoss: async (orgId: string, from: string, to: string) => {
     const res = await apiFetch(`/organizations/${orgId}/reports/profit-and-loss?from=${from}&to=${to}`);
     return res.data;
@@ -388,9 +418,33 @@ export const erpApi = {
     return res.data;
   },
 
+  runAiWorkflow: async (orgId: string, workflow: string, body: Record<string, unknown> = {}) => {
+    const res = await apiFetch(`/organizations/${orgId}/ai/workflows/${workflow}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    return res.data;
+  },
+
+  draftAiJournal: async (orgId: string, instruction: string, amount?: number) => {
+    const res = await apiFetch(`/organizations/${orgId}/ai/copilot/draft-journal`, {
+      method: "POST",
+      body: JSON.stringify({ instruction, ...(amount ? { amount } : {}) }),
+    });
+    return res.data;
+  },
+
   // 9. Close Management & Audit Trail
   getCloseCycle: async (orgId: string, periodId: string) => {
     const res = await apiFetch(`/organizations/${orgId}/close-cycles/${periodId}`);
+    return res.data;
+  },
+
+  toggleCloseTask: async (orgId: string, periodId: string, taskId: string, completed: boolean) => {
+    const res = await apiFetch<any>(`/organizations/${orgId}/close-cycles/${periodId}/tasks/${taskId}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ completed }),
+    });
     return res.data;
   },
 

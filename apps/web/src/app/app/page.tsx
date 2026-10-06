@@ -56,6 +56,7 @@ import { TopHeader } from "@/components/layout/TopHeader";
 import { LaunchpadView } from "@/components/views/LaunchpadView";
 import { CommandCenterView } from "@/components/views/CommandCenterView";
 import { CloseChecklistView } from "@/components/views/CloseChecklistView";
+import { LiveCloseView } from "@/components/views/LiveCloseView";
 import { CashReconciliationView } from "@/components/views/CashReconciliationView";
 import { InvoicesView } from "@/components/views/InvoicesView";
 import { BillsView } from "@/components/views/BillsView";
@@ -63,9 +64,14 @@ import { GeneralLedgerView } from "@/components/views/GeneralLedgerView";
 import { ChartOfAccountsView } from "@/components/views/ChartOfAccountsView";
 import { BankMatchingRulesView } from "@/components/views/BankMatchingRulesView";
 import { ApprovalsWorkflowView } from "@/components/views/ApprovalsWorkflowView";
+import { LiveApprovalsView } from "@/components/views/LiveApprovalsView";
 import { ContinuousAccrualsFluxView } from "@/components/views/ContinuousAccrualsFluxView";
 import { AdvancedReportingConsolidationView } from "@/components/views/AdvancedReportingConsolidationView";
 import { LiveFinancialReportsView } from "@/components/views/LiveFinancialReportsView";
+import { VendorBillsPanel } from "@/components/views/VendorBillsPanel";
+import { BankAccountPanel } from "@/components/views/BankAccountPanel";
+import { AiWorkflowsPanel } from "@/components/views/AiWorkflowsPanel";
+import { LiveConsolidationView } from "@/components/views/LiveConsolidationView";
 import { ImmutableAuditSecurityView } from "@/components/views/ImmutableAuditSecurityView";
 import { IntegrationsSettingsView } from "@/components/views/IntegrationsSettingsView";
 import { AttentionItem } from "@/components/ui/AttentionStream";
@@ -311,7 +317,8 @@ export default function DashboardPage() {
       const res = await erpApi.getProductionReadiness().catch(() => null);
       return res?.data || null;
     },
-    refetchInterval: 60000,
+    refetchInterval: 600000,
+    staleTime: 600000,
   });
 
   const isConnected =
@@ -741,6 +748,12 @@ export default function DashboardPage() {
     recognition_method: "straight_line",
   });
 
+  const { data: contractCustomers = [] } = useQuery({
+    queryKey: ["customers", activeOrgId, "contract"],
+    queryFn: () => erpApi.getCustomers(activeOrgId!),
+    enabled: !!activeOrgId && !!token && isNewContractModalOpen,
+  });
+
   const { data: realRevenueContracts = [], isLoading: isLoadingContracts, error: errorContracts, refetch: refetchContracts } = useQuery({
     queryKey: ["revenue-contracts", activeOrgId],
     queryFn: async () => {
@@ -1112,7 +1125,7 @@ export default function DashboardPage() {
         rawId: b.id,
         vendor: b.vendor?.name || "Vendor",
         po: b.purchase_order_id ? "Linked PO" : "Direct Bill",
-        grn: "GRN-2025-0001 (100% rcvd)",
+        grn: "—",
         amount: parseFloat(b.total_amount || 0).toLocaleString(),
         match: b.match_status === "matched" ? "Perfect Match" : b.match_status === "waived" ? "Waived by CFO" : "Verified",
         matchColor: b.match_status === "matched" ? "text-emerald-700 bg-emerald-50" : "text-indigo-700 bg-indigo-50",
@@ -1207,7 +1220,7 @@ export default function DashboardPage() {
 
   const displayBankTransactions = realBankTransactions.length > 0
     ? realBankTransactions.map((tx: any) => {
-        const suggestionObj = realSuggestions.find((s: any) => s.transaction_id === tx.id);
+        const suggestionObj = realSuggestions.find((s: any) => (s.transaction?.id ?? s.transaction_id) === tx.id);
         const bestMatch = suggestionObj?.matches?.[0] || null;
         return {
           id: tx.id,
@@ -1220,9 +1233,9 @@ export default function DashboardPage() {
           matched_journal_entry: tx.matched_journal_entry,
           suggestion: bestMatch
             ? {
-                journal_id: bestMatch.journal_entry_id,
-                entry_number: bestMatch.entry_number,
-                description: bestMatch.description,
+                journal_id: bestMatch.journal_entry?.id ?? bestMatch.journal_entry_id,
+                entry_number: bestMatch.journal_entry?.entry_number ?? bestMatch.entry_number,
+                description: bestMatch.journal_entry?.description ?? bestMatch.description,
                 confidence: bestMatch.confidence,
                 reason: bestMatch.reason,
               }
@@ -1565,6 +1578,12 @@ export default function DashboardPage() {
           activeNav === "copilot" ||
           activeNav === "ai_assistant" ||
           activeNav === "ai_agents" ||
+          activeNav === "ai_flows") && activeOrgId && <AiWorkflowsPanel orgId={activeOrgId} />}
+        {(activeNav === "ai_command" ||
+          activeNav === "command" ||
+          activeNav === "copilot" ||
+          activeNav === "ai_assistant" ||
+          activeNav === "ai_agents" ||
           activeNav === "ai_flows") && (
           <CommandCenterView
             orgName={currentOrg?.name}
@@ -1593,7 +1612,8 @@ export default function DashboardPage() {
         {/* ─────────────────────────────────────────────────────────────
             VIEW 3: BILLS & 3-WAY MATCHING (AP)
         ─────────────────────────────────────────────────────────────── */}
-        {activeNav === "bills" && (
+        {activeNav === "bills" && activeOrgId && <VendorBillsPanel orgId={activeOrgId} />}
+        {activeNav === "bills" && !activeOrgId && (
           <BillsView
             bills={displayBills}
             isLoading={isLoadingBills}
@@ -1608,7 +1628,8 @@ export default function DashboardPage() {
         {/* ─────────────────────────────────────────────────────────────
             VIEW: WORKFLOW & MULTI-LAYER APPROVAL ENGINE (PHASE 3)
         ─────────────────────────────────────────────────────────────── */}
-        {(activeNav === "approvals" || activeNav === "workflow" || activeNav === "exceptions" || activeNav === "close_approvals") && (
+        {(activeNav === "approvals" || activeNav === "workflow" || activeNav === "exceptions" || activeNav === "close_approvals") && activeOrgId && <LiveApprovalsView orgId={activeOrgId} />}
+        {(activeNav === "approvals" || activeNav === "workflow" || activeNav === "exceptions" || activeNav === "close_approvals") && !activeOrgId && (
           <ApprovalsWorkflowView
             onRefresh={() => {
               queryClient.invalidateQueries({ queryKey: ["bills"] });
@@ -1669,6 +1690,7 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {activeNav === "banking" && activeOrgId && <BankAccountPanel orgId={activeOrgId} />}
         {activeNav === "banking" && (
           <CashReconciliationView
             bankAccounts={displayBankAccounts}
@@ -1731,7 +1753,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {(activeNav === "close" || activeNav === "close_checklist") && (
+        {(activeNav === "close" || activeNav === "close_checklist") && activeOrgId && <LiveCloseView orgId={activeOrgId} />}
+        {(activeNav === "close" || activeNav === "close_checklist") && !activeOrgId && (
           <CloseChecklistView
             periodName={activePeriod?.name || "August 2025"}
             onRefresh={() => {
@@ -1957,7 +1980,7 @@ export default function DashboardPage() {
                                   <span className="text-[11px] text-[#64748B]">{contract.title}</span>
                                 </td>
                                 <td className="px-6 py-3.5 text-[#475569]">
-                                  {contract.start_date} → {contract.end_date}
+                                  {String(contract.start_date).slice(0, 10)} → {String(contract.end_date).slice(0, 10)}
                                 </td>
                                 <td className="px-6 py-3.5 font-semibold text-[#0F172A]">
                                   {formatPKR(totalVal)}
@@ -2071,7 +2094,7 @@ export default function DashboardPage() {
                           { id: "s-6", schedule_date: "2025-12-31", amount: 100000, cumulative_recognized: 0, status: "pending" },
                         ]).map((schedule: any) => (
                         <tr key={schedule.id} className="hover:bg-[#F8FAFC]">
-                          <td className="px-4 py-2.5 font-medium text-[#0F172A]">{schedule.schedule_date}</td>
+                          <td className="px-4 py-2.5 font-medium text-[#0F172A]">{String(schedule.schedule_date).slice(0, 10)}</td>
                           <td className="px-4 py-2.5 font-semibold text-[#0F172A]">{formatPKR(Number(schedule.amount))}</td>
                           <td className="px-4 py-2.5 text-emerald-600 font-medium">
                             {schedule.cumulative_recognized > 0 ? formatPKR(Number(schedule.cumulative_recognized)) : "—"}
@@ -2190,7 +2213,10 @@ export default function DashboardPage() {
         {(activeNav === "reports" || activeNav.startsWith("reports_")) && activeOrgId && (
           <LiveFinancialReportsView orgId={activeOrgId} orgName={currentOrg?.name} />
         )}
-        {(activeNav === "entities" || activeNav === "consolidation") && (
+        {(activeNav === "entities" || activeNav === "consolidation") && activeOrgId && (
+          <LiveConsolidationView orgId={activeOrgId} orgName={currentOrg?.name} />
+        )}
+        {false && (
           <AdvancedReportingConsolidationView
             currentOrgName={currentOrg?.name}
             periodName={activePeriod?.name || "August 2025"}
@@ -2633,7 +2659,7 @@ export default function DashboardPage() {
                 e.preventDefault();
                 createContractMutation.mutate({
                   title: newContractForm.title || "Enterprise Software Retainer",
-                  customer_id: realInvoices[0]?.customer_id || undefined,
+                  customer_id: newContractForm.customer_name || undefined,
                   total_contract_value: parseFloat(newContractForm.total_contract_value) || 1200000,
                   start_date: newContractForm.start_date,
                   end_date: newContractForm.end_date,
@@ -2652,6 +2678,21 @@ export default function DashboardPage() {
                   onChange={(e) => setNewContractForm({ ...newContractForm, title: e.target.value })}
                   className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#0F172A] mb-1">Customer</label>
+                <select
+                  required
+                  value={newContractForm.customer_name}
+                  onChange={(e) => setNewContractForm({ ...newContractForm, customer_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                >
+                  <option value="">Select a customer…</option>
+                  {(contractCustomers as any[]).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2721,6 +2762,11 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex justify-end space-x-2 pt-2">
+                {createContractMutation.isError && (
+                  <p className="mr-auto text-[11px] text-rose-600">
+                    {(createContractMutation.error as Error)?.message || "Could not create contract"}
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsNewContractModalOpen(false)}

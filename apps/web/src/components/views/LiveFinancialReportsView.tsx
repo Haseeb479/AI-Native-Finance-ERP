@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { erpApi } from "@/lib/api";
+import { LiveConsolidationView } from "./LiveConsolidationView";
 
-type Tab = "pnl" | "balance_sheet" | "trial_balance";
+type Tab = "pnl" | "balance_sheet" | "cash_flow" | "trial_balance" | "multi_entity";
 
 interface Props {
   orgId: string;
@@ -52,15 +53,20 @@ export function LiveFinancialReportsView({ orgId, orgName }: Props) {
     queryFn: () => erpApi.getBalanceSheet(orgId, asOf),
     enabled: tab === "balance_sheet" && !!asOf,
   });
+  const cf = useQuery({
+    queryKey: ["report-cf", orgId, from, to],
+    queryFn: () => erpApi.getCashFlow(orgId, from, to),
+    enabled: tab === "cash_flow" && !!from && !!to && from <= to,
+  });
   const tb = useQuery({
     queryKey: ["report-tb", orgId, asOf],
     queryFn: () => erpApi.getTrialBalance(orgId, asOf),
     enabled: tab === "trial_balance" && !!asOf,
   });
 
-  const active = tab === "pnl" ? pnl : tab === "balance_sheet" ? bs : tb;
-  const data: any = active.data;
-  const tabs: [Tab, string][] = [["pnl", "Profit & Loss"], ["balance_sheet", "Balance Sheet"], ["trial_balance", "Trial Balance"]];
+  const active = tab === "pnl" ? pnl : tab === "balance_sheet" ? bs : tab === "cash_flow" ? cf : tb;
+  const data: any = tab === "multi_entity" ? null : active.data;
+  const tabs: [Tab, string][] = [["pnl", "Profit & Loss"], ["balance_sheet", "Balance Sheet"], ["cash_flow", "Cash Flow"], ["trial_balance", "Trial Balance"], ["multi_entity", "Multi-entity"]];
   const inputClass = "rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-sm";
 
   return (
@@ -84,8 +90,8 @@ export function LiveFinancialReportsView({ orgId, orgName }: Props) {
             {label}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2 text-xs text-[#64748B]">
-          {tab === "pnl" ? (
+        {tab !== "multi_entity" && <div className="ml-auto flex items-center gap-2 text-xs text-[#64748B]">
+          {tab === "pnl" || tab === "cash_flow" ? (
             <>
               <input aria-label="From date" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className={inputClass} />
               <span>to</span>
@@ -97,11 +103,12 @@ export function LiveFinancialReportsView({ orgId, orgName }: Props) {
               <input aria-label="As of date" type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className={inputClass} />
             </>
           )}
-        </div>
+        </div>}
       </div>
 
-      {active.isLoading && <p className="text-sm text-[#64748B]">Loading report…</p>}
-      {active.error && (
+      {tab === "multi_entity" && <LiveConsolidationView orgId={orgId} orgName={orgName} />}
+      {tab !== "multi_entity" && active.isLoading && <p className="text-sm text-[#64748B]">Loading report…</p>}
+      {tab !== "multi_entity" && active.error && (
         <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
           {(active.error as Error).message || "Unable to load this report."}
         </div>
@@ -114,6 +121,28 @@ export function LiveFinancialReportsView({ orgId, orgName }: Props) {
           <div className="flex justify-between rounded-xl bg-[#F8FAFC] px-4 py-3 text-sm font-bold text-[#0F172A]"><span>Gross profit</span><span>{money(data.gross_profit)}</span></div>
           <Section title="Operating expenses" accounts={data.operating_expenses?.accounts ?? []} total={data.operating_expenses?.total ?? 0} field="amount" />
           <div className="flex justify-between rounded-xl bg-[#EEF2FF] px-4 py-3 text-sm font-bold text-[#312E81]"><span>Net profit</span><span>{money(data.net_profit)}</span></div>
+        </div>
+      )}
+
+      {data && tab === "cash_flow" && (
+        <div className="space-y-3">
+          {([
+            ["Operating activities", [["Net income", data.operating_activities?.net_income], ["Depreciation & amortization", data.operating_activities?.depreciation_amortization], ["Change in receivables", data.operating_activities?.working_capital_changes?.accounts_receivable], ["Change in payables", data.operating_activities?.working_capital_changes?.accounts_payable]], data.operating_activities?.net_cash_from_operations],
+            ["Investing activities", [["Capital expenditures", data.investing_activities?.capital_expenditures]], data.investing_activities?.net_cash_from_investing],
+            ["Financing activities", [["Debt financing", data.financing_activities?.debt_financing], ["Equity financing", data.financing_activities?.equity_financing]], data.financing_activities?.net_cash_from_financing],
+          ] as [string, [string, unknown][], unknown][]).map(([title, rows, total]) => (
+            <div key={title} className="rounded-xl border border-[#E2E8F0] bg-white">
+              <div className="flex justify-between border-b border-[#F1F5F9] px-4 py-3 text-sm font-bold text-[#0F172A]"><span>{title}</span><span>{money(total)}</span></div>
+              {rows.map(([label, value]) => (
+                <div key={label} className="flex justify-between px-4 py-2 text-sm text-[#475569]"><span>{label}</span><span>{money(value)}</span></div>
+              ))}
+            </div>
+          ))}
+          <div className="grid gap-2 rounded-xl bg-[#EEF2FF] px-4 py-3 text-sm text-[#312E81] sm:grid-cols-3">
+            <span>Opening cash <b>{money(data.summary?.cash_at_beginning)}</b></span>
+            <span>Net change <b>{money(data.summary?.net_cash_increase_decrease)}</b></span>
+            <span>Closing cash <b>{money(data.summary?.cash_at_end)}</b></span>
+          </div>
         </div>
       )}
 

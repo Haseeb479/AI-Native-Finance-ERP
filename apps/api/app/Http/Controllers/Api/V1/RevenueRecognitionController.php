@@ -54,7 +54,11 @@ class RevenueRecognitionController extends Controller
         $contracts = $query->paginate(20);
 
         return response()->json([
-            'data' => $contracts->items(),
+            'data' => collect($contracts->items())->map(function ($contract) {
+                $row = $contract->toArray();
+                $row['recognized_revenue'] = $contract->totalRecognized();
+                return $row;
+            })->all(),
             'meta' => [
                 'current_page' => $contracts->currentPage(),
                 'total' => $contracts->total(),
