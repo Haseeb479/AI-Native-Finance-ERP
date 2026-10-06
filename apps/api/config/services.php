@@ -46,4 +46,10 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
     ],
 
+    'oracle_erp' => [
+        'base_url' => env('ORACLE_BASE_URL'),
+        'user' => env('ORACLE_USER'),
+        'password' => env('ORACLE_PASSWORD'),
+    ],
+
 ];
