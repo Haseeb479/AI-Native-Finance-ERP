@@ -52,6 +52,7 @@ class BankController extends Controller
         }
 
         $accounts = BankAccount::where('organization_id', $org->id)
+            ->where('is_active', true)
             ->with(['chartAccount:id,code,name'])
             ->withCount([
                 'transactions as unreconciled_count' => fn($q) => $q->where('reconciliation_status', 'unreconciled')

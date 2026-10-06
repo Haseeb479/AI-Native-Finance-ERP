@@ -54,6 +54,8 @@ class VendorController extends Controller
 
         if ($request->filled('is_active')) {
             $query->where('is_active', filter_var($request->query('is_active'), FILTER_VALIDATE_BOOLEAN));
+        } else {
+            $query->where('is_active', true);
         }
 
         $vendors = $query->orderBy('name')->get();

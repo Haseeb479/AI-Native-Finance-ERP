@@ -141,7 +141,7 @@ class OracleSyncCommand extends Command
     private function fetch(array $cfg, string $path, int $limit): ?array
     {
         $response = Http::withBasicAuth($cfg['user'], $cfg['password'])
-            ->acceptJson()->timeout(30)
+            ->acceptJson()->timeout(180)
             ->get(rtrim($cfg['base_url'], '/').$path, ['limit' => $limit]);
 
         if ($response->failed()) {
